@@ -1,13 +1,13 @@
-# Design: Geo-Intelligence, Link Analysis, Reportistica
+# Design: Geo-Intelligence, Link Analysis, Reporting
 
-## 1. SISTEMA DI REPORTISTICA E CASE MANAGEMENT
+## 1. REPORTING SYSTEM AND CASE MANAGEMENT
 
-### Case Management — Schema PostgreSQL (schema separato `casework`)
+### Case Management — PostgreSQL Schema (separate `casework` schema)
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS casework;
 
--- Investigazione come aggregato radice
+-- Investigation as root aggregate
 CREATE TABLE casework.investigations (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title           TEXT NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE casework.investigations (
     metadata        JSONB DEFAULT '{}'
 );
 
--- Entita di interesse legate all'investigazione
+-- Entities of interest linked to the investigation
 CREATE TABLE casework.investigation_entities (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     investigation_id    UUID NOT NULL REFERENCES casework.investigations(id) ON DELETE CASCADE,
@@ -34,17 +34,17 @@ CREATE TABLE casework.investigation_entities (
     display_name        TEXT NOT NULL,
     is_primary          BOOLEAN DEFAULT FALSE,
     risk_score          NUMERIC(4,2),       -- 0.00-10.00
-    flags               TEXT[] DEFAULT '{}', -- flag FT3 calcolati dal sistema
-    investigator_tags   TEXT[] DEFAULT '{}', -- tag liberi dell'investigatore
+    flags               TEXT[] DEFAULT '{}', -- FT3 flags calculated by the system
+    investigator_tags   TEXT[] DEFAULT '{}', -- free tags assigned by the investigator
     added_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(investigation_id, entity_type, entity_id)
 );
 
--- Annotazioni investigative
+-- Investigative annotations
 CREATE TABLE casework.annotations (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     investigation_id    UUID NOT NULL REFERENCES casework.investigations(id) ON DELETE CASCADE,
-    entity_type         TEXT,   -- NULL = annotazione sull'intera investigazione
+    entity_type         TEXT,   -- NULL = annotation on the entire investigation
     entity_id           TEXT,
     body                TEXT NOT NULL,
     annotation_type     TEXT NOT NULL DEFAULT 'note'
@@ -55,7 +55,7 @@ CREATE TABLE casework.annotations (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Link manuali tra entita (relazioni non presenti nei dati originali)
+-- Manual links between entities (relationships not present in the source data)
 CREATE TABLE casework.manual_links (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     investigation_id    UUID NOT NULL REFERENCES casework.investigations(id) ON DELETE CASCADE,
@@ -63,7 +63,7 @@ CREATE TABLE casework.manual_links (
     source_id           TEXT NOT NULL,
     target_type         TEXT NOT NULL,
     target_id           TEXT NOT NULL,
-    relationship_label  TEXT NOT NULL,  -- "suspected_nominee", "same_person", ecc.
+    relationship_label  TEXT NOT NULL,  -- "suspected_nominee", "same_person", etc.
     confidence          TEXT DEFAULT 'medium'
                             CHECK (confidence IN ('low','medium','high','confirmed')),
     evidence_note       TEXT,
@@ -71,7 +71,7 @@ CREATE TABLE casework.manual_links (
     CHECK (NOT (source_type = target_type AND source_id = target_id))
 );
 
--- Snapshot visuali (mappa, grafo cytoscape)
+-- Visual snapshots (map, cytoscape graph)
 CREATE TABLE casework.visual_snapshots (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     investigation_id    UUID NOT NULL REFERENCES casework.investigations(id) ON DELETE CASCADE,
@@ -79,11 +79,11 @@ CREATE TABLE casework.visual_snapshots (
     title               TEXT NOT NULL,
     image_data          BYTEA,          -- PNG raw bytes
     viewport_state      JSONB,          -- zoom, pan, layout params
-    graph_data          JSONB,          -- cytoscape elements serializzati (per reload)
+    graph_data          JSONB,          -- serialised cytoscape elements (for reload)
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Report generati
+-- Generated reports
 CREATE TABLE casework.generated_reports (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     investigation_id    UUID NOT NULL REFERENCES casework.investigations(id) ON DELETE CASCADE,
@@ -96,60 +96,60 @@ CREATE TABLE casework.generated_reports (
 );
 ```
 
-### Generazione PDF
+### PDF Generation
 
-**Motore primario**: WeasyPrint (HTML+CSS → PDF, qualità tipografica professionale)
-**Fallback Windows**: `QWebEngineView.page().printToPdf()` (evita dipendenza GTK3)
+**Primary engine**: WeasyPrint (HTML+CSS -> PDF, professional typographic quality)
+**Windows fallback**: `QWebEngineView.page().printToPdf()` (avoids GTK3 dependency)
 
-⚠️ **Avviso Windows**: WeasyPrint richiede GTK3 runtime (pango, cairo). Su Windows: installare via `msys2` o pacchetto `weasyprint-windows`. Se problematico, usare fallback Qt.
+Warning **Windows**: WeasyPrint requires the GTK3 runtime (pango, cairo). On Windows: install via `msys2` or the `weasyprint-windows` package. If problematic, use the Qt fallback.
 
-Pipeline: `Jinja2 template` → `HTML` → `WeasyPrint` → `PDF`
+Pipeline: `Jinja2 template` -> `HTML` -> `WeasyPrint` -> `PDF`
 
-Screenshot di mappa e grafo: `QWebEngineView.grab()` → PNG base64 inline nel HTML
+Map and graph screenshots: `QWebEngineView.grab()` -> PNG base64 inline in HTML
 
-### Struttura del report (10 sezioni)
+### Report Structure (10 sections)
 
-1. Copertina (titolo, numero caso, data, classificazione, disclaimer)
-2. Sommario esecutivo (risk score gauge, flag FT3, finding principali)
-3. Entità primaria (scheda azienda, mappa statica, SIC, indicatori shell)
-4. Struttura di proprietà PSC (tabella PSC, flag nazionalità rischio, albero ownership)
-5. Network analysis (screenshot grafo, metriche betweenness/degree)
-6. Corrispondenze sanctions/adverse (UK Sanctions, OpenSanctions, ICIJ)
-7. Analisi geografica (screenshot mappa, tabella indirizzi, paesi coinvolti)
-8. Timeline eventi (incorporazione → cambio PSC → filing → sanzioni → leak)
-9. Flag e indicatori FT3 (lista completa con spiegazione)
-10. Annotazioni investigatore (note, link manuali, ipotesi)
+1. Cover page (title, case number, date, classification, disclaimer)
+2. Executive summary (risk score gauge, FT3 flags, key findings)
+3. Primary entity (company profile, static map, SIC, shell indicators)
+4. PSC ownership structure (PSC table, risk-nationality flags, ownership tree)
+5. Network analysis (graph screenshot, betweenness/degree metrics)
+6. Sanctions/adverse media matches (UK Sanctions, OpenSanctions, ICIJ)
+7. Geographic analysis (map screenshot, address table, countries involved)
+8. Events timeline (incorporation -> PSC change -> filing -> sanctions -> leak)
+9. FT3 flags and indicators (full list with explanation)
+10. Investigator annotations (notes, manual links, hypotheses)
 
-### Formati export
+### Export Formats
 
-| Formato | Strumento | Priorità |
-|---------|-----------|----------|
-| PDF | WeasyPrint / Qt fallback | ALTA — deliverable primario |
-| FtM JSON | followthemoney library | ALTA — interoperabilità |
-| XLSX | openpyxl | ALTA — analisi investigatore |
-| GEXF | stdlib XML | MEDIA — Gephi analysis |
-| GraphML | networkx + stdlib XML | MEDIA — interoperabilità |
-| GeoJSON | PostGIS ST_AsGeoJSON | MEDIA — QGIS |
-| KML | stdlib XML | MEDIA — Google Earth |
-| CSV | stdlib csv | BASSA — dump grezzo |
+| Format | Tool | Priority |
+|--------|------|----------|
+| PDF | WeasyPrint / Qt fallback | HIGH — primary deliverable |
+| FtM JSON | followthemoney library | HIGH — interoperability |
+| XLSX | openpyxl | HIGH — investigator analysis |
+| GEXF | stdlib XML | MEDIUM — Gephi analysis |
+| GraphML | networkx + stdlib XML | MEDIUM — interoperability |
+| GeoJSON | PostGIS ST_AsGeoJSON | MEDIUM — QGIS |
+| KML | stdlib XML | MEDIUM — Google Earth |
+| CSV | stdlib csv | LOW — raw dump |
 
-**NON implementare**: STIX/TAXII (per CTI, non corporate intel), i2 ANB (formato proprietario non documentato), DOCX (ridondante con PDF)
+**DO NOT implement**: STIX/TAXII (for CTI, not corporate intel), i2 ANB (undocumented proprietary format), DOCX (redundant with PDF)
 
 ---
 
 ## 2. GEO-INTELLIGENCE
 
-### ONSPD — Dataset critico aggiunto
+### ONSPD — Critical Dataset Added
 
-**Office for National Statistics Postcode Directory** — da integrare come priorità alta.
+**Office for National Statistics Postcode Directory** — to be integrated as high priority.
 
 - URL: https://geoportal.statistics.gov.uk/datasets/ons-postcode-directory
-- Formato: CSV, ~700MB, licenza OGL v3, aggiornamento trimestrale
-- **Impatto**: porta la copertura geocoding da ~5% a ~95% immediato, senza Nominatim
+- Format: CSV, ~700MB, OGL v3 licence, quarterly updates
+- **Impact**: raises geocoding coverage from ~5% to ~95% immediately, without Nominatim
 
 ```sql
 CREATE TABLE geo_postcode_centroids (
-    postcode    VARCHAR(8) PRIMARY KEY,   -- "EC1A 2AB" normalizzato
+    postcode    VARCHAR(8) PRIMARY KEY,   -- "EC1A 2AB" normalised
     lat         DOUBLE PRECISION NOT NULL,
     long        DOUBLE PRECISION NOT NULL,
     geom        GEOMETRY(Point, 4326) GENERATED ALWAYS AS (
@@ -165,7 +165,7 @@ CREATE TABLE geo_postcode_centroids (
 CREATE INDEX ON geo_postcode_centroids USING GIST(geom);
 ```
 
-### Materialized View unificata
+### Unified Materialized View
 
 ```sql
 CREATE MATERIALIZED VIEW mv_company_geo AS
@@ -175,7 +175,7 @@ SELECT
     c.reg_address_postcode,
     c.company_status,
     c.sic_code_1,
-    COALESCE(n.geom, pc.geom)   AS geom,            -- Nominatim prima, ONSPD fallback
+    COALESCE(n.geom, pc.geom)   AS geom,            -- Nominatim first, ONSPD fallback
     CASE
         WHEN n.geom IS NOT NULL THEN 'nominatim'
         WHEN pc.geom IS NOT NULL THEN 'onspd'
@@ -192,9 +192,9 @@ LEFT JOIN geo_postcode_centroids pc
 CREATE INDEX ON mv_company_geo USING GIST(geom);
 ```
 
-### Clustering spaziale (pre-calcolato)
+### Spatial Clustering (pre-computed)
 
-`ST_ClusterDBSCAN` è l'algoritmo corretto per rilevare cluster di densità arbitraria:
+`ST_ClusterDBSCAN` is the correct algorithm for detecting arbitrary-density clusters:
 
 ```sql
 SELECT
@@ -204,20 +204,20 @@ FROM mv_company_geo
 WHERE geom IS NOT NULL;
 ```
 
-Parametri raccomandati per Aethelburg:
-- `eps = 50m` → rileva registered agents con stesso indirizzo fisico
-- `eps = 500m` → rileva zone ad alta concentrazione (quartieri)
-- `eps = 1000m` → analisi di livello cittadino
+Recommended parameters for Aethelburg:
+- `eps = 50m` -> detects registered agents at the same physical address
+- `eps = 500m` -> detects high-concentration zones (neighbourhoods)
+- `eps = 1000m` -> city-level analysis
 
-Pre-calcolare con eps multipli in tabella `geo_clusters`. Tempo stimato: 3-8 min per 5.67M punti.
+Pre-compute with multiple eps values in the `geo_clusters` table. Estimated time: 3-8 min for 5.67M points.
 
-### address_fingerprint per shared address
+### address_fingerprint for Shared Addresses
 
-Colonna calcolata per raggruppare indirizzi identici senza geocoding:
+Computed column for grouping identical addresses without geocoding:
 
 ```
-Logica: normalize_postcode + numero_civico + prima_keyword_non_stopword
-Esempio: "40 KING STREET EC1A 2AB" → "EC1A 2AB|40|KING"
+Logic: normalize_postcode + house_number + first_non-stopword_keyword
+Example: "40 KING STREET EC1A 2AB" -> "EC1A 2AB|40|KING"
 ```
 
 ```sql
@@ -225,58 +225,58 @@ ALTER TABLE companies ADD COLUMN address_fingerprint VARCHAR(100);
 CREATE INDEX ON companies(address_fingerprint) WHERE address_fingerprint IS NOT NULL;
 ```
 
-Job batch Python calcola fingerprint per 5.67M aziende (~30 min). Poi incrementale.
+Python batch job computes fingerprints for 5.67M companies (~30 min). Then incremental.
 
-### Layer mappa avanzati (valore investigativo)
+### Advanced Map Layers (investigative value)
 
-| Layer | Tipo | Valore investigativo |
+| Layer | Type | Investigative value |
 |-------|------|---------------------|
-| PostCode boundaries choropleth | Anomaly score per PostCode | CRITICO |
-| Director connection lines | Linee tra aziende dello stesso director | CRITICO |
-| Heatmap densità (KDE 500m grid) | Concentrazione geografica | ALTO |
-| Temporal animation | Incorporazione aziendale per anno | ALTO |
-| ICIJ/Sanctions overlay | Posizioni entità note | ALTO |
+| PostCode boundaries choropleth | Anomaly score per PostCode | CRITICAL |
+| Director connection lines | Lines between companies of the same director | CRITICAL |
+| Density heatmap (KDE 500m grid) | Geographic concentration | HIGH |
+| Temporal animation | Company incorporation by year | HIGH |
+| ICIJ/Sanctions overlay | Positions of known entities | HIGH |
 
-**Director connection lines**: il layer più prezioso. Mostra un director che controlla aziende in città diverse — pattern visivo immediato e inequivocabile.
+**Director connection lines**: the most valuable layer. Shows a director controlling companies in different cities — an immediate and unambiguous visual pattern.
 
-### Strategia zoom mappa
+### Map Zoom Strategy
 
 ```
-Zoom 1–8:   Choropleth PostCode anomaly score (query SQL GROUP BY)
-Zoom 9–12:  Heatmap KDE (leaflet.heat, max 10K punti campionati per viewport)
-Zoom 13–15: MarkerCluster (max 5000 features, viewport-aware)
-Zoom 16+:   Marker individuali con popup dettaglio
+Zoom 1-8:   PostCode anomaly score choropleth (SQL GROUP BY query)
+Zoom 9-12:  KDE heatmap (leaflet.heat, max 10K sampled points per viewport)
+Zoom 13-15: MarkerCluster (max 5000 features, viewport-aware)
+Zoom 16+:   Individual markers with detail popup
 ```
 
-Max 5000 feature per singolo messaggio QWebChannel.
+Max 5000 features per single QWebChannel message.
 
-### Export geo-intelligence
+### Geo-Intelligence Export
 
-Priorità: `GeoJSON > KML > GeoPackage`
-- GeoJSON: nativo PostGIS (`ST_AsGeoJSON()`), massima compatibilità
-- KML: per Google Earth (comune in law enforcement)
-- GeoPackage: per QGIS, supera limiti Shapefile (255 char)
+Priority: `GeoJSON > KML > GeoPackage`
+- GeoJSON: native PostGIS (`ST_AsGeoJSON()`), maximum compatibility
+- KML: for Google Earth (common in law enforcement)
+- GeoPackage: for QGIS, overcomes Shapefile limits (255 chars)
 
-### Dataset aggiuntivi consigliati
+### Recommended Additional Datasets
 
-| Dataset | Fonte | Utilizzo |
-|---------|-------|----------|
-| ONSPD | ONS Open Geography | PostCode centroids — PRIORITÀ MASSIMA |
+| Dataset | Source | Usage |
+|---------|--------|-------|
+| ONSPD | ONS Open Geography | PostCode centroids — MAXIMUM PRIORITY |
 | PostCode Boundaries | ONS Open Geography | Choropleth layer |
-| Local Authority Boundaries | ONS Open Geography | Aggregazione per LA |
-| HMLR Price Paid | HM Land Registry | Correlazione indirizzi immobili |
-| HMLR Overseas Entities | HM Land Registry | Proprietà straniere di immobili UK |
+| Local Authority Boundaries | ONS Open Geography | Aggregation by LA |
+| HMLR Price Paid | HM Land Registry | Address-to-property correlation |
+| HMLR Overseas Entities | HM Land Registry | Foreign ownership of UK property |
 
 ---
 
 ## 3. LINK ANALYSIS
 
-### Schema grafo Apache AGE
+### Apache AGE Graph Schema
 
-7 tipi di nodo:
+7 node types:
 
-| Nodo | Fonte | Campi chiave |
-|------|-------|-------------|
+| Node | Source | Key fields |
+|------|--------|------------|
 | `Company` | Companies House | company_number, name_norm, sic_codes, flag_score |
 | `Person` | PSC (individual) | psc_id, name_norm, nationality, dob_month/year |
 | `CorporatePSC` | PSC (corporate) | psc_id, legal_form, country_registered, registration_number |
@@ -285,34 +285,34 @@ Priorità: `GeoJSON > KML > GeoPackage`
 | `IcijOfficer` | ICIJ nodes-officers | node_id, name_norm, country_codes |
 | `SanctionedEntity` | UK Sanctions / OpenSanctions | sanction_id, scheme, listed_date, aliases |
 
-6 tipi di edge:
+6 edge types:
 
-| Edge | Da → A | Campi chiave |
-|------|--------|-------------|
-| `CONTROLS` | Person/CorporatePSC → Company | natures_of_control, ownership_pct_min/max, is_active |
-| `SHARES_ADDRESS` | Company → Address | address_type |
-| `OFFSHORE_LINK` | Company/CorporatePSC → JurisdictionEntity | match_score, match_method, verified |
-| `SANCTIONED` | Company/Person → SanctionedEntity | match_score, scheme |
-| `ICIJ_OFFICER_OF` | IcijOfficer → JurisdictionEntity | link, start_date |
-| `SAME_PERSON_AS` | Person → IcijOfficer | confidence, match_method |
+| Edge | From -> To | Key fields |
+|------|-----------|------------|
+| `CONTROLS` | Person/CorporatePSC -> Company | natures_of_control, ownership_pct_min/max, is_active |
+| `SHARES_ADDRESS` | Company -> Address | address_type |
+| `OFFSHORE_LINK` | Company/CorporatePSC -> JurisdictionEntity | match_score, match_method, verified |
+| `SANCTIONED` | Company/Person -> SanctionedEntity | match_score, scheme |
+| `ICIJ_OFFICER_OF` | IcijOfficer -> JurisdictionEntity | link, start_date |
+| `SAME_PERSON_AS` | Person -> IcijOfficer | confidence, match_method |
 
-### Pattern detection con FT3 mapping
+### Pattern Detection with FT3 Mapping
 
-| # | Pattern | Query | FT3 ID | Priorità |
+| # | Pattern | Query | FT3 ID | Priority |
 |---|---------|-------|--------|----------|
-| 1 | Star PSC (≥10 company) | AGE degree out | FT3-SC-001 | ALTA |
-| 2 | Chain layering (depth ≥3) | AGE path *1..7 | FT3-ML-003 | ALTA |
-| 3 | Circular ownership | AGE cycle (c)-[:CONTROLS*2..6]->(c) | FT3-SC-005 | CRITICA |
-| 4 | Island node (no UBO) | AGE degree=0 su CONTROLS | FT3-SC-008 | ALTA |
-| 5 | Bridge node (betweenness > 0.15) | NetworkX betweenness | FT3-SC-009 | MEDIA |
-| 6 | Shared address (≥5 company) | AGE aggregation | FT3-SC-012 | MEDIA |
-| 7 | PSC offshore su company UK | OFFSHORE_LINK edge presente | FT3-ML-007 | ALTA |
-| 8 | Sanctions match | SANCTIONED edge presente | FT3-SC-015 | CRITICA |
+| 1 | Star PSC (>=10 companies) | AGE degree out | FT3-SC-001 | HIGH |
+| 2 | Chain layering (depth >=3) | AGE path *1..7 | FT3-ML-003 | HIGH |
+| 3 | Circular ownership | AGE cycle (c)-[:CONTROLS*2..6]->(c) | FT3-SC-005 | CRITICAL |
+| 4 | Island node (no UBO) | AGE degree=0 on CONTROLS | FT3-SC-008 | HIGH |
+| 5 | Bridge node (betweenness > 0.15) | NetworkX betweenness | FT3-SC-009 | MEDIUM |
+| 6 | Shared address (>=5 companies) | AGE aggregation | FT3-SC-012 | MEDIUM |
+| 7 | Offshore PSC on UK company | OFFSHORE_LINK edge present | FT3-ML-007 | HIGH |
+| 8 | Sanctions match | SANCTIONED edge present | FT3-SC-015 | CRITICAL |
 
-### Beneficial ownership chain query
+### Beneficial Ownership Chain Query
 
 ```sql
--- Profondità 1..4 default (copre 95% casi reali)
+-- Depth 1..4 default (covers 95% of real-world cases)
 SELECT * FROM cypher('aethelburg', $$
   MATCH path = (start:Person {name_norm: $name_norm})
                -[:CONTROLS|SAME_PERSON_AS*1..4]->(end)
@@ -325,51 +325,51 @@ SELECT * FROM cypher('aethelburg', $$
 $$) AS (...);
 ```
 
-Soglie di profondità: 1-2 (ownership diretta, <50ms), 1-4 (default, 200-800ms), 1-5 (indagini approfondite, 1-4s), 1-7+ (solo su subgraph limitato, rischio OOM).
+Depth thresholds: 1-2 (direct ownership, <50ms), 1-4 (default, 200-800ms), 1-5 (in-depth investigations, 1-4s), 1-7+ (only on limited subgraph, OOM risk).
 
-### Entity resolution CH → ICIJ
+### Entity Resolution CH -> ICIJ
 
-`business_registration_number` in ICIJ non mappa direttamente su Companies House. Matching euristico basato su fingerprint normalizzato (vedere sezione 5):
-
-```
-Score composito (0.0–1.0):
-  match_score fingerprint normalizzato     × 0.60     — fingerprints.generate() + jellyfish
-  giurisdizione offshore (non-UK)          × 0.15     — aumenta se offshore
-  anno incorporazione compatibile (±2y)    × 0.15     — se disponibile
-  paesi ICIJ contengono UK (GBR)           × 0.10
-```
-
-Soglie: ≥0.95 (crea edge, flag visivo), 0.85-0.94 (crea edge, richiede review), 0.75-0.84 (edge tratteggiato), <0.75 (non creare edge).
-
-Il `match_score` sul nome usa `fingerprints.generate()` come primo passo (corrispondenza esatta = 1.0) e `jellyfish.jaro_winkler_similarity()` sui fingerprint come fallback fuzzy. Dettaglio completo in sezione 5.
-
-### Comunicazione cytoscape.js ↔ Python (QWebChannel)
+`business_registration_number` in ICIJ does not map directly to Companies House. Heuristic matching based on normalised fingerprint (see section 5):
 
 ```
-Latenza percepita tipica: ~100-250ms per 1-hop expansion
-  JS → QWebChannel:      <5ms
-  Query AGE (1-hop):     20-80ms
-  Centralità NetworkX:   <10ms (≤50 nodi)
-  Serializzazione JSON:  <5ms
-  JS add + layout cola:  50-150ms
+Composite score (0.0-1.0):
+  normalised fingerprint match_score     x 0.60     -- fingerprints.generate() + jellyfish
+  offshore jurisdiction (non-UK)         x 0.15     -- increases if offshore
+  compatible incorporation year (+-2y)   x 0.15     -- if available
+  ICIJ countries contain UK (GBR)        x 0.10
 ```
 
-Layout raccomandati: `dagre` (ownership hierarchy, top-down), `cola` (rete complessa), `concentric` (star pattern), `preset` (export con posizioni curate).
+Thresholds: >=0.95 (create edge, visual flag), 0.85-0.94 (create edge, requires review), 0.75-0.84 (dashed edge), <0.75 (do not create edge).
 
-Limiti di rendering: ≤200 nodi (smooth), ≤500 (usabile con zoom), ≤1000 (massimo — disabilita label).
+The `match_score` on the name uses `fingerprints.generate()` as a first step (exact match = 1.0) and `jellyfish.jaro_winkler_similarity()` on fingerprints as a fuzzy fallback. Full detail in section 5.
 
-### Export grafo
+### cytoscape.js <-> Python Communication (QWebChannel)
 
-| Formato | Tool | Priorità |
-|---------|------|----------|
-| GraphML | Standard universale (Gephi, yEd, i2) | ALTA — per condivisione caso |
-| GEXF | Gephi nativo (attributi dinamici, timeline) | ALTA — per analisi visiva |
-| Cytoscape JSON | Salvataggio sessione completa con posizioni e annotazioni | ALTA |
-| DOT (Graphviz) | Solo grafi <100 nodi, per report PDF inline | BASSA |
+```
+Typical perceived latency: ~100-250ms for 1-hop expansion
+  JS -> QWebChannel:      <5ms
+  AGE query (1-hop):      20-80ms
+  NetworkX centrality:    <10ms (<=50 nodes)
+  JSON serialisation:     <5ms
+  JS add + cola layout:   50-150ms
+```
+
+Recommended layouts: `dagre` (ownership hierarchy, top-down), `cola` (complex network), `concentric` (star pattern), `preset` (export with curated positions).
+
+Rendering limits: <=200 nodes (smooth), <=500 (usable with zoom), <=1000 (maximum -- disable labels).
+
+### Graph Export
+
+| Format | Tool | Priority |
+|--------|------|----------|
+| GraphML | Universal standard (Gephi, yEd, i2) | HIGH -- for case sharing |
+| GEXF | Gephi native (dynamic attributes, timeline) | HIGH -- for visual analysis |
+| Cytoscape JSON | Full session save with positions and annotations | HIGH |
+| DOT (Graphviz) | Only for graphs <100 nodes, for inline PDF reports | LOW |
 
 ---
 
-## 4. STRUTTURA FILE PROGETTO (aggiornata)
+## 4. PROJECT FILE STRUCTURE (updated)
 
 ```
 src/
@@ -384,7 +384,7 @@ src/
 │   └── frontend/
 │       ├── map_view.js         -- Leaflet + layer manager
 │       ├── graph_view.js       -- cytoscape.js renderer
-│       ├── graph_styles.js     -- stylesheet cytoscape
+│       ├── graph_styles.js     -- cytoscape stylesheet
 │       └── timeline_view.js    -- Chart.js timeline
 ├── services/
 │   ├── db_service.py
@@ -392,24 +392,24 @@ src/
 │   ├── vector_service.py       -- pgvector ABC + PgVectorProvider
 │   └── api_service.py          -- CH API, cache
 ├── intelligence/
-│   ├── risk_scorer.py          -- calcolo score composito
-│   ├── ft3_mapper.py           -- mapping flag → FT3 technique ID
-│   └── entity_resolver.py      -- FtM make_id(), CH↔ICIJ matching
+│   ├── risk_scorer.py          -- composite score calculation
+│   ├── ft3_mapper.py           -- flag -> FT3 technique ID mapping
+│   └── entity_resolver.py      -- FtM make_id(), CH<->ICIJ matching
 ├── graph/
-│   ├── age_schema.sql          -- DDL completo Apache AGE
-│   ├── graph_service.py        -- estrazione subgraph, centralità NetworkX
+│   ├── age_schema.sql          -- full Apache AGE DDL
+│   ├── graph_service.py        -- subgraph extraction, NetworkX centrality
 │   ├── graph_exporter.py       -- GraphML, GEXF, Cytoscape JSON, DOT
-│   └── patterns.py             -- detection star/chain/loop/island/bridge
+│   └── patterns.py             -- star/chain/loop/island/bridge detection
 ├── etl/
-│   ├── import_companies.py     -- CH CSV → PostgreSQL (COPY FROM STDIN)
-│   ├── import_psc.py           -- PSC JSONL → PostgreSQL (ijson streaming)
-│   ├── import_icij.py          -- ICIJ CSV → PostgreSQL
-│   ├── import_sanctions.py     -- UK Sanctions → PostgreSQL
-│   ├── import_onspd.py         -- ONSPD → geo_postcode_centroids
+│   ├── import_companies.py     -- CH CSV -> PostgreSQL (COPY FROM STDIN)
+│   ├── import_psc.py           -- PSC JSONL -> PostgreSQL (ijson streaming)
+│   ├── import_icij.py          -- ICIJ CSV -> PostgreSQL
+│   ├── import_sanctions.py     -- UK Sanctions -> PostgreSQL
+│   ├── import_onspd.py         -- ONSPD -> geo_postcode_centroids
 │   └── compute_fingerprints.py -- batch address_fingerprint
 └── reports/
-    ├── pdf_generator.py        -- Jinja2 → WeasyPrint → PDF
-    ├── export_service.py       -- tutti i formati export
+    ├── pdf_generator.py        -- Jinja2 -> WeasyPrint -> PDF
+    ├── export_service.py       -- all export formats
     └── templates/              -- Jinja2 HTML templates
         ├── investigation_report.html
         └── report.css
@@ -417,49 +417,49 @@ src/
 
 ---
 
-## 5. Name Normalization & Entity Resolution
+## 5. Name Normalisation & Entity Resolution
 
-### Principio generale
+### General Principle
 
-La normalizzazione dei nomi è il fondamento del matching cross-dataset. Fonti diverse rappresentano la stessa entità con script, traslitterazioni e convenzioni diverse. Un sistema di normalizzazione robusto deve gestire questo prima di qualsiasi confronto.
+Name normalisation is the foundation of cross-dataset matching. Different sources represent the same entity using different scripts, transliterations, and conventions. A robust normalisation system must handle this before any comparison takes place.
 
-### Pipeline di normalizzazione
+### Normalisation Pipeline
 
-La libreria `fingerprints` (licenza MIT, `pip install fingerprints`) è l'unico componente necessario per la normalizzazione multi-script. Rimpiazza l'intero stack precedente (`pypinyin`, `opencc-python-reimplemented`, `cyrtranslit`, `anyascii`).
+The `fingerprints` library (MIT licence, `pip install fingerprints`) is the only component needed for multi-script normalisation. It replaces the entire previous stack (`pypinyin`, `opencc-python-reimplemented`, `cyrtranslit`, `anyascii`).
 
-`fingerprints.generate(name)` gestisce in un'unica chiamata:
-- CJK (Cinese semplificato e tradizionale, Giapponese, Coreano) — traslitterazione pinyin/romaji/romanizzazione
-- Cirillico — traslitterazione ISO
-- Arabo e altri script non latini
-- Diacritici (accenti, umlaut, caratteri composti)
-- Punteggiatura, articoli, suffissi legali (`Ltd`, `Corp`, `GmbH`, `S.A.`, ecc.)
+`fingerprints.generate(name)` handles all of the following in a single call:
+- CJK (Simplified and Traditional Chinese, Japanese, Korean) -- pinyin/romaji/romanisation transliteration
+- Cyrillic -- ISO transliteration
+- Arabic and other non-Latin scripts
+- Diacritics (accents, umlauts, composed characters)
+- Punctuation, articles, legal suffixes (`Ltd`, `Corp`, `GmbH`, `S.A.`, etc.)
 
-Esempio di convergenza cross-script:
+Cross-script convergence example:
 
 ```python
 from fingerprints import generate as fp
 
-# Tutti questi producono lo stesso fingerprint:
-fp("江澤民")          # → "jiang zemin"
-fp("Jiang Zemin")    # → "jiang zemin"
-fp("江泽民")          # → "jiang zemin"  (caratteri semplificati)
-fp("Цзян Цзэминь")   # → "jiang zemin"  (cirillico)
+# All of these produce the same fingerprint:
+fp("江澤民")          # -> "jiang zemin"
+fp("Jiang Zemin")    # -> "jiang zemin"
+fp("江泽民")          # -> "jiang zemin"  (simplified characters)
+fp("Цзян Цзэминь")   # -> "jiang zemin"  (Cyrillic)
 ```
 
-FtM `make_id()` genera un hash canonico stabile che permette deduplicazione cross-source affidabile senza confronti testuali ripetuti.
+FtM `make_id()` generates a stable canonical hash that enables reliable cross-source deduplication without repeated textual comparisons.
 
-`jellyfish` viene usato esclusivamente come fallback fonetico residuo (Beider-Morse) per gestire omonimia fonetica nei casi in cui i fingerprint non coincidono (~5% dei casi: Smith/Smyth, Meyer/Meier, ecc.).
+`jellyfish` is used exclusively as a residual phonetic fallback (Beider-Morse) to handle phonetic homonyms in cases where fingerprints do not match (~5% of cases: Smith/Smyth, Meyer/Meier, etc.).
 
-### Schema tabella `name_variants`
+### `name_variants` Table Schema
 
 ```sql
 CREATE TABLE name_variants (
     id              BIGSERIAL PRIMARY KEY,
     entity_id       UUID NOT NULL,
     entity_type     VARCHAR(20) NOT NULL,    -- 'person' | 'company'
-    variant_text    VARCHAR(500) NOT NULL,   -- testo originale
+    variant_text    VARCHAR(500) NOT NULL,   -- original text
     fingerprint     VARCHAR(500),           -- fingerprints.generate(variant_text)
-    ftm_id          VARCHAR(64),            -- make_id() hash per dedup cross-source
+    ftm_id          VARCHAR(64),            -- make_id() hash for cross-source dedup
     variant_type    VARCHAR(30),            -- 'original' | 'alias' | 'phonetic_key'
     source_id       UUID REFERENCES data_sources(id)
 );
@@ -467,9 +467,9 @@ CREATE INDEX idx_name_variants_fingerprint ON name_variants(fingerprint);
 CREATE INDEX idx_name_variants_text ON name_variants USING gin(to_tsvector('simple', variant_text));
 ```
 
-Nota: l'indice su `fingerprint` è la chiave di lookup primaria — la maggior parte dei match avviene per uguaglianza esatta del fingerprint. L'indice GIN su `variant_text` supporta ricerche full-text libere dall'interfaccia investigativa.
+Note: the index on `fingerprint` is the primary lookup key -- most matches occur by exact fingerprint equality. The GIN index on `variant_text` supports free-text searches from the investigative interface.
 
-### Matching entity resolution — implementazione
+### Entity Resolution Matching -- Implementation
 
 ```python
 from fingerprints import generate as fp
@@ -480,61 +480,61 @@ def match_persons(ch_name: str, icij_name: str) -> float:
     icij_fp = fp(icij_name)
 
     if ch_fp == icij_fp:
-        return 1.0  # match esatto canonico
+        return 1.0  # exact canonical match
 
     jw = jellyfish.jaro_winkler_similarity(ch_fp, icij_fp)
     if jw >= 0.85:
-        return jw * 0.95  # match fuzzy su fingerprint normalizzato
+        return jw * 0.95  # fuzzy match on normalised fingerprint
 
-    # Beider-Morse phonetic fallback per omonimi fonetici
-    # (Smith/Smyth, Meyer/Meier, ecc.)
-    return 0.0  # sotto soglia
+    # Beider-Morse phonetic fallback for phonetic homonyms
+    # (Smith/Smyth, Meyer/Meier, etc.)
+    return 0.0  # below threshold
 ```
 
-Score finale per entity resolution (formula aggiornata):
+Final score for entity resolution (updated formula):
 
 ```
-match_score × 0.60 + giurisdizione × 0.15 + anno × 0.15 + UK_country × 0.10
+match_score x 0.60 + jurisdiction x 0.15 + year x 0.15 + UK_country x 0.10
 ```
 
-Soglia minima per creare un edge: **0.75**
+Minimum threshold to create an edge: **0.75**
 
-| Range score | Azione |
+| Score range | Action |
 |-------------|--------|
-| ≥ 0.95 | Crea edge `SAME_PERSON_AS` / `OFFSHORE_LINK`, flag visivo verde |
-| 0.85 – 0.94 | Crea edge, stato `requires_review` |
-| 0.75 – 0.84 | Edge tratteggiato, bassa confidenza |
-| < 0.75 | Non creare edge |
+| >= 0.95 | Create `SAME_PERSON_AS` / `OFFSHORE_LINK` edge, green visual flag |
+| 0.85 - 0.94 | Create edge, status `requires_review` |
+| 0.75 - 0.84 | Dashed edge, low confidence |
+| < 0.75 | Do not create edge |
 
-### Impatto sulla ETL pipeline
+### Impact on ETL Pipeline
 
 **OpenSanctions import** (`import_sanctions.py`):
-- `entity.get("name")` + `entity.get("alias")` → `fp()` → insert in `name_variants`
-- `make_id()` è già presente in FtM, usarlo direttamente come `ftm_id`
+- `entity.get("name")` + `entity.get("alias")` -> `fp()` -> insert into `name_variants`
+- `make_id()` is already present in FtM, use it directly as `ftm_id`
 
 **Companies House import** (`import_companies.py`):
-- `fp(company_name)` calcolato all'import, salvato in `name_variants` con `variant_type = 'original'`
+- `fp(company_name)` computed at import time, saved in `name_variants` with `variant_type = 'original'`
 
 **ICIJ import** (`import_icij.py`):
-- `fp(officer_name)` e `fp(entity_name)` — la normalizzazione risolve il matching cross-dataset senza bisogno di join euristici manuali
+- `fp(officer_name)` and `fp(entity_name)` -- normalisation resolves cross-dataset matching without manual heuristic joins
 
 **EveryPolitician / PEP sources**:
-- Stessa pipeline. I nomi politici in qualsiasi script (arabo, cirillico, CJK) vengono normalizzati in modo uniforme
+- Same pipeline. Political names in any script (Arabic, Cyrillic, CJK) are normalised uniformly
 
-### Dipendenze Python aggiornate
+### Updated Python Dependencies
 
-Rimuovere (rimpiazzate da `fingerprints`):
+Remove (replaced by `fingerprints`):
 
-| Libreria rimossa | Motivo |
-|------------------|--------|
-| `pypinyin` | CJK → pinyin ora gestito da `fingerprints` |
-| `opencc-python-reimplemented` | Cinese semplificato/tradizionale ora gestito da `fingerprints` |
-| `cyrtranslit` | Cirillico ora gestito da `fingerprints` |
-| `anyascii` | Traslitterazione generica ora gestita da `fingerprints` |
+| Removed library | Reason |
+|-----------------|--------|
+| `pypinyin` | CJK -> pinyin now handled by `fingerprints` |
+| `opencc-python-reimplemented` | Simplified/Traditional Chinese now handled by `fingerprints` |
+| `cyrtranslit` | Cyrillic now handled by `fingerprints` |
+| `anyascii` | General transliteration now handled by `fingerprints` |
 
-Aggiungere:
+Add:
 
-| Libreria | Versione minima | Licenza | Uso |
-|----------|----------------|---------|-----|
-| `fingerprints` | `>=0.5` | MIT | Normalizzazione multi-script — componente unico |
+| Library | Minimum version | Licence | Usage |
+|---------|----------------|---------|-------|
+| `fingerprints` | `>=0.5` | MIT | Multi-script normalisation -- single component |
 | `jellyfish` | `>=1.0` | BSD | Phonetic fallback (Beider-Morse, Jaro-Winkler) |

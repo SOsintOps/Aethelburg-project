@@ -1,86 +1,86 @@
 # FAQ — Aethelburg
 
-## Installazione e setup
+## Installation and setup
 
-**Q: Docker è obbligatorio?**
-Il database PostgreSQL (con PostGIS, pgvector e Apache AGE) gira in Docker. È il modo più affidabile su Windows per avere tutte le estensioni compilate correttamente. Senza Docker il sistema non si avvia.
+**Q: Is Docker required?**
+The PostgreSQL database (with PostGIS, pgvector and Apache AGE) runs in Docker. It is the most reliable way on Windows to have all extensions compiled correctly. Without Docker the system will not start.
 
-**Q: Quanto spazio disco serve?**
-- Database PostgreSQL completo (tutte le fonti): ~80–120GB
-- Dataset grezzi (dati/): ~15GB
-- Modello ML sentence-transformers: ~80MB
-- Tiles mappa MBTiles UK: ~2–5GB (opzionale, per uso offline)
-- Totale consigliato: almeno 200GB liberi su SSD
+**Q: How much disk space is needed?**
+- Full PostgreSQL database (all sources): ~80–120GB
+- Raw datasets (data/): ~15GB
+- ML model sentence-transformers: ~80MB
+- MBTiles UK map tiles: ~2–5GB (optional, for offline use)
+- Recommended total: at least 200GB free on SSD
 
-**Q: Funziona su SSD esterno o HDD?**
-L'import iniziale dei dati (specialmente il PSC da 12GB) è molto più lento su HDD — stimare 6-12 ore invece di 2-4. Per uso normale dopo l'import, un HDD è accettabile.
+**Q: Does it work on an external SSD or HDD?**
+The initial data import (especially the 12GB PSC file) is much slower on HDD — estimate 6-12 hours instead of 2-4. For normal use after import, an HDD is acceptable.
 
-**Q: Quanto RAM serve?**
-16GB sono il minimo consigliato. Con 8GB si può usare il sistema ma l'import PSC richiede chunk size ridotti e alcune analisi di rete potrebbero fallire su subgraph grandi.
-
----
-
-## Dati
-
-**Q: Come aggiorno i dati Companies House?**
-Companies House pubblica un nuovo bulk snapshot mensile. APScheduler gestisce il download automatico e il caricamento differenziale. Puoi anche triggherare manualmente da `Impostazioni → Aggiornamento dati`.
-
-**Q: Come aggiorno le sanzioni?**
-OpenSanctions pubblica aggiornamenti giornalieri. Il sistema scarica automaticamente il dataset ogni notte (se l'applicazione è aperta) o al prossimo avvio.
-
-**Q: Il file UK Sanctions OFSI è aggiornato?**
-No — l'OFSI ha smesso di aggiornare la Consolidated List il 28 gennaio 2026. Aethelburg usa OpenSanctions come fonte primaria, che include UK FCDO Sanctions, OFAC e altre 327 fonti globali.
-
-**Q: I dati ICIJ Offshore Leaks vengono aggiornati automaticamente?**
-No. ICIJ pubblica aggiornamenti periodici ma non giornalieri. Controlla https://offshoreleaks.icij.org/ per nuove release e riesegui `scripts/import_icij.py` manualmente.
-
-**Q: Perché molte aziende non hanno coordinate sulla mappa?**
-Il geocoding completo di 5.67M indirizzi richiederebbe settimane con Nominatim locale. Aethelburg usa due approcci: (1) centroidi di PostCode dal dataset ONSPD (copertura immediata ~90%) e (2) geocoding preciso via Nominatim on-demand quando l'utente apre una scheda aziendale.
-
-**Q: Perché non ci sono i direttori (officers) per tutte le aziende?**
-Companies House non distribuisce i dati officers in bulk. Sono disponibili solo tramite API (`/company/{id}/officers`), limitata a 600 chiamate ogni 5 minuti. Il sistema fetcha automaticamente gli officers per le aziende con risk score più alto.
+**Q: How much RAM is needed?**
+16GB is the recommended minimum. With 8GB the system can be used, but the PSC import requires smaller chunk sizes and some network analyses may fail on large subgraphs.
 
 ---
 
-## Analisi e intelligence
+## Data
 
-**Q: Cosa significa il risk score 0–100?**
-È un punteggio composito calcolato da fino a 8 pattern di detection. Un punteggio alto non indica certezza di illecito — indica anomalie statistiche che meritano approfondimento. Ogni flag è etichettato con un ID tecnica FT3 per documentare la motivazione.
+**Q: How do I update Companies House data?**
+Companies House publishes a new bulk snapshot monthly. APScheduler manages the automatic download and differential loading. You can also trigger it manually from `Settings → Data update`.
 
-**Q: Quanti falsi positivi ci sono?**
-Dipende dal pattern. Il pattern "indirizzo condiviso" da solo produce molti falsi positivi (agenti di incorporazione legittimi). Il sistema usa score composito: più pattern si sovrappongono, più affidabile è il segnale. Non usare mai un singolo flag come evidenza definitiva.
+**Q: How do I update sanctions?**
+OpenSanctions publishes daily updates. The system automatically downloads the dataset every night (if the application is open) or on the next start.
 
-**Q: Come funziona il matching con le sanzioni se non c'è il company number?**
-Il campo `business_registration_number` nel file OFSI è sempre vuoto. Il matching avviene per nome (normalizzazione + Levenshtein/Jaro-Winkler). Il risultato è espresso come confidence score, non come match definitivo. Confidence < 0.7 viene mostrato come "possibile match".
+**Q: Is the UK Sanctions OFSI file up to date?**
+No — OFSI stopped updating the Consolidated List on 28 January 2026. Aethelburg uses OpenSanctions as the primary source, which includes UK FCDO Sanctions, OFAC and 327 other global sources.
 
-**Q: Il sistema può identificare ownership circolari?**
-Sì, tramite Apache AGE (graph database integrato in PostgreSQL). Query Cypher cercano pattern `(A)-[:CONTROLS*1..5]->(A)` (cicli). Funziona però solo quando i dati degli officers sono disponibili per formare la catena completa.
+**Q: Are ICIJ Offshore Leaks data updated automatically?**
+No. ICIJ publishes periodic but not daily updates. Check https://offshoreleaks.icij.org/ for new releases and re-run `scripts/import_icij.py` manually.
 
----
+**Q: Why do many companies have no coordinates on the map?**
+Full geocoding of 5.67M addresses would take weeks with local Nominatim. Aethelburg uses two approaches: (1) PostCode centroids from the ONSPD dataset (immediate ~90% coverage) and (2) precise on-demand geocoding via Nominatim when the user opens a company record.
 
-## Privacy e legalità
-
-**Q: È legale usare questi dati?**
-Sì per uso personale. I dati Companies House sono Open Government Licence v3. I dati PSC sono pubblici per legge (Companies Act 2006). OpenSanctions e ICIJ sono CC-BY-NC (non commerciale). Vedere [LEGAL.md](LEGAL.md) per l'analisi completa.
-
-**Q: Si applica il GDPR / UK GDPR?**
-I dati PSC contengono dati personali (nome, DOB parziale, nazionalità). L'esenzione domestica (Art. 2(2)(c) UK GDPR) copre il trattamento per uso strettamente personale. Non condividere né pubblicare output del sistema che contengano dati personali di individui. Le query API con nomi di persone fisiche verso servizi esterni escono dall'esenzione domestica.
-
-**Q: Posso usare Aethelburg per scopi professionali o commerciali?**
-No nella configurazione attuale. Le licenze CC-BY-NC di OpenSanctions e ICIJ vietano l'uso commerciale. Per uso professionale, contattare direttamente OpenSanctions per una licenza commerciale.
+**Q: Why are officers not available for all companies?**
+Companies House does not distribute officers data in bulk. They are only available via API (`/company/{id}/officers`), limited to 600 calls every 5 minutes. The system automatically fetches officers for the companies with the highest risk scores.
 
 ---
 
-## Tecnico
+## Analysis and intelligence
 
-**Q: Perché PySide6 e non PyQt5?**
-PySide6 è la versione ufficiale del Qt Company, con licenza LGPL (non GPL). API identica a PyQt5. Per un'applicazione desktop distribuibile, LGPL è molto più flessibile di GPL.
+**Q: What does the 0–100 risk score mean?**
+It is a composite score calculated from up to 8 detection patterns. A high score does not indicate certainty of wrongdoing — it indicates statistical anomalies that warrant further investigation. Each flag is labelled with an FT3 technique ID to document the rationale.
 
-**Q: Perché PostgreSQL e non SQLite?**
-Per le estensioni: PostGIS (geospatial), pgvector (vector search), Apache AGE (graph database). Nessuna di queste esiste per SQLite. Con 20M+ record e query analitiche complesse, PostgreSQL è l'unica scelta praticabile.
+**Q: How many false positives are there?**
+It depends on the pattern. The "shared address" pattern alone produces many false positives (legitimate incorporation agents). The system uses a composite score: the more patterns overlap, the more reliable the signal. Never use a single flag as definitive evidence.
 
-**Q: RuVector è incluso?**
-RuVector (Docker microservice per vector search con GNN self-learning) è incluso nel docker-compose ma commentato per default. Si attiva manualmente quando il volume di vettori supera ~10M e si vuole abilitare il layer GNN. pgvector con binary quantization gestisce i casi d'uso iniziali.
+**Q: How does sanctions matching work when there is no company number?**
+The `business_registration_number` field in the OFSI file is always empty. Matching is done by name (normalisation + Levenshtein/Jaro-Winkler). The result is expressed as a confidence score, not a definitive match. Confidence < 0.7 is shown as "possible match".
 
-**Q: Posso eseguire Aethelburg senza Docker?**
-No. PostgreSQL con le estensioni richieste (PostGIS, pgvector, Apache AGE) non può essere installato facilmente su Windows senza Docker. In futuro si potrebbe valutare PostgreSQL portable pre-configurato.
+**Q: Can the system identify circular ownership?**
+Yes, via Apache AGE (graph database integrated in PostgreSQL). Cypher queries search for `(A)-[:CONTROLS*1..5]->(A)` patterns (cycles). This works only when officer data is available to form the complete chain.
+
+---
+
+## Privacy and legality
+
+**Q: Is it legal to use this data?**
+Yes for personal use. Companies House data is Open Government Licence v3. PSC data is publicly available by law (Companies Act 2006). OpenSanctions and ICIJ are CC-BY-NC (non-commercial). See [LEGAL.md](LEGAL.md) for the full analysis.
+
+**Q: Does GDPR / UK GDPR apply?**
+PSC data contains personal data (name, partial DOB, nationality). The domestic exemption (Art. 2(2)(c) UK GDPR) covers processing for strictly personal use. Do not share or publish system output containing personal data of individuals. API queries with names of natural persons sent to external services fall outside the domestic exemption.
+
+**Q: Can I use Aethelburg for professional or commercial purposes?**
+Not in the current configuration. The CC-BY-NC licences of OpenSanctions and ICIJ prohibit commercial use. For professional use, contact OpenSanctions directly for a commercial licence.
+
+---
+
+## Technical
+
+**Q: Why PySide6 and not PyQt5?**
+PySide6 is the official Qt Company release, licensed under LGPL (not GPL). The API is identical to PyQt5. For a distributable desktop application, LGPL is far more flexible than GPL.
+
+**Q: Why PostgreSQL and not SQLite?**
+For the extensions: PostGIS (geospatial), pgvector (vector search), Apache AGE (graph database). None of these exist for SQLite. With 20M+ records and complex analytical queries, PostgreSQL is the only viable choice.
+
+**Q: Is RuVector included?**
+RuVector (Docker microservice for vector search with GNN self-learning) is included in docker-compose but commented out by default. It is activated manually when the vector volume exceeds ~10M and you want to enable the GNN layer. pgvector with binary quantization handles the initial use cases.
+
+**Q: Can I run Aethelburg without Docker?**
+No. PostgreSQL with the required extensions (PostGIS, pgvector, Apache AGE) cannot be installed easily on Windows without Docker. A pre-configured portable PostgreSQL could be evaluated in the future.
