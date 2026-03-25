@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.jpg" alt="Aethelburg" width="300"/>
+</p>
+
 # Aethelburg
 
 Piattaforma desktop locale per l'analisi di dati del registro societario UK (Companies House) e l'identificazione di shell company e strutture societarie anomale.
