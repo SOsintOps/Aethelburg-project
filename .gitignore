@@ -1,0 +1,60 @@
+# Ruflo / Claude Flow
+.claude-flow/
+.swarm/
+.claude/
+*.claude-session
+CLAUDE.local.md
+
+# Environment e segreti
+.env
+.env.*
+*.env
+
+# File accidentali
+0.7)
+2.31
+
+# Dati — file di grandi dimensioni, non versionare
+dati/
+data/
+*.csv
+*.zip
+*.jsonl
+*.txt.gz
+
+# Ma mantieni file txt documentali
+!todo.txt
+!docs/*.txt
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.egg
+
+# Database locale
+*.db
+*.sqlite
+*.sqlite3
+
+# Log
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
