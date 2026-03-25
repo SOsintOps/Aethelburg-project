@@ -1,10 +1,10 @@
-# Architettura — Aethelburg
+# Architecture — Aethelburg
 
-## Visione d'insieme
+## Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Applicazione Desktop                     │
+│                     Desktop Application                      │
 │                    PySide6 + QWebEngine                      │
 │  ┌─────────────┐  ┌─────────────┐  ┌────────────────────┐  │
 │  │ Search Panel│  │  Map Panel  │  │   Detail Panel     │  │
@@ -25,68 +25,68 @@
     │PostgreSQL│   │  RuVector  │  │  Nominatim  │
     │  :5432   │   │  (Docker)  │  │  (Docker)   │
     │+PostGIS  │   │   :8080    │  │   :7070     │
-    │+pgvector │   │  (opzion.) │  │             │
+    │+pgvector │   │  (optional)│  │             │
     │+AGE      │   └────────────┘  └─────────────┘
     └──────────┘
 ```
 
 ---
 
-## Layer applicativo
+## Application layer
 
 ### UI Layer (PySide6)
-- **QMainWindow** con layout 3 pannelli (QSplitter): Search | Map | Detail
-- **QWebEngineView** per rendering Leaflet.js e cytoscape.js
-- **QWebChannel** per comunicazione bidirezionale Python ↔ JavaScript
-- **QThreadPool** per operazioni async (DB queries, API calls, ML inference)
-- **ServiceRegistry** singleton: verifica disponibilità servizi → pubblica stato via Qt Signal
+- **QMainWindow** with 3-panel layout (QSplitter): Search | Map | Detail
+- **QWebEngineView** for rendering Leaflet.js and cytoscape.js
+- **QWebChannel** for bidirectional Python ↔ JavaScript communication
+- **QThreadPool** for async operations (DB queries, API calls, ML inference)
+- **ServiceRegistry** singleton: checks service availability → publishes state via Qt Signal
 
 ### Service Layer
-| Servizio | Responsabilità | Fallback offline |
+| Service | Responsibility | Offline fallback |
 |---------|----------------|-----------------|
-| `DBService` | Query PostgreSQL, ORM SQLAlchemy | — (obbligatorio) |
-| `GeoService` | Geocoding, query PostGIS | Centroidi ONSPD (PostCode) |
-| `GraphService` | Apache AGE Cypher, NetworkX | CTE ricorsive PostgreSQL |
-| `VectorService` | pgvector HNSW, embeddings | FTS PostgreSQL (tsvector) |
-| `APIService` | CH API, OpenCorporates (cache) | Solo cache locale |
-| `ReportService` | Generazione PDF, export FtM/GEXF | — |
+| `DBService` | PostgreSQL queries, SQLAlchemy ORM | — (required) |
+| `GeoService` | Geocoding, PostGIS queries | ONSPD centroids (PostCode) |
+| `GraphService` | Apache AGE Cypher, NetworkX | PostgreSQL recursive CTEs |
+| `VectorService` | pgvector HNSW, embeddings | PostgreSQL FTS (tsvector) |
+| `APIService` | CH API, OpenCorporates (cached) | Local cache only |
+| `ReportService` | PDF generation, FtM/GEXF export | — |
 
 ### Intelligence Layer
-- **RiskScorer**: calcola score composito 0–100 da flag deterministici
-- **FT3Mapper**: mappa ogni flag a technique ID FT3
-- **EntityResolver**: deduplicazione cross-source via FtM `make_id()`
-- **PatternDetector**: 8 pattern SQL/ML per shell company detection
+- **RiskScorer**: computes a composite score 0–100 from deterministic flags
+- **FT3Mapper**: maps each flag to an FT3 technique ID
+- **EntityResolver**: cross-source deduplication via FtM `make_id()`
+- **PatternDetector**: 8 SQL/ML patterns for shell company detection
 
 ---
 
-## Database schema (panoramica)
+## Database schema (overview)
 
 ```
-entities            -- Tabella core FtM (Company, Person, Address...)
-  ├── entity_events -- Log versioning per ogni update
-  ├── risk_flags    -- Flag di rischio con ft3_technique_id
-  └── annotations   -- Note investigative dell'utente
+entities            -- Core FtM table (Company, Person, Address...)
+  ├── entity_events -- Versioning log for each update
+  ├── risk_flags    -- Risk flags with ft3_technique_id
+  └── annotations   -- Investigator notes
 
-companies           -- Campi estratti CH per query veloci
-pscs                -- PSC relazionali estratti da JSONL
-officers            -- Direttori (popolato da API on-demand)
+companies           -- CH fields extracted for fast querying
+pscs                -- Relational PSCs extracted from JSONL
+officers            -- Directors (populated from API on-demand)
 sanctions_entries   -- UK Sanctions + OpenSanctions
-icij_nodes          -- Entità ICIJ Offshore Leaks
-icij_relationships  -- Relazioni ICIJ (officer_of, registered_address, ...)
+icij_nodes          -- ICIJ Offshore Leaks entities
+icij_relationships  -- ICIJ relationships (officer_of, registered_address, ...)
 
-investigations      -- Sessioni investigative salvate
-  └── inv_entities  -- Entità incluse nell'investigazione
+investigations      -- Saved investigation sessions
+  └── inv_entities  -- Entities included in the investigation
 
-api_cache           -- Cache chiamate API con TTL
-postcode_centroids  -- ONSPD: centroidi PostCode UK
+api_cache           -- API call cache with TTL
+postcode_centroids  -- ONSPD: UK PostCode centroids
 ```
 
 ---
 
-## Pipeline dati
+## Data pipeline
 
 ```
-Fonti esterne
+External sources
     │
     ▼
 [Import Scripts] ──── staging table
@@ -94,7 +94,7 @@ Fonti esterne
     │              COPY FROM STDIN
     │                      │
     ▼                      ▼
-[Tabelle staging] → [INSERT ON CONFLICT UPDATE] → [Tabelle principali]
+[Staging tables] → [INSERT ON CONFLICT UPDATE] → [Main tables]
     │
     ▼
 [Entity Resolution] ─── FtM make_id() fingerprinting
@@ -106,15 +106,15 @@ Fonti esterne
 [Graph Building] ──── Apache AGE + NetworkX
     │
     ▼
-[Geocoding] ──────── ONSPD centroidi (batch) + Nominatim (on-demand)
+[Geocoding] ──────── ONSPD centroids (batch) + Nominatim (on-demand)
 ```
 
 ---
 
-## Pattern di detection
+## Detection patterns
 
-| # | Pattern | Dati richiesti | Implementazione | Fase |
-|---|---------|---------------|-----------------|------|
+| # | Pattern | Required data | Implementation | Phase |
+|---|---------|---------------|----------------|-------|
 | 1 | Shared Address | CH | SQL GROUP BY | 2 |
 | 2 | Serial Director/PSC | PSC + Officers | SQL + AGE | 2/3 |
 | 3 | PSC DOB Clustering | PSC | SQL window fn | 2 |
@@ -122,25 +122,25 @@ Fonti esterne
 | 5 | Rapid Dissolution | CH | SQL date diff | 2 |
 | 6 | Incorporation Clustering | CH | SQL window fn | 2 |
 | 7 | Name Similarity | CH + embeddings | pgvector HNSW | 3 |
-| 8 | Composite Anomaly | Tutti | Weighted sum | 2/3 |
+| 8 | Composite Anomaly | All | Weighted sum | 2/3 |
 
 ---
 
-## Dipendenze principali
+## Main dependencies
 
 ```
 Python 3.12
 ├── PySide6              # UI framework (LGPL)
-├── SQLAlchemy 2.0       # ORM async
+├── SQLAlchemy 2.0       # async ORM
 ├── Alembic              # DB migrations
 ├── Pydantic v2          # Settings & validation
 ├── psycopg2-binary      # PostgreSQL driver
-├── httpx                # HTTP client async
+├── httpx                # async HTTP client
 ├── ijson                # Streaming JSON parser
 ├── sentence-transformers # ML embeddings (Apache 2.0)
 ├── networkx             # Graph analysis
 ├── WeasyPrint           # PDF generation
-├── Jinja2               # Template engine (report)
+├── Jinja2               # Template engine (reports)
 ├── APScheduler          # Background scheduling
 ├── python-keyring       # Secure credential storage
 └── followthemoney       # FtM entity model (MIT)
@@ -148,57 +148,57 @@ Python 3.12
 
 ---
 
-## Decisioni architetturali
+## Architectural decisions
 
-Vedere [architectural_decisions.md](../memory/architectural_decisions.md) per la lista completa delle ADR (Architecture Decision Records) con motivazioni.
+See [architectural_decisions.md](../memory/architectural_decisions.md) for the full list of ADRs (Architecture Decision Records) with rationale.
 
-Decisioni chiave:
-- **ADR-001**: pgvector come default, RuVector opzionale (>10M vettori)
+Key decisions:
+- **ADR-001**: pgvector as default, RuVector optional (>10M vectors)
 - **ADR-002**: pgvector binary quantization (HNSW: 30GB → 4GB)
-- **ADR-003**: Import sequenziale obbligatorio (dipendenze FK)
-- **ADR-007**: FtM su PostgreSQL via JSONB partial index
-- **ADR-009**: ServiceRegistry singleton con Qt Signal
-- **ADR-010**: Docker port binding su 127.0.0.1 (sicurezza)
+- **ADR-003**: Sequential import required (FK dependencies)
+- **ADR-007**: FtM on PostgreSQL via JSONB partial index
+- **ADR-009**: ServiceRegistry singleton with Qt Signal
+- **ADR-010**: Docker port binding on 127.0.0.1 (security)
 
 ---
 
-## Sottosistemi avanzati
+## Advanced subsystems
 
 ### Name Normalization Engine
 
-Responsabile della normalizzazione di nomi in qualunque script per entity resolution cross-source.
+Responsible for normalising names in any script for cross-source entity resolution.
 
-**Libreria core**: `fingerprints` (MIT) — un singolo punto di normalizzazione per CJK (Cinese/Giapponese/Coreano), Cirillico (Russo/Ucraino/etc.), Arabo, diacritici europei.
+**Core library**: `fingerprints` (MIT) — a single normalisation point for CJK (Chinese/Japanese/Korean), Cyrillic (Russian/Ukrainian/etc.), Arabic, and European diacritics.
 
 **Pipeline**:
-1. `fingerprints.generate(name)` → forma canonica ASCII minuscola
-2. FtM `make_id()` → hash stabile per deduplication cross-source
-3. `jellyfish` Beider-Morse → phonetic key per omonimia fonetica residua (~5%)
+1. `fingerprints.generate(name)` → lowercase ASCII canonical form
+2. FtM `make_id()` → stable hash for cross-source deduplication
+3. `jellyfish` Beider-Morse → phonetic key for residual phonetic homonymy (~5%)
 
-**Storage**: tabella `name_variants` con indice su `fingerprint` — lookup O(log n) invece di scan fuzzy.
+**Storage**: `name_variants` table with index on `fingerprint` — O(log n) lookup instead of fuzzy scan.
 
 ### PEP Detection
 
-Persone Politicamente Esposte (PEP) identificate incrociando directors/PSC con:
-- OpenSanctions (incluso Wikidata PEP, lista aggiornata giornalmente)
-- EveryPolitician (copertura storica mandati da ~233 paesi)
+Politically Exposed Persons (PEP) identified by cross-referencing directors/PSC with:
+- OpenSanctions (including Wikidata PEP list, updated daily)
+- EveryPolitician (historical mandate coverage from ~233 countries)
 
-Match via fingerprint → risk flag FT3 per connessione PEP.
+Match via fingerprint → FT3 risk flag for PEP connection.
 
 ### Geo-Intelligence
 
-PostGIS + ONSPD (ONS Postcode Directory) per geocoding di massa (~95% copertura da day 1).
-ST_ClusterDBSCAN per cluster spaziali (eps=50m, 100m, 500m pre-calcolati).
-Nominatim Docker solo per precisione on-demand (edificio specifico).
+PostGIS + ONSPD (ONS Postcode Directory) for bulk geocoding (~95% coverage from day 1).
+ST_ClusterDBSCAN for spatial clusters (eps=50m, 100m, 500m pre-computed).
+Nominatim Docker only for on-demand precision (specific building).
 
 ### Link Analysis
 
-Apache AGE (graph extension PostgreSQL) — 7 tipi nodo, 6 tipi edge.
-NetworkX per centrality metrics su subgraphs estratti.
-cytoscape.js (frontend) per visualizzazione interattiva.
+Apache AGE (PostgreSQL graph extension) — 7 node types, 6 edge types.
+NetworkX for centrality metrics on extracted subgraphs.
+cytoscape.js (frontend) for interactive visualisation.
 
 ### Case Management & Reporting
 
-Schema PostgreSQL separato `casework` (8 tabelle).
-WeasyPrint per PDF professionale (fallback QWebEngineView su Windows senza GTK3).
-Export: PDF, FtM JSON, XLSX, GEXF, GraphML, GeoJSON, KML.
+Separate PostgreSQL schema `casework` (8 tables).
+WeasyPrint for professional PDF output (fallback to QWebEngineView on Windows without GTK3).
+Export formats: PDF, FtM JSON, XLSX, GEXF, GraphML, GeoJSON, KML.

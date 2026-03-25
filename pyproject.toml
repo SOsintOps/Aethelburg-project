@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "aethelburg"
+version = "0.1.0"
+description = "Piattaforma desktop per analisi shell company — Companies House UK"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    # Database
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    "asyncpg>=0.29",          # PostgreSQL async driver
+    "psycopg2-binary>=2.9",   # PostgreSQL sync driver (per Alembic)
+
+    # Configurazione
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "python-dotenv>=1.0",
+    "keyring>=24.0",           # Credential store OS (Windows Credential Manager)
+
+    # ETL / Data
+    "httpx[http2]>=0.27",      # Download asincrono con streaming
+    "aiofiles>=23.0",
+    "orjson>=3.9",             # JSON veloce per JSONL parsing
+    "pydantic>=2.6",
+
+    # Normalizzazione nomi multi-script (ADR-017)
+    "fingerprints>=0.5",       # CJK, Cirillico, Arabo → canonical ASCII
+    "jellyfish>=1.0",          # Phonetic keys (Beider-Morse fallback)
+
+    # Entity model
+    "followthemoney>=3.5",     # FtM schema + make_id()
+
+    # Fuzzy matching
+    "rapidfuzz>=3.6",
+
+    # Geo
+    "shapely>=2.0",
+
+    # Scheduling
+    "apscheduler>=3.10",
+
+    # PDF
+    "weasyprint>=62.0",        # Fallback: QWebEngineView (zero dep aggiuntive)
+
+    # Export
+    "openpyxl>=3.1",           # XLSX
+    "networkx>=3.2",           # GEXF, GraphML, centrality metrics
+
+    # Embedding (local, no cloud)
+    "sentence-transformers>=2.7",  # all-MiniLM-L6-v2, 384-dim, Apache 2.0
+
+    # UI (LGPL)
+    "PySide6>=6.7",
+
+    # Logging
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.9",
+    "detect-secrets>=1.4",
+    "pre-commit>=3.7",
+]
+
+[project.scripts]
+aethelburg = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "config*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -1,92 +1,92 @@
-# Ontologia — Aethelburg
-**Versione ontologia**: 1.0.0
-**Data**: 2026-03-26
-**Compatibile con**: FollowTheMoney schema 3.x, Apache AGE 1.5+
+# Ontology — Aethelburg
+**Ontology version**: 1.0.0
+**Date**: 2026-03-26
+**Compatible with**: FollowTheMoney schema 3.x, Apache AGE 1.5+
 
-Questo documento descrive il modello dati concettuale (ontologia) di Aethelburg: le entità rappresentate, le relazioni tra di esse, la tassonomia dei rischi e lo schema di casework investigativo.
+This document describes the conceptual data model (ontology) of Aethelburg: the entities represented, the relationships between them, the risk taxonomy, and the investigative casework schema.
 
 ---
 
-## Principi di design
+## Design Principles
 
-- **FtM come base**: FollowTheMoney (OCCRP/OpenSanctions, MIT) definisce il vocabolario comune delle entità. Ogni entità in Aethelburg è mappabile a un FtM schema type.
-- **Separazione dati/investigazione**: schema PostgreSQL `public` per dati sorgente (immutabili), schema `casework` per annotazioni investigative (mutabili).
-- **Auditabilità**: ogni risk flag ha un FT3 technique ID documentato; ogni dato ha un `source_id` FK tracciabile.
-- **Normalizzazione multi-script**: `fingerprints.generate()` produce rappresentazioni canoniche per nomi in qualunque scrittura (CJK, Cirillico, Arabo, Latino).
+- **FtM as foundation**: FollowTheMoney (OCCRP/OpenSanctions, MIT) defines the common entity vocabulary. Every entity in Aethelburg can be mapped to an FtM schema type.
+- **Data/investigation separation**: PostgreSQL schema `public` for source data (immutable), schema `casework` for investigative annotations (mutable).
+- **Auditability**: every risk flag has a documented FT3 technique ID; every piece of data has a traceable `source_id` FK.
+- **Multi-script normalisation**: `fingerprints.generate()` produces canonical representations for names in any script (CJK, Cyrillic, Arabic, Latin).
 
 ---
 
 ## Layer 1 — FollowTheMoney Entity Model
 
-**Versione FtM schema**: 3.x
-**Libreria Python**: `followthemoney>=3.5`
+**FtM schema version**: 3.x
+**Python library**: `followthemoney>=3.5`
 **Schema reference**: https://www.opensanctions.org/reference/
 
-### Tipi di entità principali
+### Main entity types
 
-| FtM Schema Type | Uso in Aethelburg | Tabella PostgreSQL principale |
-|-----------------|-------------------|-------------------------------|
-| `Company` | Aziende registrate UK (Companies House) | `companies` |
-| `Person` | Persone fisiche (directors, PSC individuali, PEP) | `persons` |
-| `LegalEntity` | PSC corporate, entità straniere, fondi, trusts | `legal_entities` |
-| `Organization` | Enti legali senza personalità giuridica completa | `organizations` |
-| `Address` | Indirizzi registrati (con geocoding) | `addresses` |
-| `Ownership` | Partecipazioni azionarie PSC (persons → company) | `psc_ownerships` |
-| `Directorship` | Incarichi direttoriali (persons → company) | `directorships` |
-| `Sanction` | Entità sanzionate (OpenSanctions, OFSI) | `sanctions` |
-| `Identification` | Documenti identificativi (passaporto, ecc.) | `identifications` |
+| FtM Schema Type | Use in Aethelburg | Main PostgreSQL table |
+|-----------------|-------------------|-----------------------|
+| `Company` | UK registered companies (Companies House) | `companies` |
+| `Person` | Natural persons (directors, individual PSCs, PEPs) | `persons` |
+| `LegalEntity` | Corporate PSCs, foreign entities, funds, trusts | `legal_entities` |
+| `Organization` | Legal bodies without full legal personality | `organizations` |
+| `Address` | Registered addresses (with geocoding) | `addresses` |
+| `Ownership` | PSC shareholdings (persons → company) | `psc_ownerships` |
+| `Directorship` | Directorial appointments (persons → company) | `directorships` |
+| `Sanction` | Sanctioned entities (OpenSanctions, OFSI) | `sanctions` |
+| `Identification` | Identity documents (passport, etc.) | `identifications` |
 
-### Proprietà FtM standard (selezione rilevante)
+### Standard FtM properties (relevant selection)
 
-| Proprietà FtM | Tipo | Note |
-|---------------|------|------|
-| `name` | string | Nome principale — sempre presente |
-| `alias` | string[] | Nomi alternativi, varianti ortografiche |
+| FtM Property | Type | Notes |
+|--------------|------|-------|
+| `name` | string | Primary name — always present |
+| `alias` | string[] | Alternative names, spelling variants |
 | `country` | country[] | ISO 3166-1 alpha-2 |
-| `jurisdiction` | country | Giurisdizione legale |
-| `incorporationDate` | date | Data costituzione |
-| `dissolutionDate` | date | Data scioglimento (se applicabile) |
-| `registrationNumber` | string | `company_number` per aziende UK |
-| `leiCode` | string | Legal Entity Identifier (se disponibile) |
+| `jurisdiction` | country | Legal jurisdiction |
+| `incorporationDate` | date | Incorporation date |
+| `dissolutionDate` | date | Dissolution date (if applicable) |
+| `registrationNumber` | string | `company_number` for UK companies |
+| `leiCode` | string | Legal Entity Identifier (if available) |
 | `status` | string | Active / Dissolved / Liquidation / ... |
-| `topics` | string[] | Tag semantici: `sanction`, `pep`, `shell`, `offshore` |
+| `topics` | string[] | Semantic tags: `sanction`, `pep`, `shell`, `offshore` |
 
-### Proprietà custom Aethelburg (estensioni FtM)
+### Aethelburg custom properties (FtM extensions)
 
-| Proprietà | Tipo | FtM non standard? | Note |
-|-----------|------|-------------------|------|
-| `addressFingerprint` | string | Sì | `postcode\|house_number\|keyword` per shared address detection |
-| `riskScore` | float | Sì | Score composito 0–100 (calcolato, non importato) |
-| `ft3Techniques` | string[] | Sì | Array FT3 technique IDs attivati |
-| `dataSourceId` | uuid | Sì | FK su `data_sources` per provenance |
+| Property | Type | Non-standard FtM? | Notes |
+|----------|------|-------------------|-------|
+| `addressFingerprint` | string | Yes | `postcode\|house_number\|keyword` for shared address detection |
+| `riskScore` | float | Yes | Composite score 0–100 (calculated, not imported) |
+| `ft3Techniques` | string[] | Yes | Array of activated FT3 technique IDs |
+| `dataSourceId` | uuid | Yes | FK on `data_sources` for provenance |
 
-### Estensioni FtM: make_id e fingerprinting
+### FtM extensions: make_id and fingerprinting
 
 ```python
 from followthemoney.util import make_id
 from fingerprints import generate as fp
 
-# ID canonico stabile per deduplication cross-source
+# Stable canonical ID for cross-source deduplication
 entity_id = make_id("Company", "GB", "12345678")
 
-# Fingerprint nome per matching multi-script
+# Name fingerprint for multi-script matching
 canonical = fp("江澤民")  # → "jiang zemin"
 ```
 
 ---
 
-## Layer 2 — Grafo Apache AGE
+## Layer 2 — Apache AGE Graph
 
-Apache AGE estende PostgreSQL con un grafo property-graph (Cypher queries).
-**Versione AGE**: 1.5+
-**Grafo nome**: `aethelburg`
+Apache AGE extends PostgreSQL with a property-graph (Cypher queries).
+**AGE version**: 1.5+
+**Graph name**: `aethelburg`
 
-### Nodi (7 tipi)
+### Nodes (7 types)
 
 #### `Company`
 ```
 (c:Company {
-    company_number: string,   -- chiave primaria CH, immutabile
+    company_number: string,   -- CH primary key, immutable
     name: string,
     fingerprint: string,      -- fingerprints.generate(name)
     status: string,           -- Active | Dissolved | Liquidation | ...
@@ -109,7 +109,7 @@ Apache AGE estende PostgreSQL con un grafo property-graph (Cypher queries).
     fingerprint: string,      -- fingerprints.generate(name)
     nationality: string,      -- ISO 3166-1 alpha-2
     country_of_residence: string,
-    dob_month: int,           -- solo mese+anno per privacy (CH non fornisce giorno)
+    dob_month: int,           -- month+year only for privacy (CH does not provide day)
     dob_year: int,
     is_pep: boolean,          -- Politically Exposed Person
     pep_source: string        -- 'opensanctions' | 'everypolitician' | null
@@ -123,18 +123,18 @@ Apache AGE estende PostgreSQL con un grafo property-graph (Cypher queries).
     name: string,
     fingerprint: string,
     jurisdiction: string,     -- ISO country code
-    company_number_foreign: string,  -- numero registrazione estero (se noto)
-    is_offshore: boolean      -- jurisdiction in lista offshore
+    company_number_foreign: string,  -- foreign registration number (if known)
+    is_offshore: boolean      -- jurisdiction on offshore list
 })
 ```
 
 #### `Address`
 ```
 (a:Address {
-    fingerprint: string,      -- postcode|house_number|keyword (PRIMARY KEY logica)
+    fingerprint: string,      -- postcode|house_number|keyword (logical PRIMARY KEY)
     full_address: string,
     postcode: string,
-    lat: float,               -- da ONSPD o Nominatim
+    lat: float,               -- from ONSPD or Nominatim
     lon: float,
     geocoding_source: string  -- 'onspd' | 'nominatim' | 'manual'
 })
@@ -154,11 +154,11 @@ Apache AGE estende PostgreSQL con un grafo property-graph (Cypher queries).
 #### `IcijOfficer`
 ```
 (io:IcijOfficer {
-    node_id: string,          -- ICIJ node_id (non stabile cross-release)
+    node_id: string,          -- ICIJ node_id (not stable across releases)
     name: string,
     fingerprint: string,
     source_id: string,        -- 'Panama Papers' | 'Pandora Papers' | ...
-    valid_until: string       -- ICIJ release version per tracking stabilità
+    valid_until: string       -- ICIJ release version for stability tracking
 })
 ```
 
@@ -174,30 +174,30 @@ Apache AGE estende PostgreSQL con un grafo property-graph (Cypher queries).
 })
 ```
 
-### Edge (6 tipi)
+### Edges (6 types)
 
 #### `CONTROLS`
-Relazione PSC → azienda. Sia persone fisiche che corporate PSC.
+PSC → company relationship. Both natural persons and corporate PSCs.
 ```
 (person|corporate_psc)-[:CONTROLS {
-    nature_of_control: string[],  -- ownership-of-shares-25-to-50-percent, ecc.
+    nature_of_control: string[],  -- ownership-of-shares-25-to-50-percent, etc.
     notified_on: date,
-    ceased_on: date,              -- null se attivo
+    ceased_on: date,              -- null if active
     is_ceased: boolean
 }]->(company)
 ```
 
 #### `SHARES_ADDRESS`
-Due o più aziende registrate allo stesso indirizzo fisico.
+Two or more companies registered at the same physical address.
 ```
 (company1)-[:SHARES_ADDRESS {
     address_fingerprint: string,
-    companies_at_address: int     -- conteggio totale aziende a quell'indirizzo
+    companies_at_address: int     -- total count of companies at that address
 }]->(company2)
 ```
 
 #### `OFFSHORE_LINK`
-Link probabilistico tra entità CH e officer/entity ICIJ.
+Probabilistic link between a CH entity and an ICIJ officer/entity.
 ```
 (person|company)-[:OFFSHORE_LINK {
     match_score: float,           -- 0.0–1.0
@@ -208,7 +208,7 @@ Link probabilistico tra entità CH e officer/entity ICIJ.
 ```
 
 #### `SANCTIONED`
-Link tra entità locale e record sanzionato.
+Link between a local entity and a sanctioned record.
 ```
 (person|company)-[:SANCTIONED {
     list_name: string,            -- 'UK FCDO' | 'OFAC' | 'EU' | ...
@@ -219,7 +219,7 @@ Link tra entità locale e record sanzionato.
 ```
 
 #### `ICIJ_OFFICER_OF`
-Ruolo di un officer ICIJ in un'entità offshore.
+Role of an ICIJ officer in an offshore entity.
 ```
 (icij_officer)-[:ICIJ_OFFICER_OF {
     role: string,                 -- 'director' | 'shareholder' | 'beneficiary' | ...
@@ -229,11 +229,11 @@ Ruolo di un officer ICIJ in un'entità offshore.
 ```
 
 #### `SAME_PERSON_AS`
-Deduplication: due nodi `Person` sono la stessa persona reale.
+Deduplication: two `Person` nodes are the same real individual.
 ```
 (person1)-[:SAME_PERSON_AS {
     confidence: float,            -- 0.0–1.0
-    evidence: jsonb,              -- criteri che hanno generato il match
+    evidence: jsonb,              -- criteria that generated the match
     verified_by: string           -- 'auto' | 'manual'
 }]->(person2)
 ```
@@ -243,35 +243,35 @@ Deduplication: due nodi `Person` sono la stessa persona reale.
 ## Layer 3 — Risk Taxonomy (FT3 Framework)
 
 **Framework**: Stripe FT3 (github.com/stripe/ft3)
-**Uso**: ogni risk flag ha un FT3 technique ID documentato — il sistema è completamente auditabile.
+**Usage**: every risk flag has a documented FT3 technique ID — the system is fully auditable.
 
-### Pattern implementati
+### Implemented patterns
 
-| FT3 ID | Nome | Priorità | Descrizione | Soglia attivazione |
-|--------|------|----------|-------------|-------------------|
-| `FT3-SC-001` | Star PSC | ALTA | Una persona controlla N aziende (hub di ownership) | N >= 5 aziende |
-| `FT3-ML-003` | Ownership chain | MEDIA | Catena di ownership A→B→C→... (layering) | Profondità >= 3 |
-| `FT3-SC-005` | Circular ownership | **CRITICA** | Loop di ownership A→B→C→A | Qualsiasi loop |
-| `FT3-SC-008` | Island / No UBO | ALTA | Azienda senza Ultimate Beneficial Owner identificabile | UBO non trovato |
-| `FT3-SC-009` | Bridge entity | MEDIA | Entità che connette due cluster altrimenti separati | Bridge centrality > soglia |
-| `FT3-SC-012` | Shared address | MEDIA | N aziende allo stesso indirizzo fisico | N >= 10 |
-| `FT3-ML-007` | Offshore PSC | ALTA | PSC in giurisdizione offshore | Lista jurisdiction offshore |
-| `FT3-SC-015` | Sanctions match | **CRITICA** | Director o PSC presente in lista sanzioni | Score match >= 0.75 |
-| `FT3-SC-016` | PEP connection | ALTA | Director o PSC è PEP (OpenSanctions + EveryPolitician) | Match confermato |
-| `FT3-ML-009` | Rapid incorporation | MEDIA | Azienda costituita e sciolta in < 12 mesi | Durata < 365 giorni |
-| `FT3-SC-020` | Dormant with assets | MEDIA | Azienda dormant con ipoteche attive | Dormant + mortgages > 0 |
+| FT3 ID | Name | Priority | Description | Activation threshold |
+|--------|------|----------|-------------|----------------------|
+| `FT3-SC-001` | Star PSC | HIGH | One person controls N companies (ownership hub) | N >= 5 companies |
+| `FT3-ML-003` | Ownership chain | MEDIUM | Ownership chain A→B→C→... (layering) | Depth >= 3 |
+| `FT3-SC-005` | Circular ownership | **CRITICAL** | Ownership loop A→B→C→A | Any loop |
+| `FT3-SC-008` | Island / No UBO | HIGH | Company with no identifiable Ultimate Beneficial Owner | UBO not found |
+| `FT3-SC-009` | Bridge entity | MEDIUM | Entity connecting two otherwise separate clusters | Bridge centrality > threshold |
+| `FT3-SC-012` | Shared address | MEDIUM | N companies at the same physical address | N >= 10 |
+| `FT3-ML-007` | Offshore PSC | HIGH | PSC in an offshore jurisdiction | Offshore jurisdiction list |
+| `FT3-SC-015` | Sanctions match | **CRITICAL** | Director or PSC present on a sanctions list | Match score >= 0.75 |
+| `FT3-SC-016` | PEP connection | HIGH | Director or PSC is a PEP (OpenSanctions + EveryPolitician) | Confirmed match |
+| `FT3-ML-009` | Rapid incorporation | MEDIUM | Company incorporated and dissolved in < 12 months | Duration < 365 days |
+| `FT3-SC-020` | Dormant with assets | MEDIUM | Dormant company with active mortgages | Dormant + mortgages > 0 |
 
-### Storage risk flags
+### Risk flags storage
 
 ```sql
 CREATE TABLE risk_flags (
     id              BIGSERIAL PRIMARY KEY,
     company_number  VARCHAR(8) NOT NULL REFERENCES companies(company_number),
-    ft3_technique   VARCHAR(20) NOT NULL,   -- 'FT3-SC-001' ecc.
-    score_contribution FLOAT NOT NULL,      -- contributo al risk_score composito
+    ft3_technique   VARCHAR(20) NOT NULL,   -- 'FT3-SC-001' etc.
+    score_contribution FLOAT NOT NULL,      -- contribution to the composite risk_score
     priority        VARCHAR(10) NOT NULL,   -- 'CRITICAL' | 'HIGH' | 'MEDIUM'
-    evidence        JSONB NOT NULL,         -- prova strutturata del pattern
-    source_ids      UUID[] NOT NULL,        -- provenance: da quali sorgenti
+    evidence        JSONB NOT NULL,         -- structured evidence of the pattern
+    source_ids      UUID[] NOT NULL,        -- provenance: from which sources
     detected_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     is_active       BOOLEAN NOT NULL DEFAULT true
 );
@@ -281,20 +281,20 @@ CREATE TABLE risk_flags (
 
 ## Layer 4 — Casework Schema
 
-Schema PostgreSQL separato `casework`. Dati investigativi dell'utente, separati dai dati sorgente.
+Separate PostgreSQL schema `casework`. User investigative data, separated from source data.
 
-### Tabelle
+### Tables
 
-| Tabella | Scopo |
-|---------|-------|
-| `investigations` | Fascicoli investigativi |
-| `investigation_entities` | Entità incluse in un fascicolo |
-| `annotations` | Note testuali su entità o relazioni |
-| `manual_links` | Connessioni aggiunte manualmente dall'investigatore |
-| `visual_snapshots` | Snapshot PNG del grafo cytoscape |
-| `saved_queries` | Query salvate per riuso |
-| `investigation_events` | Log di tutte le azioni (audit trail) |
-| `generated_reports` | Report PDF/JSON generati |
+| Table | Purpose |
+|-------|---------|
+| `investigations` | Investigative case files |
+| `investigation_entities` | Entities included in a case file |
+| `annotations` | Text notes on entities or relationships |
+| `manual_links` | Connections added manually by the investigator |
+| `visual_snapshots` | PNG snapshots of the Cytoscape graph |
+| `saved_queries` | Saved queries for reuse |
+| `investigation_events` | Log of all actions (audit trail) |
+| `generated_reports` | Generated PDF/JSON reports |
 
 ### Investigation lifecycle
 
@@ -307,10 +307,10 @@ OPEN → IN_PROGRESS → PENDING_REVIEW → CLOSED
 
 ## Layer 5 — Data Provenance
 
-Ogni dato in Aethelburg ha una provenienza tracciabile.
+Every piece of data in Aethelburg has traceable provenance.
 
 ```sql
--- Ogni tabella dati ha questa FK
+-- Every data table has this FK
 source_id UUID REFERENCES data_sources(id)
 
 -- data_sources
@@ -318,53 +318,53 @@ CREATE TABLE data_sources (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_name  VARCHAR(100) NOT NULL,   -- 'companies_house_bulk' | 'opensanctions' | ...
     source_type  VARCHAR(50) NOT NULL,    -- 'bulk_download' | 'api' | 'manual' | 'streaming'
-    source_version VARCHAR(50),          -- data snapshot, versione file
+    source_version VARCHAR(50),          -- data snapshot, file version
     source_url   TEXT,
     collected_at TIMESTAMPTZ NOT NULL,
-    file_hash    VARCHAR(64)             -- SHA-256 del file sorgente
+    file_hash    VARCHAR(64)             -- SHA-256 of the source file
 );
 ```
 
 ---
 
-## Versioning dell'ontologia
+## Ontology Versioning
 
-| Versione | Data | Cambiamenti |
-|----------|------|-------------|
-| `1.0.0` | 2026-03-26 | Versione iniziale: FtM layer, AGE schema (7 nodi, 6 edge), FT3 patterns (11), casework (8 tabelle), provenance |
+| Version | Date | Changes |
+|---------|------|---------|
+| `1.0.0` | 2026-03-26 | Initial version: FtM layer, AGE schema (7 nodes, 6 edges), FT3 patterns (11), casework (8 tables), provenance |
 
-### Politica di versioning
+### Versioning policy
 
-- **MAJOR**: cambiamenti breaking (rimozione nodo/edge, cambio tipo proprietà, rimozione FT3 pattern)
-- **MINOR**: aggiunte non breaking (nuovo nodo, nuovo edge, nuovo FT3 pattern, nuova proprietà)
-- **PATCH**: correzioni (fix typo, aggiornamento soglie FT3, documentazione)
+- **MAJOR**: breaking changes (removal of node/edge, property type change, removal of FT3 pattern)
+- **MINOR**: non-breaking additions (new node, new edge, new FT3 pattern, new property)
+- **PATCH**: corrections (typo fix, FT3 threshold update, documentation)
 
-L'ontologia versiona **indipendentemente** dal software (versione applicazione) e dalle migrazioni schema (versione Alembic).
+The ontology versions **independently** from the software (application version) and from schema migrations (Alembic version).
 
-### Compatibilità cross-layer
+### Cross-layer compatibility
 
-| Componente | Versione | Note |
-|-----------|----------|------|
-| FtM schema | 3.x | Compatibile con OpenSanctions export |
+| Component | Version | Notes |
+|-----------|---------|-------|
+| FtM schema | 3.x | Compatible with OpenSanctions export |
 | Apache AGE | 1.5+ | Cypher query subset |
-| Alembic migration | 0001 | Prima migrazione — schema completo |
-| FT3 framework | commit attuale | github.com/stripe/ft3 |
-| fingerprints | >=0.5 | Name normalization |
+| Alembic migration | 0001 | First migration — full schema |
+| FT3 framework | current commit | github.com/stripe/ft3 |
+| fingerprints | >=0.5 | Name normalisation |
 | followthemoney | >=3.5 | Entity model + make_id |
 
 ---
 
-## Glossario
+## Glossary
 
-| Termine | Definizione |
-|---------|-------------|
-| **PSC** | Person with Significant Control — entità che controlla >=25% di un'azienda |
-| **UBO** | Ultimate Beneficial Owner — la persona fisica al vertice della catena di controllo |
-| **PEP** | Politically Exposed Person — politico o funzionario pubblico ad alto rischio AML |
-| **FtM** | FollowTheMoney — modello entità OCCRP (MIT license) |
-| **FT3** | Fraud Threat Taxonomy — framework Stripe per classificare tecniche fraudolente |
-| **AGE** | Apache Graph Extension — estensione PostgreSQL per grafi property-graph |
-| **ONSPD** | ONS Postcode Directory — centroidi geografici postcodes UK |
+| Term | Definition |
+|------|------------|
+| **PSC** | Person with Significant Control — entity that controls >=25% of a company |
+| **UBO** | Ultimate Beneficial Owner — the natural person at the top of the control chain |
+| **PEP** | Politically Exposed Person — politician or senior public official at high AML risk |
+| **FtM** | FollowTheMoney — OCCRP entity model (MIT licence) |
+| **FT3** | Fraud Threat Taxonomy — Stripe framework for classifying fraudulent techniques |
+| **AGE** | Apache Graph Extension — PostgreSQL extension for property-graph |
+| **ONSPD** | ONS Postcode Directory — geographic centroids for UK postcodes |
 | **OFSI** | Office of Financial Sanctions Implementation — UK sanctions authority |
-| **address fingerprint** | Stringa `postcode\|house_number\|keyword` per identificare indirizzo fisico senza libpostal |
-| **offshore jurisdiction** | Giurisdizione con bassa trasparenza societaria (BVI, Cayman, Panama, ecc.) |
+| **address fingerprint** | String `postcode\|house_number\|keyword` to identify a physical address without libpostal |
+| **offshore jurisdiction** | Jurisdiction with low corporate transparency (BVI, Cayman, Panama, etc.) |

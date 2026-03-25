@@ -1,180 +1,180 @@
-# Fonti dati — Aethelburg
+# Data Sources — Aethelburg
 
 ## Companies House — Bulk Data
 
 **URL**: https://download.companieshouse.gov.uk/en_output.html
-**Formato**: CSV zippato, aggiornamento mensile
-**Dimensione**: ~600MB ZIP → 2.6GB CSV → ~40GB in PostgreSQL con indici
-**Licenza**: Open Government Licence v3.0
-**Contenuto**: 5.67M aziende registrate in UK
+**Format**: Zipped CSV, monthly update
+**Size**: ~600MB ZIP → 2.6GB CSV → ~40GB in PostgreSQL with indexes
+**Licence**: Open Government Licence v3.0
+**Content**: 5.67M companies registered in the UK
 
-Campi principali:
-- `CompanyNumber` — identificatore unico, chiave primaria di sistema
-- `CompanyName`, `PreviousName_1..10` — storia dei nomi (fino a 10 cambi)
-- `RegAddress.*` — indirizzo registrato (8 campi + PostCode)
-- `CompanyCategory` — tipo legale (Private Limited, PLC, LLP, ...)
+Main fields:
+- `CompanyNumber` — unique identifier, system primary key
+- `CompanyName`, `PreviousName_1..10` — name history (up to 10 changes)
+- `RegAddress.*` — registered address (8 fields + PostCode)
+- `CompanyCategory` — legal type (Private Limited, PLC, LLP, ...)
 - `CompanyStatus` — Active, Dissolved, Liquidation, ...
 - `IncorporationDate`, `DissolutionDate`
-- `SICCode.SicText_1..4` — codici attività (formato testo "74100 - descrizione")
-- `Accounts.*`, `Returns.*` — stato dei depositi
-- `Mortgages.*` — conteggi ipoteche
+- `SICCode.SicText_1..4` — activity codes (text format "74100 - description")
+- `Accounts.*`, `Returns.*` — filing status
+- `Mortgages.*` — mortgage counts
 
-Note tecniche:
-- Date come stringhe vuote `""` (non NULL) per record senza data
-- SIC come testo — richiede parsing del codice numerico
-- Encoding: UTF-8 con BOM eventuale (usare `utf-8-sig`)
+Technical notes:
+- Dates as empty strings `""` (not NULL) for records without a date
+- SIC as text — requires parsing of the numeric code
+- Encoding: UTF-8 with optional BOM (use `utf-8-sig`)
 
 ---
 
 ## Companies House — PSC Snapshot
 
 **URL**: https://download.companieshouse.gov.uk/persons-with-significant-control-snapshot-2016-04-06.zip
-**Formato**: JSONL — ogni riga è `{"company_number":"...","data":{...}}`
-**Dimensione**: ~2GB ZIP → 12GB JSONL → ~25GB in PostgreSQL
-**Aggiornamento**: Snapshot giornaliero disponibile
-**Licenza**: Open Government Licence v3.0
+**Format**: JSONL — each line is `{"company_number":"...","data":{...}}`
+**Size**: ~2GB ZIP → 12GB JSONL → ~25GB in PostgreSQL
+**Update**: Daily snapshot available
+**Licence**: Open Government Licence v3.0
 
-Tipi di record nel campo `data.kind`:
-- `individual-person-with-significant-control` — persona fisica
-- `corporate-entity-person-with-significant-control` — società
-- `legal-person-person-with-significant-control` — ente legale
-- `super-secure-person-with-significant-control` — protetto (dati oscurati)
+Record types in the `data.kind` field:
+- `individual-person-with-significant-control` — natural person
+- `corporate-entity-person-with-significant-control` — company
+- `legal-person-person-with-significant-control` — legal entity
+- `super-secure-person-with-significant-control` — protected (data redacted)
 
-Campi chiave (individual):
-- `name_elements` — nome strutturato (forename, surname, title)
-- `date_of_birth` — `{month: N, year: YYYY}` (NO giorno, per privacy)
+Key fields (individual):
+- `name_elements` — structured name (forename, surname, title)
+- `date_of_birth` — `{month: N, year: YYYY}` (NO day, for privacy)
 - `nationality`, `country_of_residence`
 - `natures_of_control` — array (ownership-of-shares-25-to-50-percent, ...)
-- `ceased` — boolean, record storico se true
+- `ceased` — boolean, historical record if true
 
-Note tecniche:
-- Record `super-secure` hanno solo company_number, nessun altro dato
-- Caricare record `ceased: true` nella tabella storica, non come PSC attivo
-- `natures_of_control` richiede tabella separata (relazione 1-N)
+Technical notes:
+- `super-secure` records contain only company_number, no other data
+- Load `ceased: true` records into the historical table, not as active PSC
+- `natures_of_control` requires a separate table (1-N relationship)
 
 ---
 
 ## UK Sanctions — OFSI Consolidated List
 
 **URL**: https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets
-**Formato**: Semicolon-delimited, ~57K righe (una riga per alias/indirizzo)
-**Dimensione**: 47MB
-**Licenza**: OGL v3
-**Stato**: OBSOLETO — OFSI ha smesso di aggiornare il 28 gennaio 2026
+**Format**: Semicolon-delimited, ~57K rows (one row per alias/address)
+**Size**: 47MB
+**Licence**: OGL v3
+**Status**: OBSOLETE — OFSI stopped updating on 28 January 2026
 
-⚠️ Usare OpenSanctions come fonte primaria per sanzioni UK.
+⚠️ Use OpenSanctions as the primary source for UK sanctions.
 
-Note tecniche:
-- Riga 0: `Report Date: DD-MM-YYYY` — da saltare
-- Encoding: UTF-8 con caratteri problematici — usare `errors='replace'`
-- Campo `business_registration_number` è **sempre vuoto** — il matching con CH avviene per nome
-- Più righe per la stessa entità sanzionata (una per alias, una per indirizzo)
+Technical notes:
+- Row 0: `Report Date: DD-MM-YYYY` — must be skipped
+- Encoding: UTF-8 with problematic characters — use `errors='replace'`
+- Field `business_registration_number` is **always empty** — matching with CH is by name
+- Multiple rows per sanctioned entity (one per alias, one per address)
 
 ---
 
 ## OpenSanctions
 
 **URL**: https://www.opensanctions.org/datasets/default/
-**Formato**: FtM JSON (FollowTheMoney)
-**Dimensione**: ~2GB
-**Aggiornamento**: Giornaliero
-**Licenza**: CC-BY-NC-SA 4.0 (non commerciale, share-alike)
+**Format**: FtM JSON (FollowTheMoney)
+**Size**: ~2GB
+**Update**: Daily
+**Licence**: CC-BY-NC-SA 4.0 (non-commercial, share-alike)
 
-Include:
-- UK FCDO Sanctions (sostituto OFSI da febbraio 2026)
+Includes:
+- UK FCDO Sanctions (OFSI replacement from February 2026)
 - OFAC (USA)
 - EU Consolidated Sanctions
-- 326 altre fonti globali
+- 326 other global sources
 
-Download bulk gratuito per uso non commerciale. Registrazione consigliata per API key (aumenta rate limit).
+Free bulk download for non-commercial use. Registration recommended for API key (increases rate limit).
 
 ---
 
 ## ICIJ Offshore Leaks Database
 
 **URL**: https://offshoreleaks.icij.org/pages/database
-**Formato**: CSV (5 file)
-**Dimensione**: ~500MB ZIP
-**Aggiornamento**: Periodico (non giornaliero)
-**Licenza**: CC-BY-NC
+**Format**: CSV (5 files)
+**Size**: ~500MB ZIP
+**Update**: Periodic (not daily)
+**Licence**: CC-BY-NC
 
-File inclusi:
-| File | Record | Dimensione |
-|------|--------|-----------|
+Included files:
+| File | Records | Size |
+|------|---------|------|
 | `nodes-entities.csv` | 814,617 | 190MB |
 | `nodes-officers.csv` | 771,369 | 87MB |
 | `nodes-intermediaries.csv` | ~25K | 3.8MB |
 | `nodes-others.csv` | ~5K | 390KB |
 | `relationships.csv` | 3,339,272 | 248MB |
 
-Fonti incluse: Panama Papers, Pandora Papers, Paradise Papers, Offshore Leaks, Bahamas Leaks
+Sources included: Panama Papers, Pandora Papers, Paradise Papers, Offshore Leaks, Bahamas Leaks
 
-Note tecniche:
-- `node_id` NON stabile tra release annuali — non usare come FK cross-dataset persistente
-- `sourceID` identifica la fonte (Panama Papers, ecc.)
-- Stessa entità può apparire in leak diversi con node_id diversi
-- Import order: entities+officers prima, relationships dopo (FK)
+Technical notes:
+- `node_id` is NOT stable across annual releases — do not use as a persistent cross-dataset FK
+- `sourceID` identifies the source (Panama Papers, etc.)
+- The same entity may appear in different leaks with different node_ids
+- Import order: entities+officers first, relationships after (FK)
 
 ---
 
 ## Companies House — Accounts Data
 
 **URL**: https://download.companieshouse.gov.uk/en_accountsdata.html
-**Formato**: iXBRL (ZIP mensili)
-**Dimensione**: Variabile, ~GB per mese
-**Licenza**: OGL v3
-**Stato**: Non ancora integrato — previsto in fase successiva
+**Format**: iXBRL (monthly ZIPs)
+**Size**: Variable, ~GB per month
+**Licence**: OGL v3
+**Status**: Not yet integrated — planned for a later phase
 
-Contiene bilanci strutturati per le società che li depositano. Utile per: rilevare aziende con revenues anomale rispetto al tipo dichiarato, dormant companies con assets nascosti.
+Contains structured financial statements for companies that file them. Useful for: detecting companies with revenues anomalous relative to their declared type, and dormant companies with hidden assets.
 
 ---
 
-## Dataset aggiuntivi consigliati
+## Recommended additional datasets
 
 ### ONSPD (ONS Postcode Directory)
 **URL**: https://geoportal.statistics.gov.uk/
-**Formato**: CSV
-**Dimensione**: ~100MB
-**Licenza**: OGL v3
-**Uso**: Centroidi PostCode UK per geo-intelligence di massa (alternativa rapida a Nominatim per mapping iniziale)
+**Format**: CSV
+**Size**: ~100MB
+**Licence**: OGL v3
+**Use**: UK PostCode centroids for bulk geo-intelligence (fast alternative to Nominatim for initial mapping)
 
 ### ONS Open Geography — Boundaries
 **URL**: https://geoportal.statistics.gov.uk/
-**Formato**: GeoJSON/Shapefile
-**Licenza**: OGL v3
-**Uso**: Boundary PostCode, Local Authority, County per choropleth aggregation
+**Format**: GeoJSON/Shapefile
+**Licence**: OGL v3
+**Use**: PostCode, Local Authority, and County boundaries for choropleth aggregation
 
 ### Land Registry Price Paid
 **URL**: https://www.gov.uk/government/statistical-data-sets/price-paid-data-downloads
-**Formato**: CSV
-**Licenza**: OGL v3
-**Uso**: Incrociare proprietà immobiliari con aziende suspicious (futuro)
+**Format**: CSV
+**Licence**: OGL v3
+**Use**: Cross-reference property ownership with suspicious companies (future)
 
 ---
 
 ## EveryPolitician
 
 **URL**: https://github.com/everypolitician/everypolitician-data
-**Formato**: CSV/JSON per paese (strutturato per mandato e partito)
-**Aggiornamento**: Archiviato ~2019, dati storici disponibili su GitHub
-**Licenza**: Variabile per paese, prevalentemente CC0 / pubblico dominio
-**Uso**: PEP (Politically Exposed Persons) — incrocio direttori/PSC con politici noti
+**Format**: CSV/JSON per country (structured by term and party)
+**Update**: Archived ~2019, historical data available on GitHub
+**Licence**: Varies by country, predominantly CC0 / public domain
+**Use**: PEP (Politically Exposed Persons) — cross-reference directors/PSC with known politicians
 
-Include:
-- ~233 paesi
-- Nomi, partiti, mandati, legislature
-- Copertura storica dei mandati (utile per periodi passati non coperti da OpenSanctions)
+Includes:
+- ~233 countries
+- Names, parties, terms, legislatures
+- Historical mandate coverage (useful for past periods not covered by OpenSanctions)
 
-Note tecniche:
-- OpenSanctions include già PEP data da 5+ fonti (Wikidata PEP list, etc.)
-- EveryPolitician aggiunge copertura storica e mandati passati
-- Import opzionale: caricare solo paesi rilevanti (UK, UE, OFAC jurisdictions)
-- Matching via `fingerprints.generate(name)` — gestisce nomi in qualunque script
-- Nuovo pattern FT3: director/PSC con connessione PEP → risk flag elevated
+Technical notes:
+- OpenSanctions already includes PEP data from 5+ sources (Wikidata PEP list, etc.)
+- EveryPolitician adds historical coverage and past mandates
+- Optional import: load only relevant countries (UK, EU, OFAC jurisdictions)
+- Matching via `fingerprints.generate(name)` — handles names in any script
+- New FT3 pattern: director/PSC with PEP connection → elevated risk flag
 
-Campi chiave:
-- `name` — nome del politico
-- `country` — paese
-- `group` — partito/fazione
-- `start_date`, `end_date` — periodo mandato
-- `legislative_period_id` — identificatore legislatura
+Key fields:
+- `name` — politician's name
+- `country` — country
+- `group` — party/faction
+- `start_date`, `end_date` — term period
+- `legislative_period_id` — legislature identifier

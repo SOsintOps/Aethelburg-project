@@ -1,183 +1,183 @@
-# Guida all'installazione — Aethelburg
+# Installation Guide — Aethelburg
 
-## Requisiti di sistema
+## System requirements
 
-| Componente | Minimo | Consigliato |
-|-----------|--------|-------------|
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
 | OS | Windows 10 64-bit | Windows 11 |
-| Python | 3.12 | 3.12.x (ultima patch) |
+| Python | 3.12 | 3.12.x (latest patch) |
 | RAM | 8GB | 16GB+ |
-| Disco | 100GB liberi su SSD | 200GB su NVMe |
-| Docker Desktop | WSL2 backend | WSL2 + 4GB RAM allocati |
+| Disk | 100GB free on SSD | 200GB on NVMe |
+| Docker Desktop | WSL2 backend | WSL2 + 4GB RAM allocated |
 
 ---
 
-## 1. Prerequisiti
+## 1. Prerequisites
 
 ### Python 3.12
-Scarica da https://python.org/downloads — seleziona "Add to PATH" durante l'installazione.
+Download from https://python.org/downloads — select "Add to PATH" during installation.
 
 ```bash
-python --version   # deve mostrare 3.12.x
+python --version   # should show 3.12.x
 ```
 
 ### Docker Desktop
-Scarica da https://docs.docker.com/desktop/install/windows-install/
+Download from https://docs.docker.com/desktop/install/windows-install/
 
-- Abilita WSL2 integration durante l'installazione
-- Dopo l'installazione: Settings → Resources → alloca almeno 4GB RAM a WSL2
-- Verifica: `docker --version` e `docker compose version`
+- Enable WSL2 integration during installation
+- After installation: Settings → Resources → allocate at least 4GB RAM to WSL2
+- Verify: `docker --version` and `docker compose version`
 
 ---
 
-## 2. Installazione Aethelburg
+## 2. Installing Aethelburg
 
 ```bash
-# Clona il repository
+# Clone the repository
 git clone https://github.com/tuousername/aethelburg.git
 cd aethelburg
 
-# Crea e attiva l'ambiente virtuale
+# Create and activate the virtual environment
 python -m venv .venv
 .venv\Scripts\activate
 
-# Installa dipendenze
+# Install dependencies
 pip install -r requirements.txt
 ```
 
 ---
 
-## 3. Configurazione
+## 3. Configuration
 
 ```bash
-# Copia il template delle variabili d'ambiente
+# Copy the environment variables template
 copy .env.example .env
 ```
 
-Modifica `.env` con un editor di testo. I campi obbligatori sono:
+Edit `.env` with a text editor. Required fields are:
 ```
-POSTGRES_PASSWORD=scegli_una_password_sicura
-CH_API_KEY=la_tua_chiave_companies_house
+POSTGRES_PASSWORD=choose_a_secure_password
+CH_API_KEY=your_companies_house_api_key
 ```
 
-La chiave API Companies House è gratuita: https://developer.company-information.service.gov.uk/
+The Companies House API key is free: https://developer.company-information.service.gov.uk/
 
 ---
 
-## 4. Avvio servizi Docker
+## 4. Starting Docker services
 
 ```bash
-# Avvia PostgreSQL, Nominatim
+# Start PostgreSQL, Nominatim
 docker compose up -d
 
-# Verifica che i servizi siano attivi
+# Verify that services are running
 docker compose ps
 ```
 
-Il primo avvio scarica le immagini Docker (~2GB). Nominatim scarica anche i dati OSM UK (~3GB) — può richiedere 30-60 minuti.
+The first start downloads Docker images (~2GB). Nominatim also downloads UK OSM data (~3GB) — this may take 30–60 minutes.
 
 ---
 
-## 5. Inizializzazione database
+## 5. Database initialisation
 
 ```bash
-# Applica le migration Alembic (crea lo schema)
+# Apply Alembic migrations (creates the schema)
 python -m alembic upgrade head
 
-# Installa le estensioni PostgreSQL
+# Install PostgreSQL extensions
 bash scripts/setup_db.sh
 ```
 
-In caso di errori con `bash` su Windows, usa Git Bash o WSL2:
+If `bash` errors occur on Windows, use Git Bash or WSL2:
 ```bash
-# Con Git Bash
+# With Git Bash
 "C:\Program Files\Git\bin\bash.exe" scripts/setup_db.sh
 ```
 
 ---
 
-## 6. Caricamento dati
+## 6. Loading data
 
-### Download dei dataset
+### Downloading the datasets
 
-| File | URL | Dimensione |
-|------|-----|-----------|
+| File | URL | Size |
+|------|-----|------|
 | BasicCompanyDataAsOneFile | https://download.companieshouse.gov.uk/en_output.html | ~600MB ZIP |
 | PSC Snapshot | https://download.companieshouse.gov.uk/persons-with-significant-control-snapshot-2016-04-06.zip | ~2GB ZIP |
 | UK Sanctions OFSI | https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets | ~50MB |
 | ICIJ Offshore Leaks | https://offshoreleaks.icij.org/pages/database | ~500MB ZIP |
 
-Posiziona i file nella cartella `dati/`.
+Place the files in the `dati/` folder.
 
-### Import (ordine obbligatorio)
+### Import (required order)
 
 ```bash
-# ~5 minuti
+# ~5 minutes
 python scripts/import_sanctions.py
 
-# ~1 ora
+# ~1 hour
 python scripts/import_icij.py
 
-# ~1-2 ore
+# ~1-2 hours
 python scripts/import_companies.py
 
-# ~2-3 ore (streaming, può essere interrotto e ripreso)
+# ~2-3 hours (streaming, can be interrupted and resumed)
 python scripts/import_psc.py
 ```
 
-Ogni script mostra una progress bar e può essere interrotto con Ctrl+C. Alla ripresa, continua dal punto dove si era fermato (resume automatico via tabella staging).
+Each script shows a progress bar and can be interrupted with Ctrl+C. On restart, it continues from where it stopped (automatic resume via staging table).
 
 ---
 
-## 7. Avvio applicazione
+## 7. Starting the application
 
 ```bash
 python src/main.py
 ```
 
-Al primo avvio, il ServiceRegistry verifica la disponibilità di tutti i servizi e mostra lo stato nella status bar. Le funzionalità che richiedono servizi non disponibili vengono disabilitate automaticamente.
+On first launch, the ServiceRegistry checks the availability of all services and displays the status in the status bar. Features that require unavailable services are automatically disabled.
 
 ---
 
-## Risoluzione problemi
+## Troubleshooting
 
-**`docker compose up` fallisce con errore WSL2**
-→ Riavvia Docker Desktop. Se persiste: Settings → Troubleshoot → Reset to factory defaults.
+**`docker compose up` fails with WSL2 error**
+→ Restart Docker Desktop. If it persists: Settings → Troubleshoot → Reset to factory defaults.
 
-**Import PSC va in OOM (out of memory)**
-→ Ridurre il chunk size: `python scripts/import_psc.py --chunk-size 5000`
+**PSC import runs out of memory (OOM)**
+→ Reduce the chunk size: `python scripts/import_psc.py --chunk-size 5000`
 
-**`bash scripts/setup_db.sh` non trovato**
-→ Usa Git Bash: `"C:\Program Files\Git\bin\bash.exe" scripts/setup_db.sh`
+**`bash scripts/setup_db.sh` not found**
+→ Use Git Bash: `"C:\Program Files\Git\bin\bash.exe" scripts/setup_db.sh`
 
-**Mappa non si carica (tiles mancanti)**
-→ Nominatim non è ancora pronto. Attendi il completamento del download OSM UK (~1h dal primo avvio Docker).
+**Map does not load (missing tiles)**
+→ Nominatim is not ready yet. Wait for the UK OSM download to complete (~1h from the first Docker start).
 
-**PostgreSQL non raggiungibile**
-→ Verifica che Docker stia girando e che il container `aethelburg-postgres` sia in stato `Up`:
+**PostgreSQL unreachable**
+→ Verify that Docker is running and that the `aethelburg-postgres` container is in `Up` state:
 ```bash
 docker compose ps
 docker compose logs postgres
 ```
 
-**Errore `age: function not found`**
-→ Apache AGE non è stato installato correttamente. Riesegui:
+**Error `age: function not found`**
+→ Apache AGE was not installed correctly. Re-run:
 ```bash
 bash scripts/setup_db.sh
 ```
 
 ---
 
-## Disinstallazione
+## Uninstallation
 
 ```bash
-# Ferma e rimuovi i container Docker
+# Stop and remove Docker containers
 docker compose down -v
 
-# Rimuovi l'ambiente virtuale
+# Remove the virtual environment
 rmdir /s .venv
 
-# I dati in dati/ e il DB PostgreSQL rimangono su disco
-# Per rimuovere anche il volume Docker:
+# Data in dati/ and the PostgreSQL DB remain on disk
+# To also remove the Docker volume:
 docker volume rm aethelburg_postgres_data
 ```

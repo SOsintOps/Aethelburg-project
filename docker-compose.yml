@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.db
+    image: aethelburg-db:latest
+    container_name: aethelburg_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aethelburg}
+      POSTGRES_USER: ${POSTGRES_USER:-aethelburg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - aethelburg_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aethelburg} -d ${POSTGRES_DB:-aethelburg}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  nominatim:
+    image: mediagis/nominatim:4.4
+    container_name: aethelburg_nominatim
+    restart: unless-stopped
+    environment:
+      PBF_URL: ${NOMINATIM_PBF_URL:-https://download.geofabrik.de/europe/great-britain-latest.osm.pbf}
+      REPLICATION_URL: ${NOMINATIM_REPLICATION_URL:-https://planet.openstreetmap.org/replication/hour/}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - aethelburg_nominatim:/nominatim/data
+    profiles:
+      - geocoding
+    # Avvio opzionale: docker-compose --profile geocoding up nominatim
+
+  # RuVector — opzionale, attivare solo con >10M vettori (ADR-001)
+  # ruvector:
+  #   image: ruvnet/ruvector:latest
+  #   container_name: aethelburg_ruvector
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:7070:7070"
+  #   volumes:
+  #     - aethelburg_ruvector:/data
+  #   profiles:
+  #     - ruvector
+
+volumes:
+  aethelburg_pgdata:
+    driver: local
+  aethelburg_nominatim:
+    driver: local
+  # aethelburg_ruvector:
+  #   driver: local

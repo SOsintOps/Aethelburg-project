@@ -1,75 +1,75 @@
-# Note legali — Aethelburg
+# Legal notes — Aethelburg
 
-## Fonti dati: analisi delle licenze
+## Data sources: licence analysis
 
 ### Companies House
-- **Licenza**: Open Government Licence v3.0 (OGL)
+- **Licence**: Open Government Licence v3.0 (OGL)
 - **URL**: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
-- **Uso commerciale**: Consentito con attribuzione
-- **Redistribuzione**: Consentita con attribuzione
-- **Note**: Aethelburg non ridistribuisce i dati. Uso locale conforme a OGL.
+- **Commercial use**: Permitted with attribution
+- **Redistribution**: Permitted with attribution
+- **Notes**: Aethelburg does not redistribute the data. Local use is compliant with OGL.
 
 ### PSC (Persons with Significant Control)
-- **Fonte**: Companies House (stesso regime OGL)
-- **Contenuto**: Dati personali di persone fisiche (nome, DOB parziale, nazionalità)
+- **Source**: Companies House (same OGL regime)
+- **Contents**: Personal data of natural persons (name, partial DOB, nationality)
 - **Regime**: UK GDPR / Data Protection Act 2018
-- **Esenzione applicabile**: Art. 2(2)(c) UK GDPR — attività a carattere esclusivamente personale o domestico
-- **Limite**: L'esenzione domestica NON copre la comunicazione a terzi né le query API con dati personali verso server esterni.
+- **Applicable exemption**: Art. 2(2)(c) UK GDPR — activities of a purely personal or domestic nature
+- **Limit**: The domestic exemption does NOT cover disclosure to third parties or API queries containing personal data sent to external servers.
 
 ### ICIJ Offshore Leaks Database
-- **Licenza**: Creative Commons Attribution-NonCommercial (CC-BY-NC)
+- **Licence**: Creative Commons Attribution-NonCommercial (CC-BY-NC)
 - **URL**: https://offshoreleaks.icij.org/pages/legal
-- **Uso commerciale**: Vietato
-- **Redistribuzione**: Consentita con attribuzione e per uso non commerciale
-- **Note**: ICIJ richiede attribuzione nelle pubblicazioni che utilizzano i dati.
+- **Commercial use**: Prohibited
+- **Redistribution**: Permitted with attribution and for non-commercial use
+- **Notes**: ICIJ requires attribution in publications that use the data.
 
 ### OpenSanctions
-- **Licenza**: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC-BY-NC-SA)
+- **Licence**: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC-BY-NC-SA)
 - **URL**: https://www.opensanctions.org/licensing/
-- **Uso commerciale**: Vietato
-- **Redistribuzione**: Consentita con attribuzione, stessa licenza (share-alike)
-- **Conflitto**: In caso di distribuzione di dataset combinati OGL + CC-BY-NC-SA, il dataset derivato deve essere CC-BY-NC-SA. Per uso personale non distribuito: nessun conflitto.
-- **Licenza commerciale**: Disponibile su richiesta a OpenSanctions.
+- **Commercial use**: Prohibited
+- **Redistribution**: Permitted with attribution, same licence (share-alike)
+- **Conflict**: When distributing combined OGL + CC-BY-NC-SA datasets, the derived dataset must be CC-BY-NC-SA. For personal non-distributed use: no conflict.
+- **Commercial licence**: Available on request from OpenSanctions.
 
 ### FollowTheMoney (FtM)
-- **Licenza**: MIT
-- **Autore**: OCCRP (Organized Crime and Corruption Reporting Project)
-- **Uso commerciale**: Consentito
-- **Note**: Libreria Python, non dataset.
+- **Licence**: MIT
+- **Author**: OCCRP (Organized Crime and Corruption Reporting Project)
+- **Commercial use**: Permitted
+- **Notes**: Python library, not a dataset.
 
 ### FT3 Framework (Stripe)
-- **Licenza**: MIT
+- **Licence**: MIT
 - **URL**: https://github.com/stripe/ft3
-- **Note**: Knowledge base JSON/CSV, non libreria eseguibile. MIT permette uso libero.
+- **Notes**: JSON/CSV knowledge base, not an executable library. MIT permits free use.
 
 ### sentence-transformers / all-MiniLM-L6-v2
-- **Licenza**: Apache 2.0
-- **Uso commerciale**: Consentito
+- **Licence**: Apache 2.0
+- **Commercial use**: Permitted
 
 ---
 
-## UK GDPR: analisi dell'esenzione domestica
+## UK GDPR: domestic exemption analysis
 
-Il trattamento dei dati PSC rientra nell'esenzione domestica (Art. 2(2)(c) UK GDPR) a condizione che:
+The processing of PSC data falls within the domestic exemption (Art. 2(2)(c) UK GDPR) provided that:
 
-1. Il trattamento avvenga su macchina locale (non cloud)
-2. I risultati non vengano condivisi con terzi
-3. I dati non vengano usati per prendere decisioni che impattano direttamente individui
-4. Le query API verso servizi esterni non contengano dati di persone fisiche identificabili
+1. Processing takes place on a local machine (not cloud)
+2. Results are not shared with third parties
+3. Data is not used to make decisions that directly affect individuals
+4. API queries to external services do not contain identifiable personal data
 
-**Zone grigie**:
-- Query API verso Companies House, OpenCorporates o altri servizi con parametri di ricerca contenenti nomi di persone fisiche = trasferimento di dati fuori dal perimetro domestico. Non coperto dall'esenzione.
-- Output aggregati (es. "top 10 direttori più comuni nelle aziende sanzionate") = probabilmente coperto dall'esenzione se rimane personale.
+**Grey areas**:
+- API queries to Companies House, OpenCorporates or other services with search parameters containing names of natural persons = transfer of data outside the domestic perimeter. Not covered by the exemption.
+- Aggregated output (e.g. "top 10 most common directors in sanctioned companies") = probably covered by the exemption if it remains personal.
 
-**Raccomandazione**: Usare preferibilmente dataset locali (bulk download) per ricerche su persone fisiche, evitando query nominative verso API esterne.
+**Recommendation**: Prefer local datasets (bulk download) for searches on natural persons, avoiding nominative queries to external APIs.
 
 ---
 
-## Nota sull'uso investigativo
+## Note on investigative use
 
-Aethelburg produce indicazioni di rischio statistico, non evidenze legali. Un risk score elevato indica anomalie meritevoli di approfondimento, non certezza di illecito. L'utente è responsabile della verifica delle informazioni prima di trarre conclusioni o intraprendere azioni.
+Aethelburg produces statistical risk indicators, not legal evidence. A high risk score indicates anomalies worthy of further investigation, not certainty of wrongdoing. The user is responsible for verifying information before drawing conclusions or taking action.
 
-Il sistema non è progettato né autorizzato per:
-- Prendere decisioni automatiche che impattano diritti di persone fisiche
-- Essere usato come strumento di sorveglianza
-- Produrre evidenze per procedimenti legali senza verifica indipendente
+The system is neither designed nor authorised to:
+- Make automated decisions affecting the rights of natural persons
+- Be used as a surveillance tool
+- Produce evidence for legal proceedings without independent verification
