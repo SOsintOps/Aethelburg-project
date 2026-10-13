@@ -34,15 +34,15 @@ Download from https://docs.docker.com/desktop/install/windows-install/
 
 ```bash
 # Clone the repository
-git clone https://github.com/tuousername/aethelburg.git
-cd aethelburg
+git clone https://github.com/SOsintOps/Aethelburg-project.git
+cd Aethelburg-project
 
 # Create and activate the virtual environment
 python -m venv .venv
 .venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ---
@@ -83,15 +83,6 @@ The first start downloads Docker images (~2GB). Nominatim also downloads UK OSM 
 ```bash
 # Apply Alembic migrations (creates the schema)
 python -m alembic upgrade head
-
-# Install PostgreSQL extensions
-bash scripts/setup_db.sh
-```
-
-If `bash` errors occur on Windows, use Git Bash or WSL2:
-```bash
-# With Git Bash
-"C:\Program Files\Git\bin\bash.exe" scripts/setup_db.sh
 ```
 
 ---
@@ -113,16 +104,16 @@ Place the files in the `dati/` folder.
 
 ```bash
 # ~5 minutes
-python scripts/import_sanctions.py
+python -m src.etl.import_sanctions
 
 # ~1 hour
-python scripts/import_icij.py
+python -m src.etl.import_icij
 
 # ~1-2 hours
-python scripts/import_companies.py
+python -m src.etl.import_companies
 
 # ~2-3 hours (streaming, can be interrupted and resumed)
-python scripts/import_psc.py
+python -m src.etl.import_psc
 ```
 
 Each script shows a progress bar and can be interrupted with Ctrl+C. On restart, it continues from where it stopped (automatic resume via staging table).
@@ -132,7 +123,7 @@ Each script shows a progress bar and can be interrupted with Ctrl+C. On restart,
 ## 7. Starting the application
 
 ```bash
-python src/main.py
+python -m src.main
 ```
 
 On first launch, the ServiceRegistry checks the availability of all services and displays the status in the status bar. Features that require unavailable services are automatically disabled.
@@ -147,9 +138,6 @@ On first launch, the ServiceRegistry checks the availability of all services and
 **PSC import runs out of memory (OOM)**
 → Reduce the chunk size: `python scripts/import_psc.py --chunk-size 5000`
 
-**`bash scripts/setup_db.sh` not found**
-→ Use Git Bash: `"C:\Program Files\Git\bin\bash.exe" scripts/setup_db.sh`
-
 **Map does not load (missing tiles)**
 → Nominatim is not ready yet. Wait for the UK OSM download to complete (~1h from the first Docker start).
 
@@ -161,9 +149,9 @@ docker compose logs postgres
 ```
 
 **Error `age: function not found`**
-→ Apache AGE was not installed correctly. Re-run:
+→ Apache AGE was not installed correctly. Re-run the Alembic migrations:
 ```bash
-bash scripts/setup_db.sh
+python -m alembic upgrade head
 ```
 
 ---

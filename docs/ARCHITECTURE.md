@@ -24,7 +24,7 @@
     ┌─────▼────┐   ┌──────▼─────┐  ┌──────▼──────┐
     │PostgreSQL│   │  RuVector  │  │  Nominatim  │
     │  :5432   │   │  (Docker)  │  │  (Docker)   │
-    │+PostGIS  │   │   :8080    │  │   :7070     │
+    │+PostGIS  │   │   :7070    │  │   :8080     │
     │+pgvector │   │  (optional)│  │             │
     │+AGE      │   └────────────┘  └─────────────┘
     └──────────┘
@@ -68,17 +68,17 @@ entities            -- Core FtM table (Company, Person, Address...)
   └── annotations   -- Investigator notes
 
 companies           -- CH fields extracted for fast querying
-pscs                -- Relational PSCs extracted from JSONL
-officers            -- Directors (populated from API on-demand)
-sanctions_entries   -- UK Sanctions + OpenSanctions
-icij_nodes          -- ICIJ Offshore Leaks entities
+psc_ownerships      -- Relational PSCs extracted from JSONL
+directorships       -- Directors (populated from API on-demand)
+sanctions           -- UK Sanctions + OpenSanctions
+icij_entities       -- ICIJ Offshore Leaks entities
+icij_officers       -- ICIJ officers
 icij_relationships  -- ICIJ relationships (officer_of, registered_address, ...)
 
-investigations      -- Saved investigation sessions
-  └── inv_entities  -- Entities included in the investigation
+investigations      -- Saved investigation sessions (casework schema)
+  └── investigation_entities -- Entities included in the investigation
 
-api_cache           -- API call cache with TTL
-postcode_centroids  -- ONSPD: UK PostCode centroids
+geo_postcode_centroids -- ONSPD: UK PostCode centroids
 ```
 
 ---
@@ -150,7 +150,7 @@ Python 3.12
 
 ## Architectural decisions
 
-See [architectural_decisions.md](../memory/architectural_decisions.md) for the full list of ADRs (Architecture Decision Records) with rationale.
+See [CHANGELOG.md](../CHANGELOG.md) for the full list of ADRs (Architecture Decision Records) with rationale.
 
 Key decisions:
 - **ADR-001**: pgvector as default, RuVector optional (>10M vectors)

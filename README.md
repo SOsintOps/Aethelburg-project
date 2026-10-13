@@ -68,15 +68,15 @@ The system applies detection patterns based on FT3 (Stripe Fraud Tactics Techniq
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/tuousername/aethelburg.git
-cd aethelburg
+git clone https://github.com/SOsintOps/Aethelburg-project.git
+cd Aethelburg-project
 
 # 2. Create the virtual environment
 python -m venv .venv
 .venv\Scripts\activate
 
 # 3. Install dependencies
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 # 4. Copy and configure environment variables
 copy .env.example .env
@@ -87,10 +87,9 @@ docker compose up -d
 
 # 6. Initialise the database
 python -m alembic upgrade head
-bash scripts/setup_db.sh
 
 # 7. Start the application
-python src/main.py
+python -m src.main
 ```
 
 ---
@@ -102,10 +101,10 @@ The import order is **sequential and mandatory** (FK dependencies):
 ```bash
 # Estimated total time: 4-6 hours (consumer hardware NVMe SSD, 16GB RAM)
 
-python scripts/import_sanctions.py     # UK Sanctions OFSI (~5 min)
-python scripts/import_icij.py          # ICIJ Offshore Leaks (~1h)
-python scripts/import_companies.py     # Companies House 5.67M (~1-2h)
-python scripts/import_psc.py           # PSC Snapshot 15M (~2-3h)
+python -m src.etl.import_sanctions     # UK Sanctions OFSI (~5 min)
+python -m src.etl.import_icij          # ICIJ Offshore Leaks (~1h)
+python -m src.etl.import_companies     # Companies House 5.67M (~1-2h)
+python -m src.etl.import_psc           # PSC Snapshot 15M (~2-3h)
 ```
 
 Companies House data can be downloaded from:
@@ -132,7 +131,7 @@ aethelburg/
 ├── docs/                   # Documentation
 ├── docker-compose.yml
 ├── .env.example
-└── requirements.txt
+└── pyproject.toml
 ```
 
 ---

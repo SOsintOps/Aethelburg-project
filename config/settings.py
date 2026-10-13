@@ -9,8 +9,10 @@ Ordine di precedenza (dal basso = maggiore priorità):
 """
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from pydantic import Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +26,7 @@ class DatabaseSettings(BaseSettings):
     name: str = Field(default="aethelburg", alias="POSTGRES_DB")
     user: str = Field(default="aethelburg", alias="POSTGRES_USER")
     password: str = Field(default="", alias="POSTGRES_PASSWORD")
+    ssl_mode: str = Field(default="prefer", alias="POSTGRES_SSLMODE")
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -32,12 +35,18 @@ class DatabaseSettings(BaseSettings):
         populate_by_name=True,
     )
 
+    @model_validator(mode="after")
+    def _validate_password(self) -> "DatabaseSettings":
+        if not self.password and os.environ.get("APP_ENV", "development") != "development":
+            raise ValueError("POSTGRES_PASSWORD must be set in non-development environments")
+        return self
+
     @computed_field
     @property
     def async_url(self) -> str:
         return (
-            f"postgresql+asyncpg://{self.user}:{self.password}"
-            f"@{self.host}:{self.port}/{self.name}"
+            f"postgresql+asyncpg://{quote_plus(self.user)}:{quote_plus(self.password)}"
+            f"@{self.host}:{self.port}/{self.name}?sslmode={self.ssl_mode}"
         )
 
     @computed_field
@@ -45,8 +54,8 @@ class DatabaseSettings(BaseSettings):
     def sync_url(self) -> str:
         """URL sincrono per Alembic migrations."""
         return (
-            f"postgresql+psycopg2://{self.user}:{self.password}"
-            f"@{self.host}:{self.port}/{self.name}"
+            f"postgresql+psycopg2://{quote_plus(self.user)}:{quote_plus(self.password)}"
+            f"@{self.host}:{self.port}/{self.name}?sslmode={self.ssl_mode}"
         )
 
 
@@ -143,8 +152,11 @@ class Settings(BaseSettings):
                 stored = keyring.get_password("aethelburg", "ch_api_key")
                 if stored:
                     self.ch.api_key = stored
-        except Exception:
-            pass  # keyring non disponibile — usa variabili d'ambiente
+        except ImportError:
+            pass  # keyring not installed
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("keyring error: %s", e)
         return self
 
 

@@ -1,2 +1,17 @@
-other sources
-https://everypolitician.org/sources/
+# Aethelburg TODO
+# See CHANGELOG.md for full roadmap and phase planning
+
+## Phase 0 — Infrastructure (current)
+- [ ] Verify docker compose up -d db works with all extensions
+- [ ] Test Alembic migration on clean database
+- [ ] Create .env from .env.example and configure credentials
+
+## Phase 1 — Data Import
+- [ ] Implement src/etl/import_sanctions.py (smallest, validates pipeline)
+- [ ] Implement src/etl/import_icij.py (6 CSV files)
+- [ ] Implement src/etl/import_companies.py (COPY FROM STDIN, bulk)
+- [ ] Implement src/etl/import_psc.py (ijson streaming, 12GB)
+
+## Additional data sources to evaluate
+- [ ] EveryPolitician: https://everypolitician.org/sources/
+- [ ] ONSPD postcodes for geocoding

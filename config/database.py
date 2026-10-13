@@ -17,8 +17,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.pool import NullPool
-
 from config.settings import get_settings
 
 _engine = None
@@ -66,7 +64,8 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def dispose_engine() -> None:
     """Chiude il connection pool. Da chiamare allo shutdown dell'app."""
-    global _engine
+    global _engine, _session_factory
     if _engine is not None:
         await _engine.dispose()
         _engine = None
+    _session_factory = None

@@ -8,11 +8,15 @@ CLAUDE.local.md
 # Environment e segreti
 .env
 .env.*
+!.env.example
 *.env
 
-# File accidentali
-0.7)
-2.31
+# Credentials and keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.bak
 
 # Dati — file di grandi dimensioni, non versionare
 dati/
