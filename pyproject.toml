@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aethelburg"
-version = "0.1.0"
+version = "0.1.1"
 description = "Piattaforma desktop per analisi shell company — Companies House UK"
 readme = "README.md"
 license = { text = "MIT" }

@@ -64,8 +64,9 @@ CREATE TABLE casework.manual_links (
     target_type         TEXT NOT NULL,
     target_id           TEXT NOT NULL,
     relationship_label  TEXT NOT NULL,  -- "suspected_nominee", "same_person", etc.
-    confidence          TEXT DEFAULT 'medium'
-                            CHECK (confidence IN ('low','medium','high','confirmed')),
+    confidence          TEXT DEFAULT 'moderate'
+                            CHECK (confidence IN ('low','moderate','high')),
+    grade               TEXT,           -- UNODC 4 x 4 code of the supporting source, e.g. 'B2'
     evidence_note       TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (NOT (source_type = target_type AND source_id = target_id))
@@ -96,6 +97,8 @@ CREATE TABLE casework.generated_reports (
 );
 ```
 
+**Confidence and confirmation of manual links.** The design uses the vocabulary of the [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes): confidence is `high`, `moderate` or `low` ([Estimative Language](https://github.com/SOsintOps/intelligence-field-notes/blob/main/docs/estimative-language.md)), and a link is called *confirmed* only when its supporting source is graded A1, A2, B1 or B2 on the UNODC 4 x 4 scale ([Source Evaluation](https://github.com/SOsintOps/intelligence-field-notes/blob/main/docs/source-evaluation.md)); "confirmed" is therefore derived from the grade, not a fourth confidence level. **Implementation note:** the schema actually created by `migrations/versions/0001_initial_schema.py` (and `src/db/models.py`) stores `casework.manual_links.confidence` as a `FLOAT` from 0.0 to 1.0 (default 1.0) and has no `grade` column yet. Until the schema follows this design, a suggested mapping is: 0.8 and above = high, 0.5 to below 0.8 = moderate, below 0.5 = low, and record the source grade in `evidence_note`.
+
 ### PDF Generation
 
 **Primary engine**: WeasyPrint (HTML+CSS -> PDF, professional typographic quality)
@@ -110,7 +113,7 @@ Map and graph screenshots: `QWebEngineView.grab()` -> PNG base64 inline in HTML
 ### Report Structure (10 sections)
 
 1. Cover page (title, case number, date, classification, disclaimer)
-2. Executive summary (risk score gauge, FT3 flags, key findings)
+2. Bottom line (the answer first, then key judgements; risk score gauge and FT3 flags as supporting indicators — see [REPORT_WRITING.md](REPORT_WRITING.md))
 3. Primary entity (company profile, static map, SIC, shell indicators)
 4. PSC ownership structure (PSC table, risk-nationality flags, ownership tree)
 5. Network analysis (graph screenshot, betweenness/degree metrics)

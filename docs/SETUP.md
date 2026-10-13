@@ -100,6 +100,8 @@ python -m alembic upgrade head
 
 Place the files in the `dati/` folder.
 
+The OFSI Consolidated List closed on 28 January 2026 and is no longer updated: since then the FCDO [UK Sanctions List](https://www.gov.uk/government/publications/the-uk-sanctions-list) is the only UK source, and OpenSanctions (which includes it) is the primary sanctions source. An OFSI file is only an archive.
+
 ### Import (required order)
 
 ```bash

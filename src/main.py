@@ -6,7 +6,7 @@ def main() -> None:
     from src.core.logging import setup_logging
 
     setup_logging()
-    print("Aethelburg v0.1.0 — Shell Company Detection Platform")
+    print("Aethelburg v0.1.1 — Shell Company Detection Platform")
     print("Use --help for available commands")
     # UI initialization will be added in Phase 2b
 

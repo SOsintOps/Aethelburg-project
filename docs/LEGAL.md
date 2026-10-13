@@ -17,18 +17,18 @@
 - **Limit**: The domestic exemption does NOT cover disclosure to third parties or API queries containing personal data sent to external servers.
 
 ### ICIJ Offshore Leaks Database
-- **Licence**: Creative Commons Attribution-NonCommercial (CC-BY-NC)
-- **URL**: https://offshoreleaks.icij.org/pages/legal
-- **Commercial use**: Prohibited
-- **Redistribution**: Permitted with attribution and for non-commercial use
-- **Notes**: ICIJ requires attribution in publications that use the data.
+- **Licence**: Open Database License (ODbL 1.0) for the database; Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0) for its contents
+- **URL**: https://offshoreleaks.icij.org/pages/database
+- **Commercial use**: Not prohibited by the licences, subject to attribution and share-alike
+- **Redistribution**: Permitted with attribution, under the same licences (share-alike)
+- **Notes**: ICIJ asks to always cite the International Consortium of Investigative Journalists when using the data.
 
 ### OpenSanctions
-- **Licence**: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC-BY-NC-SA)
+- **Licence**: Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0)
 - **URL**: https://www.opensanctions.org/licensing/
-- **Commercial use**: Prohibited
-- **Redistribution**: Permitted with attribution, same licence (share-alike)
-- **Conflict**: When distributing combined OGL + CC-BY-NC-SA datasets, the derived dataset must be CC-BY-NC-SA. For personal non-distributed use: no conflict.
+- **Commercial use**: Prohibited without a commercial licence
+- **Redistribution**: Permitted with attribution, for non-commercial use
+- **Conflict**: A distributed dataset combining OGL data with OpenSanctions data inherits the non-commercial restriction, and one combining it with ICIJ data inherits the ICIJ share-alike terms. For personal non-distributed use: no conflict.
 - **Commercial licence**: Available on request from OpenSanctions.
 
 ### FollowTheMoney (FtM)

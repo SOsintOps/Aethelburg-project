@@ -9,11 +9,11 @@ How to turn what Aethelburg finds into a written report on a company or a networ
 The 0–100 risk score measures how far a company departs from the norm on up to eight detection patterns, each tagged with an [FT3](https://github.com/stripe/ft3) technique. It is an anomaly indicator, not a probability and not a finding.
 - **Never translate the score into a likelihood word.** A score of 85 does not mean "very likely a shell company". The likelihood term is the analyst's judgement after looking at the flags, the filings and the alternatives.
 - **Explain the flags, not the number.** The reader needs to know which patterns fired and why they matter for this company, not the composite.
-- **Name the innocent explanations.** A shared address is often a formation agent; a dormant company with a foreign director is often just that. List the alternatives you checked and why you rejected them (ICD 203 tradecraft standard 4).
+- **Name the innocent explanations.** A shared address is often a formation agent; a dormant company with a foreign director is often just that. List the alternatives you checked and why you rejected them ([ICD 203](https://www.dni.gov/files/documents/ICD/ICD-203.pdf) tradecraft standard 4, analysis of alternatives).
 
 ## Sources and how to grade them
 
-Grade every item with the UNODC 4 x 4 system (source A, B, C or X; information 1 to 4), as in [Source Evaluation](https://github.com/SOsintOps/intelligence-field-notes/blob/main/docs/source-evaluation.md).
+Grade every item with the UNODC 4 x 4 system of the [*Criminal Intelligence: Manual for Analysts*](https://www.unodc.org/documents/organized-crime/Law-Enforcement/Criminal_Intelligence_for_Analysts.pdf) (source A, B, C or X; information 1 to 4), as in [Source Evaluation](https://github.com/SOsintOps/intelligence-field-notes/blob/main/docs/source-evaluation.md).
 
 | Source | How to treat it |
 | :--- | :--- |
@@ -28,7 +28,7 @@ Grade every item with the UNODC 4 x 4 system (source A, B, C or X; information 1
 
 The ten sections of the designed PDF follow the order of [Report Writing](https://github.com/SOsintOps/intelligence-field-notes/blob/main/docs/report-writing.md), with these choices:
 1. **Cover:** case number, date, version, handling marking (for example `TLP:AMBER`), and the personal-data notice.
-2. **Bottom line** (the "executive summary" of the design): the question and the answer in three to five sentences, opening on the judgement, for example "Company X is very likely a nominee vehicle…", not on the score or on the incorporation date. The risk gauge supports this section; it does not replace it.
+2. **Bottom line** (section 2 of the design): the question and the answer in three to five sentences, opening on the judgement, for example "Company X is very likely a nominee vehicle…", not on the score or on the incorporation date. The risk gauge supports this section; it does not replace it.
 3. **Primary entity**, 4. **ownership**, 5. **network**, 6. **sanctions and adverse matches**, 7. **geography**, 8. **timeline**: the findings, each with its sources and grades.
 9. **FT3 flags:** each flag with its technique ID, what triggered it and the innocent explanation considered.
 10. **Analyst's assessment:** the judgements (likelihood or confidence, never both in one sentence), the alternatives, the gaps and what would close them. The design calls this section "investigator annotations"; it is where the analysis lives, so it should carry the analyst's name and date.

@@ -142,8 +142,8 @@ aethelburg/
 | Dataset | Licence | Notes |
 |---------|---------|-------|
 | Companies House | OGL v3 | Open Government Licence |
-| ICIJ Offshore Leaks | CC-BY-NC | Non-commercial use only |
-| OpenSanctions | CC-BY-NC-SA | Share-alike, non-commercial |
+| ICIJ Offshore Leaks | ODbL 1.0 (database), CC BY-SA 3.0 (contents) | Attribution to ICIJ, share-alike |
+| OpenSanctions | CC BY-NC 4.0 | Non-commercial; commercial licence from OpenSanctions |
 | FollowTheMoney | MIT | OCCRP |
 | [FT3](https://github.com/stripe/ft3) Framework | MIT | Stripe |
 
@@ -154,7 +154,7 @@ See [docs/LEGAL.md](docs/LEGAL.md) for the full licence analysis.
 ## Documentation and related projects
 
 - [FAQ](docs/FAQ.md) · [Report writing](docs/REPORT_WRITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Design: intelligence](docs/DESIGN_INTELLIGENCE.md) · [Ontology](docs/ONTOLOGY.md) · [Data sources](docs/DATA_SOURCES.md) · [Setup](docs/SETUP.md) · [Legal](docs/LEGAL.md)
-- Related SOsintOps projects: [Quaesitor](https://github.com/SOsintOps/quaesitor) (case graph with Follow the Money relations), [Wukong](https://github.com/SOsintOps/Wukong) (Chinese corporate due diligence), [Argos](https://github.com/SOsintOps/Argos) and [Speculator](https://github.com/SOsintOps/Speculator-Project) (OSINT workstations), [Exploratores](https://github.com/SOsintOps/Exploratores) (browser toolkit with company-register searches), [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) (the shared method)
+- Related SOsintOps projects: [Quaesitor](https://github.com/SOsintOps/quaesitor) (case graph with Follow the Money relations), [Wukong](https://github.com/SOsintOps/Wukong) (Chinese corporate due diligence), [Argos](https://github.com/SOsintOps/Argos) and [Speculator](https://github.com/SOsintOps/Speculator-Project) (OSINT workstations), [Exploratores](https://github.com/SOsintOps/Exploratores) (browser toolkit with company-register searches), [Claudii Exploratores](https://github.com/SOsintOps/claudii-exploratores) (the same catalogue as a Claude agent skill), [Acta Diurna](https://github.com/SOsintOps/acta-diurna) (Italian law-enforcement news dashboard), [Il Conclave](https://github.com/SOsintOps/il-conclave) (ACH and premortem as an AI skill, in Italian), [Codex Machinae](https://github.com/SOsintOps/codex-machinae) (playbook for building software with LLMs, including FT3), [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) (the shared method)
 
 ---
 

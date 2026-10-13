@@ -60,9 +60,9 @@ Technical notes:
 **Format**: Semicolon-delimited, ~57K rows (one row per alias/address)
 **Size**: 47MB
 **Licence**: OGL v3
-**Status**: OBSOLETE — OFSI stopped updating on 28 January 2026
+**Status**: CLOSED — the OFSI Consolidated List closed on 28 January 2026 and is no longer updated. From that date the FCDO [UK Sanctions List](https://www.gov.uk/government/publications/the-uk-sanctions-list) is the only source for all UK sanctions designations.
 
-⚠️ Use OpenSanctions as the primary source for UK sanctions.
+⚠️ Use OpenSanctions (which includes the UK Sanctions List) as the primary source for UK sanctions; the notes below apply only to archived OFSI files.
 
 Technical notes:
 - Row 0: `Report Date: DD-MM-YYYY` — must be skipped
@@ -78,10 +78,10 @@ Technical notes:
 **Format**: FtM JSON (FollowTheMoney)
 **Size**: ~2GB
 **Update**: Daily
-**Licence**: CC-BY-NC-SA 4.0 (non-commercial, share-alike)
+**Licence**: [CC BY-NC 4.0](https://www.opensanctions.org/licensing/) (Creative Commons Attribution-NonCommercial; commercial use requires a licence from OpenSanctions)
 
 Includes:
-- UK FCDO Sanctions (OFSI replacement from February 2026)
+- UK Sanctions List (FCDO; sole UK source since the OFSI list closed on 28 January 2026)
 - OFAC (USA)
 - EU Consolidated Sanctions
 - 326 other global sources
@@ -96,7 +96,7 @@ Free bulk download for non-commercial use. Registration recommended for API key 
 **Format**: CSV (5 files)
 **Size**: ~500MB ZIP
 **Update**: Periodic (not daily)
-**Licence**: CC-BY-NC
+**Licence**: [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/) for the database, [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) for its contents (see the [ICIJ database page](https://offshoreleaks.icij.org/pages/database)); cite ICIJ as the source
 
 Included files:
 | File | Records | Size |

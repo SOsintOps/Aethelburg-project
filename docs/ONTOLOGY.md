@@ -214,9 +214,11 @@ Link between a local entity and a sanctioned record.
     list_name: string,            -- 'UK FCDO' | 'OFAC' | 'EU' | ...
     match_score: float,
     match_method: string,         -- 'fingerprint_exact' | 'fuzzy' | 'phonetic'
-    confidence: string            -- 'confirmed' | 'probable' | 'possible'
+    confidence: string,           -- 'high' | 'moderate' | 'low'
+    grade: string                 -- UNODC 4 x 4 code, e.g. 'A1'; 'confirmed' = A1, A2, B1 or B2
 }]->(sanctioned_entity)
 ```
+Vocabulary follows the [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes): confidence is `high`, `moderate` or `low`, and "confirmed" is not a confidence level but a property derived from the grade ([Source Evaluation](https://github.com/SOsintOps/intelligence-field-notes/blob/main/docs/source-evaluation.md)). Words such as "probable" or "possible" are not used, because they read as likelihood terms. This edge is a design: the current code (`src/`, migration `0001`) does not yet create a `SANCTIONED` edge with these properties.
 
 #### `ICIJ_OFFICER_OF`
 Role of an ICIJ officer in an offshore entity.

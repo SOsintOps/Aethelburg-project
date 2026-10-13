@@ -7,7 +7,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — Next release: v0.1.0
+## [0.1.1] — 2026-10-13
+
+### Documentation
+- **Changed:** intelligence vocabulary aligned with the [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes): confidence is `high`, `moderate` or `low`; "confirmed" applies only to links graded A1, A2, B1 or B2 (UNODC 4 x 4), not as a confidence level. `DESIGN_INTELLIGENCE.md` (manual links) and `ONTOLOGY.md` (`SANCTIONED` edge, which no longer uses "probable"/"possible") updated, with a note on how the implemented `FLOAT` confidence of `casework.manual_links` maps to the three levels.
+- **Changed:** report section 2 is the **Bottom line**, not an executive summary, as in `REPORT_WRITING.md`; ICD 203 and the UNODC manual linked at first mention.
+- **Fixed:** licences verified at source: OpenSanctions is CC BY-NC 4.0 (not CC BY-NC-SA); the ICIJ Offshore Leaks database is under the Open Database License with contents under CC BY-SA 3.0 (not CC BY-NC). `DATA_SOURCES.md`, `LEGAL.md`, README and FAQ corrected.
+- **Fixed:** the OFSI Consolidated List closed on 28 January 2026; the FCDO UK Sanctions List is the only UK source. `DATA_SOURCES.md`, `SETUP.md` and FAQ updated.
+- **Docs:** FAQ restructured with a table of contents; related projects now include Codex Machinae, Acta Diurna, Il Conclave and Claudii Exploratores.
+
+---
+
+## [0.1.0] — Phase 0 baseline
 
 ### Added
 - Initial project structure with complete documentation
