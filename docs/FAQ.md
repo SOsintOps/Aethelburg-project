@@ -32,7 +32,7 @@ OpenSanctions publishes daily updates. The system automatically downloads the da
 No — OFSI stopped updating the Consolidated List on 28 January 2026. Aethelburg uses OpenSanctions as the primary source, which includes UK FCDO Sanctions, OFAC and 327 other global sources.
 
 **Q: Are ICIJ Offshore Leaks data updated automatically?**
-No. ICIJ publishes periodic but not daily updates. Check https://offshoreleaks.icij.org/ for new releases and re-run `scripts/import_icij.py` manually.
+No. ICIJ publishes periodic but not daily updates. Check https://offshoreleaks.icij.org/ for new releases and re-run `python -m src.etl.import_icij` manually.
 
 **Q: Why do many companies have no coordinates on the map?**
 Full geocoding of 5.67M addresses would take weeks with local Nominatim. Aethelburg uses two approaches: (1) PostCode centroids from the ONSPD dataset (immediate ~90% coverage) and (2) precise on-demand geocoding via Nominatim when the user opens a company record.
@@ -53,6 +53,12 @@ It depends on the pattern. The "shared address" pattern alone produces many fals
 **Q: How does sanctions matching work when there is no company number?**
 The `business_registration_number` field in the OFSI file is always empty. Matching is done by name (normalisation + Levenshtein/Jaro-Winkler). The result is expressed as a confidence score, not a definitive match. Confidence < 0.7 is shown as "possible match".
 
+**Q: Does a high risk score mean a company is a shell?**
+No. The score measures anomalies; the judgement is the analyst's. Explain which FT3 flags fired and why, name the innocent explanations you checked (formation agents, dormant companies, family businesses), and only then state a likelihood. See [REPORT_WRITING.md](REPORT_WRITING.md#the-risk-score-is-not-a-judgement).
+
+**Q: How do I write up an investigation?**
+With the bottom line first, every finding graded with the UNODC 4 x 4 system, name matches reported as "possible match" until a second identifier confirms them, and personal data kept out of anything that leaves your machine. [REPORT_WRITING.md](REPORT_WRITING.md) applies to corporate investigation the [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes), the method shared by the SOsintOps tools.
+
 **Q: Can the system identify circular ownership?**
 Yes, via Apache AGE (graph database integrated in PostgreSQL). Cypher queries search for `(A)-[:CONTROLS*1..5]->(A)` patterns (cycles). This works only when officer data is available to form the complete chain.
 
@@ -68,6 +74,19 @@ PSC data contains personal data (name, partial DOB, nationality). The domestic e
 
 **Q: Can I use Aethelburg for professional or commercial purposes?**
 Not in the current configuration. The CC-BY-NC licences of OpenSanctions and ICIJ prohibit commercial use. For professional use, contact OpenSanctions directly for a commercial licence.
+
+---
+
+## Related projects
+
+**Q: Are there related SOsintOps projects?**
+Yes:
+- [Quaesitor](https://github.com/SOsintOps/quaesitor): a local case graph whose Follow the Money relations (ownership with percentage, directorship, payment) draw the same chains by hand.
+- [Wukong](https://github.com/SOsintOps/Wukong): the China-focused workstation, whose due-diligence layer starts where a UK ownership chain reaches a Chinese company.
+- [Argos](https://github.com/SOsintOps/Argos) and [Speculator](https://github.com/SOsintOps/Speculator-Project): OSINT workstations with report templates.
+- [Exploratores](https://github.com/SOsintOps/Exploratores): a browser toolkit with company-register searches for several countries.
+- [Elementary CTI](https://github.com/SOsintOps/elementary-CTI): ransomware threat intelligence, for when a company under review turns up as a victim.
+- [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes): the method all of them share.
 
 ---
 

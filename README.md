@@ -23,7 +23,7 @@ Aethelburg automatically cross-references six public data sources to produce a r
 | Companies House API | Officers/directors for high-risk companies |
 | Nominatim / ONSPD | Address geocoding and spatial analysis |
 
-The system applies detection patterns based on FT3 (Stripe Fraud Tactics Techniques) and produces a composite risk score for each company.
+The system applies detection patterns based on [FT3](https://github.com/stripe/ft3) (Stripe's Fraud Tools, Tactics, and Techniques framework) and produces a composite risk score for each company.
 
 ---
 
@@ -51,6 +51,7 @@ The system applies detection patterns based on FT3 (Stripe Fraud Tactics Techniq
 - FtM JSON export (Aleph / OCCRP compatible)
 - Graph export: GEXF (Gephi), GraphML, GeoJSON
 - Case management: save investigative sessions with annotations
+- How to write the report (risk score versus judgement, grading the register, sanctions and leak sources, personal data): [docs/REPORT_WRITING.md](docs/REPORT_WRITING.md), applying the [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) shared by the SOsintOps tools
 
 ---
 
@@ -144,9 +145,16 @@ aethelburg/
 | ICIJ Offshore Leaks | CC-BY-NC | Non-commercial use only |
 | OpenSanctions | CC-BY-NC-SA | Share-alike, non-commercial |
 | FollowTheMoney | MIT | OCCRP |
-| FT3 Framework | MIT | Stripe |
+| [FT3](https://github.com/stripe/ft3) Framework | MIT | Stripe |
 
 See [docs/LEGAL.md](docs/LEGAL.md) for the full licence analysis.
+
+---
+
+## Documentation and related projects
+
+- [FAQ](docs/FAQ.md) · [Report writing](docs/REPORT_WRITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Design: intelligence](docs/DESIGN_INTELLIGENCE.md) · [Ontology](docs/ONTOLOGY.md) · [Data sources](docs/DATA_SOURCES.md) · [Setup](docs/SETUP.md) · [Legal](docs/LEGAL.md)
+- Related SOsintOps projects: [Quaesitor](https://github.com/SOsintOps/quaesitor) (case graph with Follow the Money relations), [Wukong](https://github.com/SOsintOps/Wukong) (Chinese corporate due diligence), [Argos](https://github.com/SOsintOps/Argos) and [Speculator](https://github.com/SOsintOps/Speculator-Project) (OSINT workstations), [Exploratores](https://github.com/SOsintOps/Exploratores) (browser toolkit with company-register searches), [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) (the shared method)
 
 ---
 

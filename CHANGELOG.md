@@ -23,6 +23,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `name_variants` schema with fingerprint index for O(log n) entity resolution
 - PEP source: EveryPolitician supplementary to OpenSanctions (historical politicians, 233 countries)
 
+### Documentation (2026-10-13)
+- `docs/REPORT_WRITING.md`: how to write the investigation report: the risk score is an anomaly indicator and not a judgement, how to grade the register, PSC, sanctions, ICIJ and name-match sources (UNODC 4 x 4), the ten report sections with the bottom line first, personal data. It applies the [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes), the method shared by the SOsintOps tools.
+- FAQ: risk score versus judgement, how to write up an investigation, related SOsintOps projects; README: documentation index and related projects.
+- Fixed: the FAQ gave the old ICIJ import script (`scripts/import_icij.py`); it is `python -m src.etl.import_icij`. FT3 is Stripe's *Fraud Tools, Tactics, and Techniques* framework, now linked.
+
 ### Architectural decisions (ADR)
 - **ADR-001**: pgvector as default, RuVector optional beyond 10M vectors
 - **ADR-002**: pgvector binary quantization (HNSW 30GB → 4GB with <5% recall loss)
