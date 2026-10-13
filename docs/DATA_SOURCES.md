@@ -28,7 +28,7 @@ Technical notes:
 
 ## Companies House — PSC Snapshot
 
-**URL**: https://download.companieshouse.gov.uk/persons-with-significant-control-snapshot-2016-04-06.zip
+**URL**: https://download.companieshouse.gov.uk/en_pscdata.html
 **Format**: JSONL — each line is `{"company_number":"...","data":{...}}`
 **Size**: ~2GB ZIP → 12GB JSONL → ~25GB in PostgreSQL
 **Update**: Daily snapshot available

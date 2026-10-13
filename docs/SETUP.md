@@ -94,7 +94,7 @@ python -m alembic upgrade head
 | File | URL | Size |
 |------|-----|------|
 | BasicCompanyDataAsOneFile | https://download.companieshouse.gov.uk/en_output.html | ~600MB ZIP |
-| PSC Snapshot | https://download.companieshouse.gov.uk/persons-with-significant-control-snapshot-2016-04-06.zip | ~2GB ZIP |
+| PSC Snapshot | https://download.companieshouse.gov.uk/en_pscdata.html | ~2GB ZIP |
 | UK Sanctions OFSI | https://www.gov.uk/government/publications/financial-sanctions-consolidated-list-of-targets | ~50MB |
 | ICIJ Offshore Leaks | https://offshoreleaks.icij.org/pages/database | ~500MB ZIP |
 

@@ -110,7 +110,7 @@ python -m src.etl.import_psc           # PSC Snapshot 15M (~2-3h)
 
 Companies House data can be downloaded from:
 - [Companies House Data Products](https://download.companieshouse.gov.uk/en_output.html)
-- [PSC Snapshot](https://download.companieshouse.gov.uk/persons-with-significant-control-snapshot-2016-04-06.zip)
+- [PSC Snapshot](https://download.companieshouse.gov.uk/en_pscdata.html)
 
 ---
 
