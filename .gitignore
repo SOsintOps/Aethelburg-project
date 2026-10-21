@@ -1,6 +1,3 @@
-# Ruflo / Claude Flow
-.claude-flow/
-.swarm/
 .claude/
 *.claude-session
 CLAUDE.local.md
