@@ -251,6 +251,17 @@ function renderDataPanel(st, checkedRemote) {
     </div>
 
     <div class="dossier-card" style="margin-top:14px;">
+      <h3><span>Backups</span><button class="btn btn-sm btn-primary" onclick="backupNow()" ${jobRunning ? "disabled" : ""}>Back up now</button></h3>
+      <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:6px;">A backup is made automatically before every import; the newest 7 are kept in the <code>backups</code> sub-folder of the data folder.</div>
+      <table class="matrix-table" style="width:100%;">
+        <thead><tr><th>Backup</th><th>Size</th><th>Created</th><th></th></tr></thead>
+        <tbody>${(st.backups || []).map((b) => `<tr><td><code>${escapeHtml(b.name)}</code></td><td>${b.gb} GB</td><td>${escapeHtml(b.created.replace("T", " "))}</td>
+          <td><button class="btn btn-sm" onclick="restoreBackup('${escapeHtml(b.name)}')">Restore</button></td></tr>`).join("") || `<tr><td colspan="4"><em>No backups yet</em></td></tr>`}</tbody>
+      </table>
+      <div id="backup-result" style="font-size:11.5px; margin-top:6px;"></div>
+    </div>
+
+    <div class="dossier-card" style="margin-top:14px;">
       <h3><span>Recent import runs</span></h3>
       <table class="matrix-table" style="width:100%;">
         <thead><tr><th>Task</th><th>Release</th><th>Status</th><th>Rows</th><th>Started (UTC)</th></tr></thead>
@@ -302,6 +313,27 @@ async function checkReleases(btn) {
     btn.textContent = "Checking publishers…";
   }
   await loadDataPanel(true);
+}
+
+async function backupNow() {
+  try {
+    await postJson("/api/data/backups");
+  } catch (err) {
+    alertInPanel(err.message);
+  }
+  loadDataPanel();
+}
+
+async function restoreBackup(name) {
+  const out = document.getElementById("backup-result");
+  // destructive: the current database is replaced (a safety backup is made first)
+  if (!window.confirm(`Replace the current database with ${name}?\nA backup of the current database is made first.`)) return;
+  try {
+    const res = await postJson(`/api/data/backups/${encodeURIComponent(name)}/restore`);
+    if (out) out.innerHTML = `Restored <code>${escapeHtml(res.restored)}</code>. Previous database saved as <code>${escapeHtml(res.safety_backup)}</code>. <strong>Restart Aethelburg.</strong>`;
+  } catch (err) {
+    if (out) out.innerHTML = `<span style="color:var(--risk-critical);">${escapeHtml(err.message)}</span>`;
+  }
 }
 
 async function startDownload(sources) {

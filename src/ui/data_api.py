@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from config.settings import get_settings
 from config.user_config import save_user_config
+from src.datasources.backup import create_backup, list_backups, restore_backup
 from src.datasources.catalog import SOURCES, latest_release
 from src.datasources.downloader import download_source, local_releases
 from src.datasources.pipeline import refresh_all
@@ -178,6 +179,7 @@ def build_data_router(db: DatabaseService) -> APIRouter:
             "index_rows": index_rows,
             "subset": {"config": SubsetConfig.load().__dict__, "members": members, "by_reason": by_reason},
             "runs": runs,
+            "backups": list_backups()[:5],
             "job": jobs.current,
             "job_history": jobs.history,
             "stream": stream_worker().status(),
@@ -231,6 +233,25 @@ def build_data_router(db: DatabaseService) -> APIRouter:
         else:
             raise HTTPException(status_code=400, detail="action must be start or stop")
         return w.status()
+
+    # ------------------------------------------------------------------ #
+    # BACKUPS                                                            #
+    # ------------------------------------------------------------------ #
+
+    @router.get("/api/data/backups")
+    async def backups() -> dict[str, Any]:
+        return {"items": list_backups()}
+
+    @router.post("/api/data/backups")
+    async def backup_now() -> dict[str, Any]:
+        return jobs.start("backup", lambda progress: create_backup("manual"))
+
+    @router.post("/api/data/backups/{name}/restore")
+    async def backup_restore(name: str) -> dict[str, Any]:
+        try:
+            return await asyncio.to_thread(restore_backup, name)
+        except (ValueError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # ------------------------------------------------------------------ #
     # USER GUIDE (docs/guide/NN-slug.md)                                 #

@@ -23,6 +23,7 @@ from rich.table import Table
 
 from config.settings import get_settings
 from src.core.logging import setup_logging
+from src.datasources.backup import create_backup, list_backups, restore_backup
 from src.datasources.catalog import SOURCES, latest_release
 from src.datasources.downloader import download_source, local_releases
 from src.datasources.pipeline import refresh_all
@@ -250,6 +251,28 @@ def cmd_data_download(
 
         result = download_source(key, progress=report)
         console.print(f"  {result['status']}: {result['data_file']}")
+
+
+@data_app.command("backup")
+def cmd_data_backup() -> None:
+    """Make a consistent copy of the database in <data folder>/backups (keeps the newest 7)."""
+    console.print_json(data=create_backup("manual"))
+
+
+@data_app.command("backups")
+def cmd_data_backups() -> None:
+    """List database backups."""
+    console.print_json(data=list_backups())
+
+
+@data_app.command("restore")
+def cmd_data_restore(name: str = typer.Argument(..., help="Backup file name, see `data backups`")) -> None:
+    """Restore a backup (the current database is backed up first). Restart Aethelburg afterwards."""
+    try:
+        console.print_json(data=restore_backup(name))
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"[bold red]{exc}[/bold red]")
+        raise typer.Exit(code=1) from exc
 
 
 @data_app.command("import")

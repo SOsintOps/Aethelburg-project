@@ -15,6 +15,7 @@ import orjson
 from config.settings import get_settings
 from config.user_config import LEGACY_DATA_DIR
 from src.core.logging import get_logger
+from src.datasources.backup import create_backup
 from src.datasources.downloader import latest_local_file
 from src.datasources.runs import checkpoint, finish_run, start_run
 from src.datasources.subset import (
@@ -62,6 +63,8 @@ def refresh_all(
         raise RuntimeError("Companies House Basic Company Data is not downloaded yet: run `data download` first")
 
     summary: dict[str, Any] = {"started_at": datetime.now(UTC).isoformat()}
+    if Path(get_settings().db.sqlite_path).exists():
+        summary["backup"] = create_backup("before-import")["name"]
     conn = db.connect()
     try:
         version = companies_csv.parent.name
