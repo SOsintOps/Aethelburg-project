@@ -5,6 +5,13 @@
 # Aethelburg (`v0.3.0-beta.1`)
 
 [![CI](https://github.com/SOsintOps/Aethelburg-project/actions/workflows/ci.yml/badge.svg)](https://github.com/SOsintOps/Aethelburg-project/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/SOsintOps/Aethelburg-project?include_prereleases&sort=semver)](https://github.com/SOsintOps/Aethelburg-project/releases)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)](docs/SETUP.md)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![FollowTheMoney](https://img.shields.io/badge/FollowTheMoney-v3.x-0b7285)](https://followthemoney.tech/)
+[![Last commit](https://img.shields.io/github/last-commit/SOsintOps/Aethelburg-project)](https://github.com/SOsintOps/Aethelburg-project/commits/main)
 
 Local investigative corporate intelligence platform for analysing UK company register data (Companies House), UK FCDO/OFSI Sanctions, and the ICIJ Offshore Leaks Database to identify shell companies and anomalous corporate structures.
 

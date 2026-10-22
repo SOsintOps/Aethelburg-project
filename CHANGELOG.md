@@ -44,7 +44,7 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 ### Changed (repository)
 - **Continuous integration** (`.github/workflows/ci.yml`): ruff and the test suite on Windows and Linux with Python 3.13, for every push to `main` and every pull request that changes code.
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue forms (bug report, feature request, security link), a pull request checklist and Dependabot (monthly, Python packages and GitHub Actions).
-- `LICENSE` holds only the MIT text, so GitHub recognises the licence; the third-party data notices moved to `NOTICE`. The README ends with a contributing and licence section.
+- `LICENSE` holds only the MIT text, so GitHub recognises the licence; the third-party data notices moved to `NOTICE`. The README ends with a contributing and licence section and opens with badges for CI, release, licence, Python, platform, Ruff, FollowTheMoney and last commit.
 - `.github/social-preview.png`: the 1280×640 image shown when the repository is linked.
 - `SECURITY.md` (how to report a vulnerability, where keys belong); `.gitattributes` keeps text files LF in the repository and PowerShell scripts CRLF.
 - The README lists only the related projects that share this work: Intelligence Field Notes (method) and Exploratores (sanctions and company record searches), each with what it adds.
