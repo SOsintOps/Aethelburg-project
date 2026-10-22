@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import csv
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -201,7 +201,7 @@ def upsert_company_record(
 
     `rec` may be partial (e.g. an API profile): fields that are None keep the stored value.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     previous = conn.execute(
         "SELECT * FROM companies WHERE company_number = ?",
         (rec["company_number"],),

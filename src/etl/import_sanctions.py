@@ -14,13 +14,13 @@ from __future__ import annotations
 import csv
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from src.core.ftm import make_ftm_id, sanction_to_ftm
+from src.core.ftm import sanction_to_ftm
 from src.core.logging import get_logger
-from src.core.normalizer import extract_uk_company_numbers, normalize_name, phonetic_key
+from src.core.normalizer import extract_uk_company_numbers, normalize_name
 from src.services.db_service import DatabaseService
 
 log = get_logger(__name__)
@@ -211,7 +211,7 @@ def import_uk_sanctions_file(
             conn=conn,
         )
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         sanctions_inserted = 0
         ftm_inserted = 0
         variants_inserted = 0

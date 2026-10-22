@@ -8,7 +8,7 @@ Evaluates all 11 FT3 techniques (`FT3-SC-001` through `FT3-SC-020`):
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import networkx as nx
@@ -36,7 +36,7 @@ class RiskScorer:
         """Run all 11 FT3 detection rules, persist `risk_flags`, and recompute company `risk_score`."""
         resolved = self.resolver.resolve_all()
         conn = self.db.connect()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         detected_counts: dict[str, int] = {code: 0 for code in FT3_TECHNIQUES}
 
         try:

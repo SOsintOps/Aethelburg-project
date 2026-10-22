@@ -28,6 +28,8 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - PSC statements keep the time they were first seen (`created_at`) when they are updated.
 
 ### Changed (repository)
+- `ruff check src tests config migrations` passes (365 findings fixed: type annotations, unused imports, a repeated key in the CJK transliteration table).
+- The daily scheduler starts through the FastAPI lifespan instead of the deprecated `on_event`, and stops when the server stops.
 - Every comment, docstring, script message and example file is in English (`config/`, `migrations/`, `docker/`, `scripts/setup_db.sh`, `.env.example`, `.gitignore`, `pyproject.toml`).
 - `docker/Dockerfile.db` is now in the repository: the `*.db` ignore rule had kept it out, so `docker compose up db` failed on a fresh clone.
 - `.env.example` no longer sets `DATA_DIR=./dati`, which overrode the data folder chosen in the app; the commented-out RuVector service is gone from `docker-compose.yml`.

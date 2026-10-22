@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -421,7 +421,7 @@ def import_psc_snapshot(
         "directorships": 0,
         "ftm_entities": 0,
     }
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     try:
         source_id = db.register_data_source(

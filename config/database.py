@@ -105,7 +105,8 @@ def _get_session_factory() -> Any:
                 expire_on_commit=False,
             )
         else:
-            _session_factory = lambda: LocalSQLiteAsyncSession(settings.db.sqlite_path)
+            def _session_factory() -> LocalSQLiteAsyncSession:
+                return LocalSQLiteAsyncSession(settings.db.sqlite_path)
     return _session_factory
 
 

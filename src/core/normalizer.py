@@ -24,7 +24,7 @@ except ImportError:
     _jellyfish = None
 
 try:
-    from rapidfuzz.distance import JaroWinkler as _rf_jw
+    from rapidfuzz.distance import JaroWinkler as _rf_jw  # noqa: N813
 except ImportError:
     _rf_jw = None
 
@@ -61,7 +61,7 @@ _CJK_MAP: dict[str, str] = {
     "江": "jiang ", "澤": "ze", "泽": "ze", "民": "min ",
     "中": "zhong ", "国": "guo ", "國": "guo ", "有": "you ", "限": "xian ",
     "公": "gong ", "司": "si ", "集": "ji ", "团": "tuan ", "團": "tuan ",
-    "控": "kong ", "股": "gu ", "国": "guo ", "际": "ji ", "際": "ji ",
+    "控": "kong ", "股": "gu ", "际": "ji ", "際": "ji ",
     "投": "tou ", "资": "zi ", "資": "zi ", "贸": "mao ", "貿": "mao ",
     "易": "yi ", "香": "xiang ", "港": "gang ", "北": "bei ", "京": "jing ",
     "上": "shang ", "海": "hai ", "深": "shen ", "圳": "zhen ",

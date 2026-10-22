@@ -6,6 +6,8 @@ import logging
 import threading
 import time
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -303,9 +305,13 @@ def build_data_router(db: DatabaseService) -> APIRouter:
     async def daily_run_now() -> dict[str, Any]:
         return jobs.start("daily", lambda progress: run_daily_update(db, progress))
 
-    @router.on_event("startup")
-    async def start_daily_scheduler() -> None:
-        asyncio.get_running_loop().create_task(scheduler_loop(db, jobs.start))
+    @asynccontextmanager
+    async def daily_scheduler(_app: Any) -> AsyncIterator[None]:
+        task = asyncio.get_running_loop().create_task(scheduler_loop(db, jobs.start))
+        yield
+        task.cancel()
+
+    router.lifespan_context = daily_scheduler  # merged into the app's lifespan by include_router
 
     # ------------------------------------------------------------------ #
     # CHANGE HISTORY                                                     #

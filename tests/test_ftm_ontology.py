@@ -1,20 +1,12 @@
 """Unit & integration tests for FollowTheMoney (FtM v3.x) ontology compatibility."""
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from src.core.ftm import (
-    address_to_ftm,
-    build_ftm_entity,
     company_to_ftm,
     directorship_to_ftm,
     get_all_properties,
     get_ancestors,
     icij_entity_to_ftm,
-    icij_officer_to_ftm,
-    icij_relationship_to_ftm,
-    legal_entity_to_ftm,
     load_ftm_schema,
     make_ftm_id,
     person_to_ftm,

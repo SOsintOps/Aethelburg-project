@@ -15,12 +15,9 @@ from __future__ import annotations
 import csv
 import io
 import json
-from pathlib import Path
-from typing import Any
 
 from openpyxl import Workbook
 
-from src.graph.graph_exporter import export_graph_gexf, export_graph_graphml
 from src.graph.graph_service import GraphService
 from src.reports.pdf_generator import ReportGenerator
 from src.services.db_service import DatabaseService

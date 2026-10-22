@@ -28,12 +28,13 @@ except ImportError:
         return {}
 
 try:
-    from pydantic_settings import BaseSettings as _PydanticBaseSettings, SettingsConfigDict
+    from pydantic_settings import BaseSettings as _PydanticBaseSettings
+    from pydantic_settings import SettingsConfigDict
     HAS_PYDANTIC_SETTINGS = True
 except ImportError:
     HAS_PYDANTIC_SETTINGS = False
 
-    def SettingsConfigDict(**kwargs: Any) -> ConfigDict:  # type: ignore[misc]
+    def SettingsConfigDict(**kwargs: Any) -> ConfigDict:  # type: ignore[misc]  # noqa: N802 - stands in for pydantic-settings
         return ConfigDict(
             extra=kwargs.get("extra", "ignore"),
             populate_by_name=kwargs.get("populate_by_name", True),
@@ -214,7 +215,7 @@ class Settings(BaseSettings):
         return self.ch
 
     @model_validator(mode="after")
-    def _derive_data_paths(self) -> "Settings":
+    def _derive_data_paths(self) -> Settings:
         """Database, logs and ONSPD live under the data folder unless set explicitly."""
         data_dir = self.paths.data_dir
         if self.db.sqlite_path is None:
@@ -226,7 +227,7 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def _load_keyring_and_validate(self) -> "Settings":
+    def _load_keyring_and_validate(self) -> Settings:
         """
         1. Load secrets from python-keyring when the environment does not set them.
         2. Require a database password outside development when the backend is not SQLite.

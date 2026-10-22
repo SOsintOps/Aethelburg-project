@@ -1,8 +1,6 @@
 """Batch computation of name & address fingerprints and `name_variants` (ADR-015 / ADR-017)."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from src.core.logging import get_logger
 from src.core.normalizer import compute_address_fingerprint, normalize_name, phonetic_key
 from src.services.db_service import DatabaseService

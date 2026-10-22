@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -77,7 +77,7 @@ class ReportGenerator:
             )
 
         report_id = str(uuid.uuid4())
-        generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         css_path = TEMPLATES_DIR / "report.css"
         css_content = css_path.read_text(encoding="utf-8") if css_path.exists() else ""
 

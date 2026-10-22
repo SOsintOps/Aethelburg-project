@@ -10,31 +10,20 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from config.database import get_sqlite_connection
 from src.core.ftm import (
-    address_to_ftm,
     company_to_ftm,
-    directorship_to_ftm,
-    icij_entity_to_ftm,
-    icij_officer_to_ftm,
-    icij_relationship_to_ftm,
-    legal_entity_to_ftm,
-    person_to_ftm,
-    psc_to_ftm_ownership,
-    sanction_to_ftm,
     validate_ftm_entity,
 )
 from src.core.logging import get_logger
 from src.core.normalizer import (
-    compute_address_fingerprint,
-    extract_uk_company_numbers,
     normalize_name,
     normalize_postcode,
-    phonetic_key,
 )
 
 log = get_logger(__name__)
@@ -795,7 +784,7 @@ class DatabaseService:
             new_datasets = list(entity.get("datasets") or [])
             new_referents = list(entity.get("referents") or [])
             target = 1 if entity.get("target") else 0
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(UTC).isoformat()
 
             existing = c.execute(
                 "SELECT properties, datasets, referents, target FROM ftm_entities WHERE id = ?",
@@ -962,7 +951,7 @@ class DatabaseService:
             source_id = self.register_data_source(
                 source_name=dataset_override or inp.stem,
                 source_type="ftm_jsonl",
-                source_version=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                source_version=datetime.now(UTC).strftime("%Y-%m-%d"),
                 source_url=str(inp),
                 conn=conn,
             )
@@ -1436,7 +1425,10 @@ class DatabaseService:
                     }
                 )
             # Observed changes; names, appointments and PSC already appear above with the registry's dates
-            from src.etl.company_changes import COMPANY_FIELDS, list_changes  # src.etl imports this module
+            from src.etl.company_changes import (  # src.etl imports this module
+                COMPANY_FIELDS,
+                list_changes,
+            )
 
             changes = list_changes(conn, company_number=company["company_number"], limit=500)
             for ch in changes:
@@ -1531,7 +1523,7 @@ class DatabaseService:
         conn = self.connect()
         try:
             inv_id = str(uuid.uuid4())
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             conn.execute(
                 """
                 INSERT INTO casework_investigations
@@ -1625,7 +1617,7 @@ class DatabaseService:
         conn = self.connect()
         try:
             rec_id = str(uuid.uuid4())
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             conn.execute(
                 """
                 INSERT OR REPLACE INTO casework_investigation_entities
@@ -1664,7 +1656,7 @@ class DatabaseService:
         conn = self.connect()
         try:
             ann_id = str(uuid.uuid4())
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             conn.execute(
                 """
                 INSERT INTO casework_annotations

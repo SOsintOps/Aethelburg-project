@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import inspect
 
-from config.database import get_session, dispose_engine
+from config.database import dispose_engine, get_session
 
 
 def test_get_session_is_async_context_manager():

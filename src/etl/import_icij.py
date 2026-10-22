@@ -13,7 +13,6 @@ from __future__ import annotations
 import csv
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from src.core.ftm import (
     build_ftm_entity,

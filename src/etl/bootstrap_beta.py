@@ -12,14 +12,12 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from config.settings import get_settings
 from src.core.ftm import (
-    build_ftm_entity,
-    company_to_ftm,
     directorship_to_ftm,
     icij_entity_to_ftm,
     legal_entity_to_ftm,
@@ -44,7 +42,7 @@ log = get_logger(__name__)
 def _seed_reference_typology_clusters(db: DatabaseService) -> dict[str, int]:
     """Ensure all 11 FT3 techniques have rich multi-hop networks linked to the real datasets."""
     conn = db.connect()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     try:
         source_id = db.register_data_source(
             source_name="Aethelburg FT3 Reference Intelligence Clusters",

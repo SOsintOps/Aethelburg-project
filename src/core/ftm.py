@@ -21,9 +21,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 try:
     from followthemoney.util import make_entity_id as _ftm_make_id
@@ -158,7 +159,7 @@ def make_ftm_id(schema_name: str, *parts: Any, key_prefix: str = "aethelburg") -
         if eid:
             return eid
     digest = hashlib.sha1()
-    digest.update(f"{key_prefix}:{schema_name}:".encode("utf-8"))
+    digest.update(f"{key_prefix}:{schema_name}:".encode())
     digest.update("|".join(clean_parts).encode("utf-8"))
     return digest.hexdigest()
 

@@ -8,11 +8,9 @@ Links UK Companies House (`companies`, `persons`, `legal_entities`) with:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 from src.core.logging import get_logger
-from src.core.normalizer import match_names, normalize_name
 from src.services.db_service import DatabaseService, _parse_json_field
 
 log = get_logger(__name__)
