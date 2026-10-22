@@ -34,6 +34,7 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 ### Changed (repository)
 - **Continuous integration** (`.github/workflows/ci.yml`): ruff and the test suite on Windows and Linux with Python 3.13, for every push to `main` and every pull request that changes code.
 - `SECURITY.md` (how to report a vulnerability, where keys belong); `.gitattributes` keeps text files LF in the repository and PowerShell scripts CRLF.
+- The README lists only the related projects that share this work: Intelligence Field Notes (method) and Exploratores (sanctions and company record searches), each with what it adds.
 - `pyproject.toml` declares authors, keywords, classifiers and project links.
 - Removed the duplicate Inter font files at the top of `assets/` (the app uses `assets/fonts/`) and the outdated `todo.txt` (this file records what is done).
 - `ruff check src tests config migrations` passes (365 findings fixed: type annotations, unused imports, a repeated key in the CJK transliteration table).
