@@ -38,6 +38,18 @@ _UK_TOKENS = (
 )
 
 
+_INDEX_DDL = {  # same definitions as the schema in db_service.py
+    "idx_company_index_name": "CREATE INDEX IF NOT EXISTS idx_company_index_name ON company_index(company_name)",
+    "idx_company_index_name_fp": "CREATE INDEX IF NOT EXISTS idx_company_index_name_fp ON company_index(name_fingerprint)",
+    "idx_company_index_address": (
+        "CREATE INDEX IF NOT EXISTS idx_company_index_address ON company_index(address_fingerprint)"
+    ),
+    "idx_company_index_incorporated": (
+        "CREATE INDEX IF NOT EXISTS idx_company_index_incorporated ON company_index(incorporation_date)"
+    ),
+}
+
+
 @dataclass
 class SubsetConfig:
     risk_links: bool = True
@@ -68,6 +80,10 @@ class SubsetConfig:
 def build_company_index(conn: Any, csv_path: Path, version: str, progress: Progress | None = None) -> int:
     """Load every company of `BasicCompanyDataAsOneFile` into `company_index` (resumable)."""
     run = start_run(conn, "company_index", "ch_companies", version, str(csv_path))
+    # Secondary indexes make millions of inserts crawl; rebuild them once at the end
+    for name in _INDEX_DDL:
+        conn.execute(f"DROP INDEX IF EXISTS {name}")
+    conn.commit()
     batch: list[tuple[Any, ...]] = []
     for idx, row in enumerate(_iter_company_rows(csv_path)):
         if idx < run.resume_from:
@@ -99,6 +115,10 @@ def build_company_index(conn: Any, csv_path: Path, version: str, progress: Progr
             if progress:
                 progress("index", run.rows_read)
     _write_index(conn, batch, run)
+    if progress:
+        progress("index_rebuild", run.rows_written)
+    for ddl in _INDEX_DDL.values():
+        conn.execute(ddl)
     finish_run(conn, run)
     return run.rows_written
 
