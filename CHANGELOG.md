@@ -10,6 +10,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Companies House REST client `refresh_company()`: profile, every officer appointment and every PSC statement for one company, written through the same code paths as the bulk importers. Companies that are not in the local database are created from their profile; API values are translated to the bulk wording the FT3 rules expect (`src/services/ch_mapping.py`).
 - `python -m src.main import-onspd PATH` imports exact postcode centroids from an ONS Postcode Directory CSV.
 - Map markers carry a `location_precision` (`postcode`, `district`, `area`); approximate positions are drawn as dashed rings with an explanation in the popup and in the legend.
 
@@ -17,6 +18,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **Wrong cities on the map**: the postcode-area fallback kept every letter of the outward code, so `W1A`, `W1N` and `W1R` (London) were placed in Warrington, Wigan and Worcester; `SE10` was truncated to `SE1`. The area is now the leading letters only, and only a trailing sub-district letter is dropped (`EC1V` → `EC1`).
 - **Invented positions**: the built-in fallback no longer adds a random offset around the area centre; existing approximate centroids are cleared on first start and re-resolved with their precision.
 - **ONSPD overwritten**: syncing company postcodes replaced exact ONSPD centroids with approximate ones; approximate rows now never overwrite a `postcode`-precision row.
+- **Companies House officers truncated, duplicated or silently missing**: only the first page (35) was read, every call inserted the appointments again, HTTP errors fell back to local data without a word, and companies absent from the local database failed on a foreign key. The client now pages through `total_results`, upserts appointments on a deterministic id, raises `CompaniesHouseApiError` for missing/invalid keys, unknown companies and rate limits (honouring `Retry-After` once), and validates company numbers.
 - **Broken FollowTheMoney links**: ownerships and directorships referenced companies and people with ids built from lower-case schema names (`company`, `person`), while the entities themselves were stored under `Company`/`Person` ids, so 99.7% of the links in an export pointed at nothing. Ids are now consistent; a fresh bootstrap leaves only links to ICIJ nodes outside the import limits unresolved. Re-run `bootstrap` (or re-import) to rebuild existing databases.
 - **Duplicated PSC controllers**: the lookup of an existing person or legal entity used a different id from the one stored, so every PSC statement created a new controller. Controllers are now reused.
 - **Re-imports wiped analysis results**: companies were written with `INSERT OR REPLACE`, which deletes the row, so updating a company lost its risk score, FT3 techniques, flag and officer-fetch date. Companies are now upserted on registry fields only, and the per-address company count no longer grows on every re-import.

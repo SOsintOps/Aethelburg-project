@@ -196,8 +196,27 @@ def upsert_company_record(
     rec: dict[str, Any],
     source_id: str,
 ) -> tuple[str, str | None]:
-    """Insert or update a company record and its FtM `Company` + `Address` entities."""
+    """Insert or update a company record and its FtM `Company` + `Address` entities.
+
+    `rec` may be partial (e.g. an API profile): fields that are None keep the stored value.
+    """
     now = datetime.now(timezone.utc).isoformat()
+    previous = conn.execute(
+        "SELECT * FROM companies WHERE company_number = ?",
+        (rec["company_number"],),
+    ).fetchone()
+    if previous is not None:
+        stored = {c: previous[c] for c in _COMPANY_REGISTRY_COLUMNS}
+        rec = {**stored, **{k: v for k, v in rec.items() if v is not None}}
+    else:
+        rec = {
+            "mortgages_num_charges": 0,
+            "mortgages_num_outstanding": 0,
+            "mortgages_num_part_satisfied": 0,
+            "mortgages_num_satisfied": 0,
+            **{k: v for k, v in rec.items() if v is not None},
+        }
+
     addr_ftm = address_to_ftm(
         street=rec.get("reg_address_line1"),
         street2=rec.get("reg_address_line2"),
@@ -234,10 +253,6 @@ def upsert_company_record(
                 now,
             ),
         )
-        previous = conn.execute(
-            "SELECT address_fingerprint FROM companies WHERE company_number = ?",
-            (rec["company_number"],),
-        ).fetchone()
         if previous is None or previous["address_fingerprint"] != rec.get("address_fingerprint"):
             conn.execute(
                 "UPDATE addresses SET company_count = company_count + 1 WHERE id = ?",
@@ -248,8 +263,6 @@ def upsert_company_record(
     db.upsert_ftm_entity(comp_ftm, source_id=source_id, conn=conn)
 
     values = {**rec, "ftm_id": comp_ftm["id"], "source_id": source_id}
-    for col in ("mortgages_num_charges", "mortgages_num_outstanding", "mortgages_num_part_satisfied", "mortgages_num_satisfied"):
-        values.setdefault(col, 0)
     conn.execute(
         _UPSERT_COMPANY_SQL,
         [*(values.get(c) for c in _COMPANY_REGISTRY_COLUMNS), now, now],

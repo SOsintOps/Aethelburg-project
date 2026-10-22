@@ -1,16 +1,17 @@
-"""Companies House REST & Streaming API client service (ADR-013).
+"""Companies House REST API client with local persistence (ADR-013).
 
-Supports:
-  - Live Companies House REST API requests (`/company/{number}/officers`, `/company/{number}`)
-  - Automatic rate-limiting (600 requests / 5 minutes)
-  - Offline synthesis from PSC / ICIJ records when API key is not configured
+`refresh_company()` downloads a company's profile, every officer appointment and every PSC
+statement, and writes them with the same code paths as the bulk importers, so a company that
+is not in the local database yet is created first and repeated refreshes never duplicate rows.
+
+Rate limit: 600 requests per 5 minutes per key (shared by one service instance).
 """
 from __future__ import annotations
 
 import asyncio
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,17 +22,47 @@ from config.settings import get_settings
 from src.core.ftm import directorship_to_ftm, make_ftm_id, person_to_ftm
 from src.core.logging import get_logger
 from src.core.normalizer import normalize_name
+from src.etl.import_companies import upsert_company_record
+from src.etl.import_psc import ingest_psc_record
+from src.services.ch_mapping import profile_to_record
+from src.services.db_service import DatabaseService
 
 log = get_logger(__name__)
 
+_PAGE_SIZE = 100
+_MAX_RETRY_AFTER = 60.0
+
+
+class CompaniesHouseApiError(Exception):
+    """A Companies House request failed; `status` is the HTTP status (0 = network error)."""
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
 
 class CompaniesHouseApiService:
-    """Client for Companies House REST API with local database persistence."""
+    """Client for the Companies House REST API with local database persistence."""
 
-    def __init__(self, db_path: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        db_path: Path | str | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
         self.settings = get_settings().ch_api
-        self.db_path = Path(db_path) if db_path else None
+        self.db = DatabaseService(db_path)
+        self.db_path = self.db.db_path
+        self._transport = transport
         self._request_timestamps: list[float] = []
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.settings.api_key)
+
+    # ------------------------------------------------------------------ #
+    # HTTP                                                               #
+    # ------------------------------------------------------------------ #
 
     async def _throttle(self) -> None:
         now = time.monotonic()
@@ -43,108 +74,195 @@ class CompaniesHouseApiService:
                 await asyncio.sleep(sleep_for)
         self._request_timestamps.append(time.monotonic())
 
-    async def fetch_company_officers(self, company_number: str) -> list[dict[str, Any]]:
-        """Fetch officers for a UK company from CH REST API (or synthesize from PSC if offline)."""
-        comp_num = company_number.strip().upper()
-        if self.settings.api_key:
+    async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        if not self.settings.api_key:
+            raise CompaniesHouseApiError(
+                401,
+                "No Companies House API key configured. Store one with: "
+                "python -m keyring set aethelburg ch_api_key",
+            )
+        url = f"{self.settings.base_url}{path}"
+        for attempt in range(2):
             await self._throttle()
-            url = f"{self.settings.base_url}/company/{comp_num}/officers"
             try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    resp = await client.get(url, auth=(self.settings.api_key, ""))
-                    if resp.status_code == 200:
-                        payload = resp.json()
-                        items = payload.get("items", [])
-                        return self._persist_api_officers(comp_num, items)
-            except Exception as exc:
-                log.warning("ch_api_fetch_failed", company_number=comp_num, error=str(exc))
+                async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
+                    resp = await client.get(url, params=params, auth=(self.settings.api_key, ""))
+            except httpx.HTTPError as exc:
+                raise CompaniesHouseApiError(0, f"Companies House unreachable: {exc}") from exc
 
-        # Offline fallback: return existing directorships in DB
-        conn = get_sqlite_connection(self.db_path)
+            if resp.status_code == 200:
+                return resp.json()
+            if resp.status_code == 429 and attempt == 0:
+                wait = _retry_after_seconds(resp)
+                log.warning("ch_api_rate_limited", path=path, retry_after=wait)
+                await asyncio.sleep(wait)
+                continue
+            log.warning("ch_api_http_error", path=path, status=resp.status_code)
+            raise CompaniesHouseApiError(resp.status_code, _error_message(resp.status_code, path))
+        raise CompaniesHouseApiError(429, "Companies House rate limit still exceeded after waiting.")
+
+    async def _get_all_items(self, path: str) -> list[dict[str, Any]]:
+        """Follow `start_index` pagination until `total_results` items are collected."""
+        items: list[dict[str, Any]] = []
+        while True:
+            page = await self._get(path, {"items_per_page": _PAGE_SIZE, "start_index": len(items)})
+            batch = page.get("items") or []
+            items.extend(batch)
+            total = int(page.get("total_results") or 0)
+            if not batch or len(items) >= total:
+                return items
+
+    # ------------------------------------------------------------------ #
+    # RESOURCES                                                          #
+    # ------------------------------------------------------------------ #
+
+    async def fetch_company_profile(self, company_number: str) -> dict[str, Any]:
+        """Download `/company/{n}` and upsert it (creates the company if it is not stored yet)."""
+        number = _clean_number(company_number)
+        profile = await self._get(f"/company/{number}")
+        rec = profile_to_record(profile)
+        if rec is None:
+            raise CompaniesHouseApiError(502, f"Unexpected company profile for {number}")
+        conn = self.db.connect()
         try:
-            rows = conn.execute(
-                """
-                SELECT d.*, p.name AS person_name
-                FROM directorships d
-                LEFT JOIN persons p ON p.id = d.person_id
-                WHERE d.company_number = ?
-                """,
-                (comp_num,),
-            ).fetchall()
-            return [dict(r) for r in rows]
+            upsert_company_record(conn, self.db, rec, self._source_id(conn))
+            conn.commit()
         finally:
             conn.close()
+        return rec
 
-    def _persist_api_officers(self, company_number: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def fetch_company_officers(self, company_number: str) -> list[dict[str, Any]]:
+        """Download every officer appointment of a stored company and upsert it."""
+        number = _clean_number(company_number)
+        items = await self._get_all_items(f"/company/{number}/officers")
+        return self._persist_officers(number, items)
+
+    async def fetch_company_psc(self, company_number: str) -> dict[str, int]:
+        """Download every PSC statement of a company and upsert it via the bulk PSC code path."""
+        number = _clean_number(company_number)
+        try:
+            items = await self._get_all_items(f"/company/{number}/persons-with-significant-control")
+        except CompaniesHouseApiError as exc:
+            if exc.status == 404:  # companies exempt from PSC (e.g. listed PLCs) return 404
+                return {"psc_ownerships": 0}
+            raise
+        counts = dict.fromkeys(
+            ("psc_ownerships", "persons", "legal_entities", "stub_companies", "directorships", "ftm_entities"), 0
+        )
+        conn = self.db.connect()
+        try:
+            source_id = self._source_id(conn)
+            now = _now()
+            for item in items:
+                ingest_psc_record(conn, self.db, number, item, source_id, now, {number}, counts)
+            conn.commit()
+        finally:
+            conn.close()
+        return counts
+
+    async def refresh_company(self, company_number: str) -> dict[str, Any]:
+        """Profile + officers + PSC for one company; returns a summary of what was written."""
+        number = _clean_number(company_number)
+        profile = await self.fetch_company_profile(number)
+        officers = await self.fetch_company_officers(number)
+        psc = await self.fetch_company_psc(number)
+        return {
+            "company_number": number,
+            "company_name": profile["company_name"],
+            "company_status": profile.get("company_status"),
+            "officers": len(officers),
+            "active_officers": sum(1 for o in officers if o["is_active"]),
+            "psc_statements": psc["psc_ownerships"],
+            "fetched_at": _now(),
+        }
+
+    # ------------------------------------------------------------------ #
+    # PERSISTENCE                                                        #
+    # ------------------------------------------------------------------ #
+
+    def _source_id(self, conn: Any) -> str:
+        return self.db.register_data_source(
+            source_name="Companies House REST API",
+            source_type="ch_api",
+            source_version=datetime.now(UTC).strftime("%Y-%m-%d"),
+            source_url=self.settings.base_url,
+            notes="On-demand company profile, officers and PSC",
+            conn=conn,
+        )
+
+    def _persist_officers(self, company_number: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         conn = get_sqlite_connection(self.db_path)
         persisted: list[dict[str, Any]] = []
-        now = datetime.now(timezone.utc).isoformat()
+        now = _now()
+        company_ftm_id = make_ftm_id("Company", "gb", company_number)
         try:
+            source_id = self._source_id(conn)
             for item in items:
-                raw_name = item.get("name", "Unknown Officer")
-                norm_name = normalize_name(raw_name)
+                raw_name = item.get("name") or "Unknown Officer"
+                fp = normalize_name(raw_name)
                 dob = item.get("date_of_birth") or {}
-                dob_month = dob.get("month")
-                dob_year = dob.get("year")
-                nationality = item.get("nationality")
-                residence = item.get("country_of_residence")
-                role = item.get("officer_role", "director")
+                role = item.get("officer_role") or "director"
                 appointed_on = item.get("appointed_on")
                 resigned_on = item.get("resigned_on")
                 is_active = 0 if resigned_on else 1
+                officer_link = ((item.get("links") or {}).get("officer") or {}).get("appointments") or ""
+                api_person_id = officer_link.strip("/").split("/")[1] if officer_link.count("/") >= 2 else None
 
-                person_ftm_id = make_ftm_id("person", norm_name or raw_name, str(dob_year or ""), str(dob_month or ""))
-                person_row = conn.execute(
-                    "SELECT id FROM persons WHERE ftm_id = ?",
-                    (person_ftm_id,),
-                ).fetchone()
-                if person_row:
-                    person_id = person_row["id"]
+                p_rec = {
+                    "name": raw_name,
+                    "name_fingerprint": fp,
+                    "nationality": item.get("nationality"),
+                    "country_of_residence": item.get("country_of_residence"),
+                    "dob_month": dob.get("month"),
+                    "dob_year": dob.get("year"),
+                }
+                p_ftm = person_to_ftm(p_rec)
+                person = conn.execute("SELECT id FROM persons WHERE ftm_id = ?", (p_ftm["id"],)).fetchone()
+                if person:
+                    person_id = person["id"]
                 else:
                     person_id = str(uuid.uuid4())
                     conn.execute(
                         """
                         INSERT INTO persons
-                            (id, ftm_id, ftm_schema, name, name_fingerprint, nationality, country_of_residence, dob_month, dob_year, created_at, updated_at)
-                        VALUES (?, ?, 'Person', ?, ?, ?, ?, ?, ?, ?, ?)
+                            (id, ftm_id, ftm_schema, name, name_fingerprint, nationality, country_of_residence,
+                             dob_month, dob_year, source_id, created_at, updated_at)
+                        VALUES (?, ?, 'Person', ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (person_id, person_ftm_id, raw_name, norm_name, nationality, residence, dob_month, dob_year, now, now),
+                        (person_id, p_ftm["id"], raw_name, fp, p_rec["nationality"], p_rec["country_of_residence"],
+                         p_rec["dob_month"], p_rec["dob_year"], source_id, now, now),
                     )
+                    self.db.upsert_ftm_entity(p_ftm, source_id=source_id, conn=conn)
 
-                dir_id = str(uuid.uuid4())
+                # Deterministic id: refreshing the same appointment updates it instead of duplicating it
+                dir_id = str(uuid.uuid5(
+                    uuid.NAMESPACE_DNS,
+                    f"dir-api:{company_number}:{api_person_id or p_ftm['id']}:{role}:{appointed_on or ''}",
+                ))
                 dir_ftm = directorship_to_ftm(
-                    {
-                        "id": dir_id,
-                        "company_number": company_number,
-                        "officer_role": role,
-                        "appointed_on": appointed_on,
-                        "resigned_on": resigned_on,
-                    },
-                    director_ftm_id=person_ftm_id,
-                    company_ftm_id=make_ftm_id("company", "gb", company_number),
+                    {"id": dir_id, "company_number": company_number, "officer_role": role,
+                     "appointed_on": appointed_on, "resigned_on": resigned_on},
+                    director_ftm_id=p_ftm["id"],
+                    company_ftm_id=company_ftm_id,
                 )
                 conn.execute(
                     """
                     INSERT INTO directorships
-                        (id, ftm_id, ftm_schema, company_number, person_id, officer_role, appointed_on, resigned_on, is_active, occupation, nationality, country_of_residence, fetched_via, created_at, updated_at)
-                    VALUES (?, ?, 'Directorship', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'api', ?, ?)
+                        (id, ftm_id, ftm_schema, company_number, person_id, officer_role, appointed_on,
+                         resigned_on, is_active, occupation, nationality, country_of_residence, api_person_id,
+                         source_id, fetched_via, created_at, updated_at)
+                    VALUES (?, ?, 'Directorship', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'api', ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        resigned_on = excluded.resigned_on,
+                        is_active = excluded.is_active,
+                        occupation = excluded.occupation,
+                        updated_at = excluded.updated_at
                     """,
-                    (
-                        dir_id,
-                        dir_ftm["id"],
-                        company_number,
-                        person_id,
-                        role,
-                        appointed_on,
-                        resigned_on,
-                        is_active,
-                        item.get("occupation"),
-                        nationality,
-                        residence,
-                        now,
-                        now,
-                    ),
+                    (dir_id, dir_ftm["id"], company_number, person_id, role, appointed_on, resigned_on,
+                     is_active, item.get("occupation"), p_rec["nationality"], p_rec["country_of_residence"],
+                     api_person_id, source_id, now, now),
                 )
+                self.db.upsert_ftm_entity(dir_ftm, source_id=source_id, conn=conn)
                 persisted.append(
                     {
                         "id": dir_id,
@@ -165,3 +283,31 @@ class CompaniesHouseApiService:
             return persisted
         finally:
             conn.close()
+
+
+def _clean_number(company_number: str) -> str:
+    number = (company_number or "").strip().upper()
+    if not number.isalnum() or not 1 <= len(number) <= 8:
+        raise CompaniesHouseApiError(400, f"Invalid company number: {company_number!r}")
+    return number.zfill(8) if number.isdigit() else number
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _retry_after_seconds(resp: httpx.Response) -> float:
+    try:
+        return min(_MAX_RETRY_AFTER, max(1.0, float(resp.headers.get("Retry-After", "10"))))
+    except ValueError:
+        return 10.0
+
+
+def _error_message(status: int, path: str) -> str:
+    if status == 401:
+        return "Companies House rejected the API key (401). Check the key stored in the OS keyring."
+    if status == 404:
+        return f"Not found on Companies House: {path}"
+    if status == 429:
+        return "Companies House rate limit exceeded (600 requests per 5 minutes)."
+    return f"Companies House returned HTTP {status} for {path}"
