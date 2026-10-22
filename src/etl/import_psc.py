@@ -30,6 +30,7 @@ from src.core.ftm import (
 )
 from src.core.logging import get_logger
 from src.core.normalizer import compute_address_fingerprint, normalize_name, normalize_postcode
+from src.etl.company_changes import add_change
 from src.services.db_service import DatabaseService
 
 log = get_logger(__name__)
@@ -335,13 +336,26 @@ def ingest_psc_record(
         company_ftm_id=company_ftm_id,
     )
 
+    _record_psc_change(conn, comp_num, psc_id, owner_label(data, comp_num), ceased_on, source_id, now)
+    # created_at is kept from the first time the statement was seen (the change history relies on it)
     conn.execute(
         """
-        INSERT OR REPLACE INTO psc_ownerships
+        INSERT INTO psc_ownerships
             (id, ftm_id, ftm_schema, company_number, person_id, legal_entity_id,
              nature_of_control, notified_on, ceased_on, is_ceased, is_super_secure,
              source_id, created_at)
         VALUES (?, ?, 'Ownership', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            ftm_id = excluded.ftm_id,
+            company_number = excluded.company_number,
+            person_id = excluded.person_id,
+            legal_entity_id = excluded.legal_entity_id,
+            nature_of_control = excluded.nature_of_control,
+            notified_on = excluded.notified_on,
+            ceased_on = excluded.ceased_on,
+            is_ceased = excluded.is_ceased,
+            is_super_secure = excluded.is_super_secure,
+            source_id = excluded.source_id
         """,
         (
             psc_id,
@@ -361,6 +375,29 @@ def ingest_psc_record(
     db.upsert_ftm_entity(own_ftm, source_id=source_id, conn=conn)
     counts["psc_ownerships"] += 1
     counts["ftm_entities"] += 1
+
+
+def owner_label(data: dict[str, Any], comp_num: str) -> str:
+    kind = data.get("kind") or ""
+    if "super-secure" in kind:
+        return "Super-secure PSC"
+    return (data.get("name") or f"PSC of {comp_num}").strip()
+
+
+def _record_psc_change(
+    conn: Any, comp_num: str, psc_id: str, label: str, ceased_on: str | None, source_id: str | None, now: str
+) -> None:
+    """PSC added after the company's first load, or a statement that has just ceased."""
+    prior = conn.execute("SELECT ceased_on FROM psc_ownerships WHERE id = ?", (psc_id,)).fetchone()
+    if prior is None:
+        seen_before = conn.execute(
+            "SELECT 1 FROM psc_ownerships WHERE company_number = ? AND created_at < ? LIMIT 1",
+            (comp_num, now),
+        ).fetchone()
+        if seen_before:
+            add_change(conn, comp_num, "PSC_ADDED", None, label, source_id, now)
+    elif ceased_on and not prior["ceased_on"]:
+        add_change(conn, comp_num, "PSC_CEASED", label, None, source_id, now, ceased_on)
 
 
 def import_psc_snapshot(

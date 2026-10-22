@@ -22,6 +22,7 @@ from config.settings import get_settings
 from src.core.ftm import directorship_to_ftm, make_ftm_id, person_to_ftm
 from src.core.logging import get_logger
 from src.core.normalizer import normalize_name
+from src.etl.company_changes import add_change
 from src.etl.import_companies import upsert_company_record
 from src.etl.import_psc import ingest_psc_record
 from src.services.ch_mapping import profile_to_record
@@ -254,6 +255,11 @@ class CompaniesHouseApiService:
         company_ftm_id = make_ftm_id("Company", "gb", company_number)
         try:
             source_id = self._source_id(conn)
+            # appointments that appear after the first full fetch are changes, not the initial load
+            fetched = conn.execute(
+                "SELECT officers_fetched_at FROM companies WHERE company_number = ?", (company_number,)
+            ).fetchone()
+            loaded_before = bool(fetched and fetched["officers_fetched_at"])
             for item in items:
                 raw_name = item.get("name") or "Unknown Officer"
                 fp = normalize_name(raw_name, is_company=False)
@@ -296,6 +302,12 @@ class CompaniesHouseApiService:
                     uuid.NAMESPACE_DNS,
                     f"dir-api:{company_number}:{api_person_id or p_ftm['id']}:{role}:{appointed_on or ''}",
                 ))
+                prior = conn.execute("SELECT resigned_on FROM directorships WHERE id = ?", (dir_id,)).fetchone()
+                label = f"{raw_name} ({role})"
+                if prior is None and loaded_before:
+                    add_change(conn, company_number, "OFFICER_APPOINTED", None, label, source_id, now, appointed_on)
+                elif prior is not None and resigned_on and not prior["resigned_on"]:
+                    add_change(conn, company_number, "OFFICER_RESIGNED", label, None, source_id, now, resigned_on)
                 dir_ftm = directorship_to_ftm(
                     {"id": dir_id, "company_number": company_number, "officer_role": role,
                      "appointed_on": appointed_on, "resigned_on": resigned_on},

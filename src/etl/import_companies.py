@@ -17,6 +17,7 @@ from typing import Any
 from src.core.ftm import address_to_ftm, company_to_ftm
 from src.core.logging import get_logger
 from src.core.normalizer import compute_address_fingerprint, normalize_name, normalize_postcode
+from src.etl.company_changes import record_company_changes
 from src.services.db_service import DatabaseService
 from src.services.geo_service import resolve_postcode_coords
 
@@ -208,6 +209,7 @@ def upsert_company_record(
     if previous is not None:
         stored = {c: previous[c] for c in _COMPANY_REGISTRY_COLUMNS}
         rec = {**stored, **{k: v for k, v in rec.items() if v is not None}}
+        record_company_changes(conn, previous, rec, source_id, now)
     else:
         rec = {
             "mortgages_num_charges": 0,

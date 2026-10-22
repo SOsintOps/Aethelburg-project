@@ -534,6 +534,20 @@ CREATE TABLE IF NOT EXISTS entity_events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_entity ON entity_events(entity_type, entity_id);
 
+-- Change history: one row per field that differed when an update overwrote a company
+CREATE TABLE IF NOT EXISTS company_changes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_number  TEXT NOT NULL,
+    change_type     TEXT NOT NULL,
+    old_value       TEXT,
+    new_value       TEXT,
+    effective_date  TEXT,
+    observed_at     TEXT NOT NULL,
+    source_id       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_changes_company ON company_changes(company_number, observed_at);
+CREATE INDEX IF NOT EXISTS idx_changes_observed ON company_changes(observed_at);
+
 -- Casework tables (prefix casework_ in SQLite for single-file portability)
 CREATE TABLE IF NOT EXISTS casework_investigations (
     id              TEXT PRIMARY KEY,
@@ -1404,6 +1418,22 @@ class DatabaseService:
                         "severity": "critical",
                     }
                 )
+            # Observed changes; names, appointments and PSC already appear above with the registry's dates
+            from src.etl.company_changes import COMPANY_FIELDS, list_changes  # src.etl imports this module
+
+            changes = list_changes(conn, company_number=company["company_number"], limit=500)
+            for ch in changes:
+                if ch["change_type"] not in COMPANY_FIELDS or ch["change_type"] == "NAME_CHANGED":
+                    continue
+                timeline.append(
+                    {
+                        "date": ch["effective_date"] or ch["observed_at"][:10],
+                        "event_type": ch["change_type"],
+                        "title": f"{ch['old_value'] or '—'} → {ch['new_value'] or '—'}",
+                        "source": f"Observed {ch['observed_at'][:10]} ({ch['source'] or 'update'})",
+                        "severity": "warning" if ch["change_type"] in ("ADDRESS_CHANGED", "STATUS_CHANGED") else "info",
+                    }
+                )
             timeline.sort(key=lambda x: str(x.get("date") or ""), reverse=True)
 
             # Casework annotations for this company
@@ -1432,6 +1462,7 @@ class DatabaseService:
                 "sanction_matches": sanction_matches,
                 "icij_matches": icij_matches,
                 "timeline": timeline,
+                "changes": changes,
                 "annotations": annotations,
             }
         finally:

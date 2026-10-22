@@ -18,6 +18,12 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Added (change history)
+- **Company change history** (`company_changes` table, created automatically on start): every update of a company already in the database (bulk import, Streaming API, Update from CH) records what changed — address, status, name, category, SIC codes, dissolution date, accounts and confirmation statement filed, number of charges — with old and new value, date observed, date of effect where known and source. Officers appointed or resigned and PSC added or ceased after the first load are recorded too.
+- Not counted as changes: the first load of a company, a stub company taking its real details, a value the earlier source did not have, and the same value written differently by the bulk file and the API (case, punctuation; addresses compared by fingerprint).
+- The changes appear in the company timeline and in a **Recent changes** card in the Data tab (filter by type, subset only, CSV export); API `GET /api/data/changes`.
+- PSC statements keep the time they were first seen (`created_at`) when they are updated.
+
 ### Added (documentation)
 - **FAQ rewritten** to match the program (it described Docker, PostgreSQL, automatic APScheduler updates and features that do not exist) and answering: where the data is, how to update, how to download PSC and officers, company changes, documents, backups, logs, versions; available in the app (**? Help → FAQ**).
 - **Version history** in the app (**? Help → Version history**, or click the version number); versioning and update rules at the top of this file.

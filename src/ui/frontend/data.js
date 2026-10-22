@@ -208,6 +208,7 @@ async function loadDataPanel(checkRemote = false) {
     return;
   }
   container.innerHTML = renderDataPanel(st, checkRemote);
+  loadChanges();
 
   clearTimeout(dataPanelTimer);
   const busy = (st.job && st.job.status === "running") || (st.stream && st.stream.running);
@@ -377,6 +378,17 @@ function renderDataPanel(st, checkedRemote) {
     </div>
 
     <div class="dossier-card" style="margin-top:14px;">
+      <h3><span>Recent changes</span>
+        <span style="display:flex; gap:6px; align-items:center;">
+          <select id="changes-type" class="input-field" style="width:auto;" onchange="loadChanges()"><option value="">all types</option></select>
+          <label style="font-size:11.5px;"><input type="checkbox" id="changes-subset" onchange="loadChanges()"> subset only</label>
+          <a class="btn btn-sm" id="changes-csv" href="/api/data/changes?format=csv">CSV</a>
+        </span></h3>
+      <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:6px;">What an update changed in companies already in the database (address, status, name, SIC, filings, charges, officers, PSC). The first load of a company is not a change.</div>
+      <div id="changes-list"><em>Loading…</em></div>
+    </div>
+
+    <div class="dossier-card" style="margin-top:14px;">
       <h3><span>Recent import runs</span></h3>
       <table class="matrix-table" style="width:100%;">
         <thead><tr><th>Task</th><th>Release</th><th>Status</th><th>Rows</th><th>Started (UTC)</th></tr></thead>
@@ -532,6 +544,49 @@ async function streamAction(action) {
     return;
   }
   loadDataPanel();
+}
+
+let changesFilter = { type: "", subset: false };
+
+async function loadChanges() {
+  const list = document.getElementById("changes-list");
+  if (!list) return;
+  const typeSel = document.getElementById("changes-type");
+  const subsetBox = document.getElementById("changes-subset");
+  // the panel is redrawn every few seconds while a job runs: keep the chosen filter across redraws
+  if (typeSel && typeSel.options.length > 1) changesFilter = { type: typeSel.value, subset: subsetBox.checked };
+  const params = new URLSearchParams({ limit: "50", subset_only: String(changesFilter.subset) });
+  if (changesFilter.type) params.set("change_type", changesFilter.type);
+  let res;
+  try {
+    res = await apiJson(`/api/data/changes?${params}`);
+  } catch (err) {
+    list.innerHTML = `<div class="note"><strong>Error:</strong> ${escapeHtml(err.message)}</div>`;
+    return;
+  }
+  if (typeSel) {
+    typeSel.innerHTML = `<option value="">all types</option>` + res.types
+      .map((t) => `<option value="${t}" ${t === changesFilter.type ? "selected" : ""}>${t} (${(res.counts[t] || 0).toLocaleString()})</option>`)
+      .join("");
+    subsetBox.checked = changesFilter.subset;
+  }
+  const csv = document.getElementById("changes-csv");
+  if (csv) {
+    params.delete("limit");
+    params.set("format", "csv");
+    csv.href = `/api/data/changes?${params}`;
+  }
+  list.innerHTML = res.items.length
+    ? `<table class="matrix-table" style="width:100%;">
+        <thead><tr><th>Observed</th><th>Company</th><th>Change</th><th>Old</th><th>New</th><th>Source</th></tr></thead>
+        <tbody>${res.items.map((c) => `<tr>
+          <td><code>${escapeHtml(c.observed_at.slice(0, 16).replace("T", " "))}</code></td>
+          <td><a href="#" onclick="selectCompany('${escapeHtml(c.company_number)}'); return false;">${escapeHtml(c.company_number)}</a> ${escapeHtml(c.company_name || "")}</td>
+          <td><span class="tech-tag">${escapeHtml(c.change_type)}</span>${c.effective_date ? `<br><small>${escapeHtml(c.effective_date)}</small>` : ""}</td>
+          <td>${escapeHtml(c.old_value || "")}</td><td>${escapeHtml(c.new_value || "")}</td>
+          <td style="font-size:11px;">${escapeHtml(c.source || "")}</td></tr>`).join("")}</tbody>
+      </table>`
+    : `<em>No changes recorded yet: they appear after the next import, streaming event or "Update from CH" of a company already loaded.</em>`;
 }
 
 function alertInPanel(message) {

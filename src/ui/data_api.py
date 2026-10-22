@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from config.settings import get_settings
@@ -25,6 +25,7 @@ from src.datasources.pipeline import refresh_all
 from src.datasources.storage import describe_location, set_location
 from src.datasources.streaming import StreamWorker
 from src.datasources.subset import SubsetConfig, subset_counts
+from src.etl.company_changes import CHANGE_TYPES, change_counts, changes_csv, list_changes
 from src.intelligence.risk_scorer import RiskScorer
 from src.services.api_service import CompaniesHouseApiError, CompaniesHouseApiService
 from src.services.db_service import DatabaseService
@@ -293,6 +294,35 @@ def build_data_router(db: DatabaseService) -> APIRouter:
     @router.on_event("startup")
     async def start_daily_scheduler() -> None:
         asyncio.get_running_loop().create_task(scheduler_loop(db, jobs.start))
+
+    # ------------------------------------------------------------------ #
+    # CHANGE HISTORY                                                     #
+    # ------------------------------------------------------------------ #
+
+    @router.get("/api/data/changes", response_model=None)
+    async def changes(
+        change_type: str | None = None,
+        company_number: str | None = None,
+        subset_only: bool = False,
+        limit: int = 100,
+        format: Literal["json", "csv"] = "json",
+    ) -> dict[str, Any] | Response:
+        if change_type and change_type not in CHANGE_TYPES:
+            raise HTTPException(status_code=400, detail=f"Unknown change type: {change_type}")
+        number = (company_number or "").strip().upper() or None
+        conn = db.connect()
+        try:
+            rows = list_changes(conn, number, change_type, subset_only, limit if format == "json" else 100_000)
+            counts = change_counts(conn)
+        finally:
+            conn.close()
+        if format == "csv":
+            return Response(
+                content=changes_csv(rows),
+                media_type="text/csv",
+                headers={"Content-Disposition": 'attachment; filename="aethelburg_changes.csv"'},
+            )
+        return {"items": rows, "counts": counts, "types": list(CHANGE_TYPES)}
 
     # ------------------------------------------------------------------ #
     # BACKUPS                                                            #

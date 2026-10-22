@@ -76,6 +76,10 @@ Each stream remembers the last event it processed (its *timepoint*), so after a 
 
 **One company now.** **Update from CH** in the dossier refreshes a single company immediately.
 
+## Recent changes
+
+Every update compares a company already in the database with the new data and records what changed: address, status, name, category, SIC codes, dissolution date, accounts and confirmation statement filed, number of charges, officers appointed or resigned, PSC added or ceased. The card lists the latest changes with the old and new value, the date observed and the source; choose a type or *subset only* to filter, and **CSV** to export them all. Click a company number to open it. The first load of a company is not a change, so the list fills only from the second import, stream event or **Update from CH** onwards. The same changes appear in the company's [timeline](timeline-and-ft3-matrix).
+
 ## Backups
 
 **Back up now** copies the database to the `backups` sub-folder (safe while an import runs) and checks the copy; a backup is also made before every import, and the newest 7 are kept. **Restore** replaces the database with a backup after backing up the current one; restart Aethelburg afterwards.

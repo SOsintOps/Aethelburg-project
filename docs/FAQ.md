@@ -49,7 +49,9 @@ Companies House does not publish officers in a free bulk file: they come from th
 
 ### How are changes to a company handled?
 
-Every update (monthly bulk, live stream, Update from CH) overwrites the company's current registry fields — name, status, address, accounts dates — while its risk score, FT3 flags and your case notes are kept. Previous names come from Companies House itself; officer appointments and PSC statements keep their start and end dates, so resignations and ceased controllers stay visible in the timeline. A field-by-field history of changes (old value → new value, with the date it was observed) is planned.
+Every update (monthly bulk, live stream, Update from CH) overwrites the company's current registry fields — name, status, address, accounts dates — while its risk score, FT3 flags and your case notes are kept. Previous names come from Companies House itself; officer appointments and PSC statements keep their start and end dates, so resignations and ceased controllers stay visible in the timeline.
+
+Before overwriting, Aethelburg compares the stored company with the update and records every difference in a **change history**: address, status, name, category, SIC codes, dissolution date, accounts and confirmation statement filed, number of charges, plus officers appointed or resigned and PSC added or ceased. Each change keeps the old and new value, when it was observed and the source (for example `ch_companies 2026-11-01`, `ch_stream`, `ch_api`). The first load of a company is not a change, and the same value written differently by two sources (upper case in the bulk file, mixed case in the API) is not either; addresses are compared by their fingerprint (postcode, house number, street). Changes appear in the company's timeline and in **Data & Updates → Recent changes**, which filters by type and exports CSV (`/api/data/changes?format=csv`). History starts from this version: earlier updates were not recorded.
 
 ### Can Aethelburg download company documents (accounts, confirmation statements)?
 
