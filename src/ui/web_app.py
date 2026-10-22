@@ -120,7 +120,7 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
 
     @app.get("/favicon.ico")
     async def favicon() -> Response:
-        ico_path = ASSETS_DIR / "icon.ico"
+        ico_path = ASSETS_DIR / "aethelburg.ico"
         if ico_path.exists():
             return FileResponse(str(ico_path), media_type="image/x-icon")
         return Response(status_code=204)
