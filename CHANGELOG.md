@@ -12,6 +12,8 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 ## [Unreleased]
 
 ### Fixed
+- Generic environment variables changed the PostgreSQL settings: on Linux `$USER` became the database user and `$NAME` the database name. Only the `POSTGRES_*` variables are read now.
+- The tests no longer depend on the machine: the settings tests ignore its database variables, and the end-to-end test is skipped (with the reason) when the configured database is not populated.
 - The Companies House **Streaming key** stored with `python -m keyring set aethelburg ch_streaming_key` was never read (only the REST key was loaded from the keyring), so live updates reported a missing key.
 - `data fix-person-names`: people imported before names were normalised without titles kept fingerprints such as `mr john smith`, and an import with the fixed rule created them again. The command (backup first) recomputes every fingerprint and FtM id, merges each duplicate into one person (PSC statements, appointments and case references moved, repeated PSC-derived appointments removed) and rewrites the old id inside Ownership and Directorship entities. Safe to run twice.
 

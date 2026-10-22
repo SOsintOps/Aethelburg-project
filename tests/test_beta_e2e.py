@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import json
+import sqlite3
+
+import pytest
 
 from src.core.service_registry import ServiceRegistry
 from src.graph.graph_exporter import export_graph_dot, export_graph_gexf, export_graph_graphml
@@ -25,8 +28,22 @@ def test_service_registry_lifecycle():
     assert reg.is_available("onspd") is True
 
 
+def _has_demo_data(db: DatabaseService) -> bool:
+    """The e2e test needs a populated database (the demo company 14900101 among others)."""
+    try:
+        conn = db.connect()
+        try:
+            return conn.execute("SELECT 1 FROM companies WHERE company_number = '14900101'").fetchone() is not None
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return False
+
+
 def test_beta_services_and_exports_e2e():
     db = DatabaseService()
+    if not _has_demo_data(db):
+        pytest.skip("needs a populated database: set SQLITE_PATH to a copy of one")
     graph_svc = GraphService(db)
     pattern_detector = GraphPatternDetector(db)
     geo_svc = GeoService(db.db_path)

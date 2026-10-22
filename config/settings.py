@@ -54,11 +54,10 @@ except ImportError:
             for field_name, field_info in cls.model_fields.items():
                 if field_name in merged:
                     continue
-                alias = field_info.alias or field_name
+                # only the declared variable: `name` must not pick up $NAME, nor `user` $USER
+                alias = field_info.alias or field_name.upper()
                 if alias in os.environ:
                     merged[field_name] = os.environ[alias]
-                elif field_name.upper() in os.environ:
-                    merged[field_name] = os.environ[field_name.upper()]
                 elif alias in file_vals and file_vals[alias] is not None:
                     merged[field_name] = file_vals[alias]
             return merged
@@ -82,7 +81,6 @@ class DatabaseSettings(BaseSettings):
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        populate_by_name=True,
     )
 
     @computed_field
@@ -119,7 +117,6 @@ class NominatimSettings(BaseSettings):
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        populate_by_name=True,
     )
 
 
@@ -135,7 +132,6 @@ class CompaniesHouseSettings(BaseSettings):
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        populate_by_name=True,
     )
 
     @property
@@ -162,7 +158,6 @@ class PathSettings(BaseSettings):
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        populate_by_name=True,
     )
 
 
@@ -179,7 +174,6 @@ class AppSettings(BaseSettings):
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
-        populate_by_name=True,
     )
 
 

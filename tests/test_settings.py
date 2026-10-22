@@ -4,7 +4,17 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
+import pytest
+
 from config.settings import Settings, get_settings
+
+
+@pytest.fixture(autouse=True)
+def _no_database_env(monkeypatch):
+    """Database variables of the machine running the tests must not change the defaults."""
+    for name in list(os.environ):
+        if name.startswith(("POSTGRES_", "DB_")):
+            monkeypatch.delenv(name)
 
 
 def test_default_settings_load():
@@ -56,3 +66,10 @@ def test_keys_are_read_from_the_keyring():
         s = Settings()
     assert s.ch.api_key == "rest-key"
     assert s.ch.streaming_key == "stream-key"
+
+
+def test_generic_variables_do_not_leak_into_the_database_settings():
+    # Linux sets USER, and some shells NAME: only POSTGRES_* may change the database settings
+    with patch.dict(os.environ, {"USER": "tester", "NAME": "laptop", "HOST": "box", "APP_ENV": "development"}):
+        s = Settings()
+    assert (s.db.user, s.db.name, s.db.host) == ("aethelburg", "aethelburg", "127.0.0.1")
