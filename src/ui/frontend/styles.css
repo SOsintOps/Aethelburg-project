@@ -1,0 +1,1242 @@
+/* ============================================================================
+   Aethelburg v0.2.0-beta.2 — Investigative Corporate Intelligence UI
+   Official Design System of SOsintOps / Exploratores
+   (https://github.com/SOsintOps/Exploratores)
+   - Self-hosted Inter & Cinzel WOFF2 fonts (zero external font requests)
+   - Exploratores Standard Theme (Default: #0066ff Cobalt, #ffffff/#f9f9f9/#fafafa,
+     segmented navbar, #ccc 3px shadowed buttons, #fff9d6 .note boxes, #eaeaea headers)
+   - Exploratores Classical Theme (body.matrix-mode / [data-theme="classical"]:
+     Cinzel serif, #8B6914 & #C9A84C Roman Gold, #fffdf5 parchment, #1a1410 footer)
+   - Exploratores Dark Theme ([data-theme="dark"])
+   ============================================================================ */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/assets/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/assets/fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/assets/fonts/cinzel-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/assets/fonts/cinzel-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ============================================================================
+   1. EXPLORATORES STANDARD THEME (DEFAULT — Exact Exploratores variables)
+   ============================================================================ */
+:root,
+[data-theme="light"] {
+  /* Core Exploratores variables */
+  --primary-color: #0066ff;
+  --secondary-color: #333333;
+  --neutral-color: #888888;
+  --bg-color: #f9f9f9;
+
+  /* Mapped UI Surface Tokens */
+  --font-main: 'Inter', sans-serif;
+  --font-display: 'Inter', sans-serif;
+  --bg-app: #f9f9f9;
+  --bg-panel: #ffffff;
+  --bg-card: #fafafa;
+  --bg-card-hover: #f0f4ff;
+  --bg-search-box: #f0f0f0;
+  --bg-input: #ffffff;
+  --bg-table-header: #eaeaea;
+  --border-subtle: #dddddd;
+  --border-item: #eeeeee;
+  --border-strong: #cccccc;
+  --border-box: #1a1a1a;
+  --text-primary: #333333;
+  --text-secondary: #555555;
+  --text-muted: #888888;
+  --accent-primary: #0066ff;
+  --accent-primary-soft: rgba(0, 102, 255, 0.10);
+  --accent-gold: #0066ff;
+  --accent-gold-soft: rgba(0, 102, 255, 0.10);
+  --accent-blue: #0066ff;
+  --accent-blue-soft: rgba(0, 102, 255, 0.10);
+  --counter-red: #c0392b;
+  --note-bg: #fff9d6;
+  --note-border: #ffc107;
+  --note-text: #333333;
+
+  /* Risk & Intelligence Severity */
+  --risk-critical: #d9534f;
+  --risk-critical-bg: #fdf2f2;
+  --risk-high: #e67e22;
+  --risk-high-bg: #fef5ec;
+  --risk-medium: #c8a000;
+  --risk-medium-bg: #fff9d6;
+  --risk-low: #5cb85c;
+  --risk-low-bg: #eef9ee;
+
+  /* Graph & Map Canvas */
+  --canvas-bg: #f9f9f9;
+  --canvas-grid: rgba(0, 102, 255, 0.06);
+  --shadow-btn: 0 2px 4px rgba(0, 0, 0, 0.10);
+  --shadow-btn-hover: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --footer-bg: #ffffff;
+  --footer-border: #dddddd;
+  --footer-text: #555555;
+}
+
+/* ============================================================================
+   2. EXPLORATORES CLASSICAL / ROMAN THEME (matrix-mode / Cinzel & Gold)
+   ============================================================================ */
+[data-theme="classical"],
+body.matrix-mode {
+  --primary-color: #8B6914;
+  --secondary-color: #2c1a00;
+  --neutral-color: #8B7355;
+  --bg-color: #ffffff;
+
+  --font-main: 'Cinzel', serif;
+  --font-display: 'Cinzel', serif;
+  --bg-app: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-card: #fffdf5;
+  --bg-card-hover: rgba(201, 168, 76, 0.14);
+  --bg-search-box: #fffdf5;
+  --bg-input: #fffdf5;
+  --bg-table-header: #f7f0dc;
+  --border-subtle: #C9A84C;
+  --border-item: #e6d5a7;
+  --border-strong: #8B6914;
+  --border-box: #8B6914;
+  --text-primary: #2c1a00;
+  --text-secondary: #5c4014;
+  --text-muted: #8B7355;
+  --accent-primary: #8B6914;
+  --accent-primary-soft: rgba(201, 168, 76, 0.16);
+  --accent-gold: #8B6914;
+  --accent-gold-soft: rgba(201, 168, 76, 0.16);
+  --accent-blue: #8B6914;
+  --accent-blue-soft: rgba(201, 168, 76, 0.14);
+  --counter-red: #991b1b;
+  --note-bg: #1a1410;
+  --note-border: #8B7355;
+  --note-text: #D4AF37;
+
+  --risk-critical: #b91c1c;
+  --risk-critical-bg: #fef2f2;
+  --risk-high: #b45309;
+  --risk-high-bg: #fffbeb;
+  --risk-medium: #8B6914;
+  --risk-medium-bg: #fffdf5;
+  --risk-low: #15803d;
+  --risk-low-bg: #f0fdf4;
+
+  --canvas-bg: #fffdf5;
+  --canvas-grid: rgba(139, 105, 20, 0.08);
+  --shadow-btn: 0 2px 4px rgba(139, 105, 20, 0.12);
+  --shadow-btn-hover: 0 2px 8px rgba(139, 105, 20, 0.25);
+  --shadow-lg: 0 4px 12px rgba(139, 105, 20, 0.15);
+  --footer-bg: #1a1410;
+  --footer-border: #3d3428;
+  --footer-text: #D4AF37;
+}
+
+/* ============================================================================
+   3. EXPLORATORES DARK THEME ([data-theme="dark"])
+   ============================================================================ */
+[data-theme="dark"] {
+  --primary-color: #0066ff;
+  --secondary-color: #f1f5f9;
+  --neutral-color: #94a3b8;
+  --bg-color: #0b111e;
+
+  --font-main: 'Inter', sans-serif;
+  --font-display: 'Inter', sans-serif;
+  --bg-app: #0b111e;
+  --bg-panel: #111a2e;
+  --bg-card: #16223b;
+  --bg-card-hover: #1d2d4e;
+  --bg-search-box: #0d1526;
+  --bg-input: #0b1324;
+  --bg-table-header: #1a2744;
+  --border-subtle: #243556;
+  --border-item: #1e2d4a;
+  --border-strong: #365080;
+  --border-box: #243556;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent-primary: #0066ff;
+  --accent-primary-soft: rgba(0, 102, 255, 0.20);
+  --accent-gold: #3b82f6;
+  --accent-gold-soft: rgba(59, 130, 246, 0.18);
+  --accent-blue: #38bdf8;
+  --accent-blue-soft: rgba(56, 189, 248, 0.15);
+  --counter-red: #f87171;
+  --note-bg: #1e1b10;
+  --note-border: #ffc107;
+  --note-text: #fde68a;
+
+  --risk-critical: #ef4444;
+  --risk-critical-bg: rgba(239, 68, 68, 0.16);
+  --risk-high: #f97316;
+  --risk-high-bg: rgba(249, 115, 22, 0.16);
+  --risk-medium: #eab308;
+  --risk-medium-bg: rgba(234, 179, 8, 0.16);
+  --risk-low: #10b981;
+  --risk-low-bg: rgba(16, 185, 129, 0.16);
+
+  --canvas-bg: #080d18;
+  --canvas-grid: rgba(56, 189, 248, 0.06);
+  --shadow-btn: 0 2px 4px rgba(0, 0, 0, 0.35);
+  --shadow-btn-hover: 0 4px 8px rgba(0, 102, 255, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --footer-bg: #0d1526;
+  --footer-border: #243556;
+  --footer-text: #94a3b8;
+}
+
+/* ============================================================================
+   GLOBAL RESET & BASE TYPOGRAPHY (Exploratores Standard)
+   ============================================================================ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  font-family: var(--font-main);
+  font-size: 13px;
+  color: var(--text-primary);
+  background-color: var(--bg-app);
+}
+
+[data-theme="classical"] *,
+body.matrix-mode * {
+  font-family: 'Cinzel', serif;
+}
+
+[data-theme="classical"] code,
+[data-theme="classical"] pre,
+body.matrix-mode code,
+body.matrix-mode pre {
+  font-family: Consolas, 'Courier New', monospace;
+}
+
+h1, .page-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+h2 {
+  margin: 10px 0 8px;
+  font-size: 1.05rem;
+  border-bottom: 1px solid var(--primary-color);
+  padding-bottom: 0.35rem;
+  color: var(--primary-color);
+  font-family: var(--font-display);
+}
+
+h3 {
+  margin: 8px 0 6px;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+/* ============================================================================
+   TOP HEADER BAR & EXPLORATORES SEGMENTED NAVBAR
+   ============================================================================ */
+.topbar {
+  height: 58px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.brand-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--primary-color);
+}
+
+[data-theme="classical"] .brand-title,
+body.matrix-mode .brand-title {
+  color: #8B6914;
+  letter-spacing: 0.12em;
+  text-shadow: 1px 1px 2px rgba(139, 105, 20, 0.2);
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--accent-primary-soft);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+.badge-ftm {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+}
+
+/* KPI Strip styled like Exploratores counter cards */
+.kpi-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.kpi-chip {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 4px 10px;
+  display: flex;
+  flex-direction: column;
+  min-width: 80px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.kpi-chip .kpi-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--neutral-color);
+}
+
+.kpi-chip .kpi-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ============================================================================
+   EXPLORATORES BUTTONS & INPUTS (.button / .btn / .input-field)
+   ============================================================================ */
+.btn,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 11px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 3px;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s, border-color 0.2s;
+  box-shadow: var(--shadow-btn);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.btn:hover,
+.button:hover {
+  background-color: var(--primary-color);
+  color: #ffffff;
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+/* Exploratores .button.text-active convention: primary color text, white on hover */
+.btn-primary,
+.btn.text-active,
+.layout-btn.active {
+  color: var(--primary-color);
+  font-weight: 700;
+  border-color: var(--primary-color);
+  background-color: var(--bg-panel);
+}
+
+.btn-primary:hover,
+.btn.text-active:hover,
+.layout-btn.active:hover {
+  background-color: var(--primary-color);
+  color: #ffffff;
+  border-color: var(--primary-color);
+}
+
+.btn-sm {
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+input[type="text"],
+input[type="search"],
+select,
+textarea,
+.input-field {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 6px 9px;
+  font-family: inherit;
+  font-size: 12.5px;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.input-field:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--accent-primary-soft);
+}
+
+/* ============================================================================
+   EXPLORATORES NOTE CALLOUT BOX (.note)
+   ============================================================================ */
+.note {
+  font-size: 11.5px;
+  background-color: var(--note-bg);
+  border-left: 3px solid var(--note-border);
+  color: var(--note-text);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.note strong {
+  font-weight: 700;
+}
+
+/* ============================================================================
+   MAIN 3-PANEL WORKSPACE & EXPLORATORES COLUMNS
+   ============================================================================ */
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 335px 1fr 415px;
+  height: calc(100vh - 88px); /* 58px topbar + 30px Exploratores footer */
+  width: 100vw;
+}
+
+.panel {
+  background-color: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel-left {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.panel-center {
+  background-color: var(--canvas-bg);
+  position: relative;
+}
+
+.panel-right {
+  border-left: 1px solid var(--border-subtle);
+}
+
+/* Exploratores .search-instructions container in left/right panel headers */
+.panel-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--primary-color);
+  padding-bottom: 5px;
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary-color);
+}
+
+/* Exploratores #toolkit-search-count red counter */
+.search-counter-badge {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.search-counter-badge strong {
+  color: var(--counter-red);
+  font-weight: 700;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* ============================================================================
+   LEFT PANEL: ENTITY LIST (Exploratores .column / .toolkit-search-row style)
+   ============================================================================ */
+.entity-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: var(--bg-app);
+}
+
+.entity-item {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 9px 11px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.entity-item:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--primary-color);
+}
+
+.entity-item.active {
+  border-color: var(--primary-color);
+  box-shadow: inset 3.5px 0 0 var(--primary-color), 0 2px 6px rgba(0, 102, 255, 0.10);
+  background-color: var(--bg-card-hover);
+}
+
+.entity-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.entity-name {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.entity-item.active .entity-name {
+  color: var(--primary-color);
+}
+
+.entity-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.risk-badge {
+  font-weight: 700;
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.risk-critical {
+  background: var(--risk-critical-bg);
+  color: var(--risk-critical);
+  border: 1px solid var(--risk-critical);
+}
+
+.risk-high {
+  background: var(--risk-high-bg);
+  color: var(--risk-high);
+  border: 1px solid var(--risk-high);
+}
+
+.risk-medium {
+  background: var(--risk-medium-bg);
+  color: var(--risk-medium);
+  border: 1px solid var(--risk-medium);
+}
+
+.risk-low {
+  background: var(--risk-low-bg);
+  color: var(--risk-low);
+  border: 1px solid var(--risk-low);
+}
+
+.tech-tag {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--accent-primary-soft);
+  color: var(--primary-color);
+  border: 1px solid var(--border-strong);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   CENTER PANEL NAVIGATION BAR (Exploratores nav .menu > li exact pattern!)
+   ============================================================================ */
+.center-tabs {
+  height: 46px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  padding-right: 12px;
+}
+
+.tab-group {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+/* Exact Exploratores .menu > li styling: segmented bar with right border & primary fill on hover */
+.tab-btn {
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--bg-panel);
+  border: none;
+  border-right: 1px solid var(--border-item);
+  border-radius: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease-in, color 0.2s ease-in;
+}
+
+.tab-btn:hover {
+  background-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.tab-btn.active {
+  color: var(--primary-color);
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 var(--primary-color);
+  background-color: var(--bg-card);
+}
+
+.tab-btn.active:hover {
+  background-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.center-view {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: none;
+}
+
+.center-view.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   INTERACTIVE SVG GRAPH & MAP CANVAS
+   ============================================================================ */
+.interactive-svg {
+  width: 100%;
+  height: 100%;
+  background-color: var(--canvas-bg);
+  background-image:
+    linear-gradient(var(--canvas-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+  cursor: grab;
+  user-select: none;
+}
+
+.interactive-svg:active {
+  cursor: grabbing;
+}
+
+.canvas-overlay-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 7px 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  box-shadow: var(--shadow-lg);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-primary);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.canvas-overlay-controls {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 8px;
+  border-radius: 4px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ============================================================================
+   RIGHT DOSSIER PANEL (Exploratores .column & h2 section style)
+   ============================================================================ */
+.dossier-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--bg-app);
+}
+
+.dossier-card {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.dossier-card h3 {
+  margin: 0 0 8px 0;
+  padding-bottom: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--primary-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: 115px 1fr;
+  row-gap: 6px;
+  column-gap: 8px;
+  font-size: 12px;
+}
+
+.kv-key {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.kv-val {
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.flag-box {
+  border-left: 3px solid var(--risk-critical);
+  background-color: var(--bg-card);
+  border-top: 1px solid var(--border-item);
+  border-right: 1px solid var(--border-item);
+  border-bottom: 1px solid var(--border-item);
+  padding: 8px 10px;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 8px;
+}
+
+.flag-box.HIGH {
+  border-left-color: var(--risk-high);
+}
+
+.flag-box.MEDIUM {
+  border-left-color: var(--risk-medium);
+}
+
+/* ICD 203 Innocent Explanations styled like Exploratores .note */
+.innocent-details {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--note-text);
+  background-color: var(--note-bg);
+  border-left: 3px solid var(--note-border);
+  padding: 5px 8px;
+  border-radius: 3px;
+}
+
+/* Exploratores pre.code-guide-block styling */
+.code-block {
+  background-color: #f4f4f8;
+  color: #2c3e50;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #dddddd;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+[data-theme="dark"] .code-block {
+  background-color: #080d18;
+  color: #e2e8f0;
+  border-color: var(--border-subtle);
+}
+
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: var(--bg-app);
+}
+
+/* ============================================================================
+   LEAFLET & OPENSTREETMAP STYLING
+   ============================================================================ */
+#uk-leaflet-map {
+  background: var(--canvas-bg);
+  font-family: var(--font-main);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--bg-panel) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg) !important;
+  border-radius: 4px !important;
+}
+
+.leaflet-control-zoom a {
+  background-color: var(--bg-panel) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: var(--primary-color) !important;
+  color: #ffffff !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.88) !important;
+  color: var(--text-secondary) !important;
+  font-size: 10px !important;
+}
+
+[data-theme="dark"] .leaflet-control-attribution {
+  background: rgba(12, 22, 41, 0.82) !important;
+}
+
+/* OpenStreetMap Free Dark Mode Filter (Zero API Key Required) */
+.osm-tiles-dark {
+  filter: brightness(0.64) invert(1) contrast(2.6) hue-rotate(200deg) saturate(0.32) brightness(0.75);
+}
+
+/* Acta Diurna / Samaritan Tactical Square Markers */
+.sam-marker-demo {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+}
+
+.sam-crit {
+  border: 2px solid #d9534f;
+  background: rgba(217, 83, 79, 0.75);
+  box-shadow: 0 0 6px rgba(217, 83, 79, 0.75);
+}
+
+.sam-high {
+  border: 2px solid #e67e22;
+  background: rgba(230, 126, 34, 0.35);
+  box-shadow: 0 0 5px rgba(230, 126, 34, 0.65);
+}
+
+/* ============================================================================
+   NETWORK GRAPH TOOLBARS, CHART KEY & UNODC MATRIX (Exploratores Table Style)
+   ============================================================================ */
+.toolbar-seg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.toolbar-seg:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+/* Exploratores .button-group-label exact style */
+.toolbar-label {
+  font-size: 10.5px;
+  color: var(--neutral-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  margin: 0 3px;
+}
+
+/* Draggable Link Analysis Nodes */
+.graph-node {
+  cursor: grab;
+  transition: filter 0.12s ease;
+}
+
+.graph-node:hover {
+  filter: drop-shadow(0 2px 6px rgba(0, 102, 255, 0.45));
+}
+
+.graph-node.dragging {
+  cursor: grabbing !important;
+  filter: drop-shadow(0 4px 10px rgba(0, 102, 255, 0.75));
+}
+
+/* UNODC / i2 Chart Cover & Key Panel */
+.chart-key-panel {
+  position: absolute;
+  top: 58px;
+  right: 12px;
+  width: 285px;
+  max-height: calc(100% - 115px);
+  overflow-y: auto;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-lg);
+  z-index: 40;
+  font-size: 11px;
+}
+
+.chart-key-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--primary-color);
+  padding-bottom: 5px;
+  margin-bottom: 8px;
+}
+
+.btn-icon-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 5px;
+}
+
+.btn-icon-close:hover {
+  color: var(--primary-color);
+}
+
+.chart-key-meta {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 7px 9px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ck-caveat {
+  color: var(--counter-red);
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.chart-key-section {
+  margin-bottom: 8px;
+}
+
+.ck-subtitle {
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--neutral-color);
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
+}
+
+.ck-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  line-height: 1.25;
+}
+
+.ck-shape {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.ck-rect-red {
+  width: 14px;
+  height: 10px;
+  background: rgba(217, 83, 79, 0.22);
+  border: 2px solid #d9534f;
+  border-radius: 2px;
+}
+
+.ck-rect-blue {
+  width: 14px;
+  height: 10px;
+  background: rgba(0, 102, 255, 0.18);
+  border: 2px solid #0066ff;
+  border-radius: 2px;
+}
+
+.ck-rect-amber {
+  width: 14px;
+  height: 10px;
+  background: rgba(230, 126, 34, 0.22);
+  border: 2px solid #e67e22;
+  border-radius: 2px;
+}
+
+.ck-circle-purple {
+  width: 12px;
+  height: 12px;
+  background: rgba(142, 68, 173, 0.20);
+  border: 2px solid #8e44ad;
+  border-radius: 50%;
+}
+
+.ck-circle-dashed {
+  width: 12px;
+  height: 12px;
+  background: rgba(200, 160, 0, 0.20);
+  border: 2px dashed #c8a000;
+  border-radius: 50%;
+}
+
+.ck-diamond-green {
+  width: 10px;
+  height: 10px;
+  background: rgba(92, 184, 92, 0.22);
+  border: 2px solid #5cb85c;
+  transform: rotate(45deg);
+  margin: 0 2px;
+}
+
+.ck-octagon-red {
+  width: 12px;
+  height: 12px;
+  background: rgba(192, 57, 43, 0.30);
+  border: 2px solid #c0392b;
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+}
+
+.ck-line {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  flex-shrink: 0;
+}
+
+.ck-line-solid {
+  border-top: 2.5px solid #0066ff;
+}
+
+.ck-line-dashed {
+  border-top: 2.5px dashed #e67e22;
+}
+
+.ck-badge-demo {
+  font-family: Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  background: var(--bg-table-header);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  color: var(--text-primary);
+}
+
+.chart-key-hint {
+  font-size: 10.5px;
+  color: var(--note-text);
+  background-color: var(--note-bg);
+  border-left: 3px solid var(--note-border);
+  padding: 5px 7px;
+  border-radius: 3px;
+}
+
+/* UNODC Step 3-5 Association Matrix Overlay (Exploratores .iban-coverage-table & .toolkit-search-header) */
+.graph-matrix-overlay {
+  position: absolute;
+  inset: 52px 12px 50px 12px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 16px;
+  overflow: auto;
+  z-index: 35;
+  box-shadow: var(--shadow-lg);
+}
+
+.matrix-table {
+  border-collapse: collapse;
+  font-size: 11px;
+  width: 100%;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border: 1px solid var(--border-strong);
+  padding: 5px 7px;
+  text-align: center;
+}
+
+.matrix-table th {
+  background-color: var(--bg-table-header);
+  color: var(--neutral-color);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+}
+
+.matrix-table tbody tr:nth-child(even) td {
+  background-color: var(--bg-card);
+}
+
+.matrix-cell-diag {
+  background: var(--accent-primary-soft) !important;
+  font-weight: 800;
+  color: var(--primary-color);
+}
+
+/* ============================================================================
+   EXPLORATORES FIXED BOTTOM FOOTER
+   ============================================================================ */
+.exploratores-footer {
+  height: 30px;
+  background-color: var(--footer-bg);
+  border-top: 1px solid var(--footer-border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--footer-text);
+  z-index: 900;
+}
+
+.exploratores-footer a {
+  color: var(--primary-color);
+  text-decoration: none;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+[data-theme="classical"] .exploratores-footer a,
+body.matrix-mode .exploratores-footer a {
+  color: #D4AF37;
+}

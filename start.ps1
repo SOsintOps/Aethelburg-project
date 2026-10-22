@@ -1,15 +1,27 @@
-# Aethelburg - Project Startup Script
-# Starts Docker services and runs the application
+# =============================================================================
+# Aethelburg v0.2.0-beta.1 — Quick Launcher (Windows PowerShell)
+# =============================================================================
+param(
+    [switch]$BootstrapOnly,
+    [int]$Port = 8050
+)
 
-Write-Host "Starting Aethelburg..." -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
 
-# Start Docker services
-docker compose up -d db
-Write-Host "Waiting for PostgreSQL..." -ForegroundColor Yellow
-Start-Sleep -Seconds 5
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "  AETHELBURG v0.2.0-beta.1 — Corporate Intelligence (FtM)   " -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
 
-# Run migrations
-python -m alembic upgrade head
+if (-not (Test-Path "dati\aethelburg.sqlite")) {
+    Write-Host "[1/2] Initializing FollowTheMoney database from dati/..." -ForegroundColor Yellow
+    python -m src.main bootstrap
+}
 
-# Start application
-python -m src.main
+if ($BootstrapOnly) {
+    python -m src.main stats
+    exit 0
+}
+
+Write-Host "[2/2] Starting Aethelburg Web & Desktop UI on http://127.0.0.1:$Port ..." -ForegroundColor Green
+python -m src.main desktop --port $Port

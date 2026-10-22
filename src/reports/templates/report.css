@@ -1,0 +1,209 @@
+/* Aethelburg Intelligence Report Stylesheet — Exploratores Design System (A4 Print & Screen Ready) */
+@page {
+  size: A4 portrait;
+  margin: 18mm 16mm 18mm 16mm;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/assets/fonts/inter-latin.woff2') format('woff2');
+}
+
+:root {
+  --primary-color: #0066ff;
+  --secondary-color: #333333;
+  --neutral-color: #888888;
+  --bg-color: #f9f9f9;
+  --crimson-700: #d9534f;
+  --crimson-100: #fdf2f2;
+  --amber-700: #c8a000;
+  --amber-100: #fff9d6;
+  --emerald-700: #5cb85c;
+  --emerald-100: #eef9ee;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--secondary-color);
+  background: #ffffff;
+  line-height: 1.5;
+  font-size: 10pt;
+  margin: 0;
+  padding: 0;
+}
+
+.report-container {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 12mm 14mm;
+}
+
+.classification-banner {
+  background: var(--primary-color);
+  color: #ffffff;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: 8.5pt;
+  padding: 5px 12px;
+  border-bottom: 2px solid #0044aa;
+  text-transform: uppercase;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid var(--primary-color);
+  padding: 16px 0 12px 0;
+  margin-bottom: 18px;
+}
+
+.report-title-block h1 {
+  font-size: 17pt;
+  margin: 0 0 4px 0;
+  color: var(--secondary-color);
+}
+
+.report-title-block .subtitle {
+  font-size: 10pt;
+  color: var(--neutral-color);
+  margin: 0;
+}
+
+.meta-box {
+  text-align: right;
+  font-size: 8.5pt;
+  color: #555555;
+}
+
+/* Exploratores .search-instructions style */
+.bluf-box {
+  background: #f0f0f0;
+  border-left: 4px solid var(--primary-color);
+  border-top: 1px solid #dddddd;
+  border-right: 1px solid #dddddd;
+  border-bottom: 1px solid #dddddd;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.bluf-box h2 {
+  margin: 0 0 8px 0;
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary-color);
+}
+
+section {
+  margin-bottom: 22px;
+  page-break-inside: avoid;
+}
+
+/* Exploratores h2 style */
+section h2 {
+  font-size: 12pt;
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--primary-color);
+  padding-bottom: 4px;
+  margin: 0 0 10px 0;
+}
+
+/* Exploratores .iban-coverage-table & .toolkit-search-header style */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  margin-bottom: 10px;
+}
+
+th, td {
+  border: 1px solid #cccccc;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #eaeaea;
+  font-weight: 700;
+  color: var(--secondary-color);
+  text-transform: uppercase;
+  font-size: 8pt;
+  letter-spacing: 0.05em;
+}
+
+tbody tr:nth-child(even) td {
+  background-color: #f4f4f4;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 8pt;
+  font-weight: 700;
+}
+
+.badge-critical {
+  background: var(--crimson-100);
+  color: var(--crimson-700);
+  border: 1px solid var(--crimson-700);
+}
+
+.badge-high {
+  background: #fef5ec;
+  color: #e67e22;
+  border: 1px solid #e67e22;
+}
+
+.badge-medium {
+  background: var(--amber-100);
+  color: var(--amber-700);
+  border: 1px solid var(--amber-700);
+}
+
+.badge-grade {
+  background: var(--primary-color);
+  color: #ffffff;
+  font-family: monospace;
+}
+
+/* Exploratores .column style */
+.ft3-card {
+  border: 1px solid #eeeeee;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #fafafa;
+}
+
+/* Exploratores .note style */
+.innocent-box {
+  background: #fff9d6;
+  border-left: 3px solid #ffc107;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: 3px;
+  font-size: 8.5pt;
+}
+
+code {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 8.5pt;
+  background: #f4f4f8;
+  color: #2c3e50;
+  padding: 1px 4px;
+  border: 1px solid #dddddd;
+  border-radius: 3px;
+}

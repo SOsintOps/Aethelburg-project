@@ -12,6 +12,7 @@ from sqlalchemy import engine_from_config, pool
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config.settings import get_settings
+from src.db.models import Base
 
 config = context.config
 if config.config_file_name is not None:
@@ -21,7 +22,7 @@ if config.config_file_name is not None:
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.db.sync_url)
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
@@ -31,6 +32,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -46,6 +48,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_schemas=True,
         )
         with context.begin_transaction():
             context.run_migrations()

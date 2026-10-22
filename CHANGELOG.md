@@ -7,6 +7,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.2.0-beta.1] — 2026-10-22
+
+### Added
+- **FollowTheMoney (`FtM v3.x`) Full Database & Ontology Compatibility**:
+  - Added canonical `ftm_entities` table (JSONB + GIN indexes on PostgreSQL; JSON + indexed columns on SQLite) and `addresses` (`Address`) table, plus `ftm_id` and `ftm_schema` columns across all domain tables (`companies`, `persons`, `legal_entities`, `psc_ownerships`, `directorships`, `sanctions`, `pep_persons`, `icij_*`).
+  - Added [`src/core/ftm.py`](src/core/ftm.py) and official [`src/core/ftm_schema.json`](src/core/ftm_schema.json) (synchronized with sibling project `Quaesitor`) supporting full validation, inheritance resolution (`Thing` → `LegalEntity` → `Organization` → `Company`, `Interval` → `Ownership` / `Directorship` / `Representation` / `Sanction`), and `.ftm.json` JSONL import/export.
+- **Complete ETL Pipeline (`src/etl/`) for Real Datasets in `dati/`**:
+  - `import_sanctions.py`: right-anchored parser for `UK-Sanctions-List.txt` handling unquoted semicolons in `Statement of Reasons` (`len(row) > 58`), consolidating records by `Unique ID` and extracting UK company registration numbers (`row[-11]`).
+  - `import_icij.py`: imports all 6 ICIJ Offshore Leaks CSVs (`nodes-entities`, `nodes-officers`, `nodes-intermediaries`, `nodes-addresses`, `nodes-others`, `relationships`).
+  - `import_companies.py`: streams `BasicCompanyDataAsOneFile` CSV (stripping leading spaces from headers), extracts SIC codes, and computes ADR-015 address fingerprints.
+  - `import_psc.py`: handles all 6 PSC `kind` types (including `super-secure-person-with-significant-control` and Overseas Entities `OE...`) and auto-creates historical/dissolved company stubs to preserve phoenix company networks (`FT3-SC-015`).
+  - `bootstrap_beta.py`: fast Beta bootstrap populating `dati/aethelburg.sqlite` with 19,200+ canonical FtM entities from `dati/`.
+- **FT3 Intelligence Engine (`src/intelligence/`), Graph (`src/graph/`) & 10-Section Reports (`src/reports/`)**:
+  - Implemented all 11 FT3 shell-company techniques (`FT3-SC-001` through `FT3-SC-020`) with UNODC 4×4 source/information grades (`A1`–`X4`), ICD 203 confidence levels (`high`, `moderate`, `low`), and mandatory innocent explanations.
+  - Implemented multi-hop NetworkX + Cytoscape graph analysis, cycle detection, and 8 export formats (`.ftm.json`, `.xlsx`, `.csv`, `.gexf`, `.graphml`, `.dot`, `.geojson`, `.kml`) plus 10-section HTML/PDF intelligence dossiers with BLUF and SHA-256 verification.
+- **Interactive 3-Panel Web & Desktop UI (`src/ui/`) & Graphic Assets (`assets/`)**:
+  - Generated vector [`assets/logo.svg`](assets/logo.svg), high-resolution `1024x1024` RGBA [`assets/logo.png`](assets/logo.png), [`assets/logo-dark.png`](assets/logo-dark.png), Windows multi-size [`assets/icon.ico`](assets/icon.ico), and bundled local `Inter` (`woff2`) web fonts.
+  - Built 3-panel UI (Search & FT3 Filters | Network Graph, UK Coordinate Map & Hubs, Timeline & FT3 Matrix, FtM Ontology Inspector, Casework | Entity Dossier) with Light/Dark mode and `start.ps1` / `src/main.py` CLI.
+
+---
+
 ## [0.1.1] — 2026-10-13
 
 ### Documentation

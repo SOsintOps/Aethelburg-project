@@ -1,17 +1,13 @@
-# Aethelburg TODO
-# See CHANGELOG.md for full roadmap and phase planning
+# Aethelburg TODO — Status v0.2.0-beta.1
 
-## Phase 0 — Infrastructure (current)
-- [ ] Verify docker compose up -d db works with all extensions
-- [ ] Test Alembic migration on clean database
-- [ ] Create .env from .env.example and configure credentials
-
-## Phase 1 — Data Import
-- [ ] Implement src/etl/import_sanctions.py (smallest, validates pipeline)
-- [ ] Implement src/etl/import_icij.py (6 CSV files)
-- [ ] Implement src/etl/import_companies.py (COPY FROM STDIN, bulk)
-- [ ] Implement src/etl/import_psc.py (ijson streaming, 12GB)
-
-## Additional data sources to evaluate
-- [ ] EveryPolitician: https://everypolitician.org/sources/
-- [ ] ONSPD postcodes for geocoding
+## Completed in v0.2.0-beta.1
+- [x] High-resolution vector & raster graphic identity (`assets/logo.svg`, `assets/logo.png` 1024x1024 RGBA, `assets/logo-dark.png`, `assets/icon.ico`, local `Inter` woff2 fonts)
+- [x] Full FollowTheMoney (`FtM v3.x`) ontology engine (`src/core/ftm.py`, `src/core/ftm_schema.json`) and canonical `ftm_entities` table
+- [x] Multi-script name normalizer (`src/core/normalizer.py`: CJK, Cyrillic, Arabic, Greek, UK postcode, ADR-015 address fingerprint, Jaro-Winkler & phonetic matching, UK BRN extractor)
+- [x] Dual PostgreSQL + Zero-Docker Local SQLite database engine (`config/database.py`, `src/services/db_service.py`, `migrations/versions/0001_initial_schema.py`)
+- [x] Complete ETL pipeline for real datasets in `dati/` (`import_sanctions.py`, `import_icij.py`, `import_companies.py`, `import_psc.py`, `import_onspd.py`, `compute_fingerprints.py`, `bootstrap_beta.py`)
+- [x] All 11 FT3 shell-company detection techniques (`FT3-SC-001` through `FT3-SC-020`) with UNODC 4x4 grading (`A1`–`X4`) and ICD 203 innocent explanations (`src/intelligence/`)
+- [x] Multi-hop NetworkX + Cytoscape graph analysis, cycle detection, and GEXF/GraphML/DOT/FtM exporters (`src/graph/`)
+- [x] 10-Section Intelligence Dossier Report generator (BLUF, UNODC 4x4, SHA-256 verification) & 8-format ExportService (`src/reports/`)
+- [x] Interactive 3-panel Web & Desktop UI with Light/Dark theme (`src/ui/`, `src/main.py`, `start.ps1`)
+- [x] Automated unit & end-to-end test suite (`tests/` — 18/18 passing)

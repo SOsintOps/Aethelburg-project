@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Aethelburg • Exploratores Corporate Intelligence (FtM v3.x)</title>
+  <link rel="icon" href="/assets/roman-helmet.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <!-- Top Bar (Exploratores Header & Navigation System) -->
+  <header class="topbar">
+    <div class="brand">
+      <img src="/assets/logo.svg" alt="Aethelburg Logo" class="brand-logo">
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="brand-title" id="brand-main-title">AETHELBURG • EXPLORATORES</span>
+          <span class="badge-pill">v0.2.0-beta.2</span>
+          <span class="badge-pill badge-ftm" title="FollowTheMoney v3.x &amp; UNODC Link Analysis">FtM v3.x • UNODC 4x4</span>
+        </div>
+        <div class="brand-subtitle" id="brand-subtitle">
+          UK Corporate Intelligence, Sanctions, Offshore Leaks &amp; FT3 Threat Detection — <em id="brand-motto">Omnia tempus revelat</em>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-strip" id="kpi-strip">
+      <div class="kpi-chip"><span class="kpi-label">Companies</span><span class="kpi-val" id="kpi-companies">—</span></div>
+      <div class="kpi-chip"><span class="kpi-label">Flagged FT3</span><span class="kpi-val" id="kpi-flagged" style="color:var(--counter-red);">—</span></div>
+      <div class="kpi-chip"><span class="kpi-label">Sanctions</span><span class="kpi-val" id="kpi-sanctions">—</span></div>
+      <div class="kpi-chip"><span class="kpi-label">ICIJ Nodes</span><span class="kpi-val" id="kpi-icij">—</span></div>
+      <div class="kpi-chip"><span class="kpi-label">FtM Store</span><span class="kpi-val" id="kpi-ftm" style="color:var(--primary-color);">—</span></div>
+    </div>
+
+    <div class="topbar-actions">
+      <select id="export-select" style="width:170px;" onchange="handleQuickExport(this)">
+        <option value="">Export Intelligence...</option>
+        <option value="ftm">FollowTheMoney (.ftm.json)</option>
+        <option value="xlsx">Excel Workbook (.xlsx)</option>
+        <option value="csv">Companies CSV (.csv)</option>
+        <option value="gexf">Gephi Graph (.gexf)</option>
+        <option value="graphml">Maltego / yEd (.graphml)</option>
+        <option value="dot">Graphviz (.dot)</option>
+        <option value="geojson">QGIS / Kepler (.geojson)</option>
+        <option value="kml">Google Earth (.kml)</option>
+      </select>
+      <button class="btn text-active" onclick="rescoreDatabase()" title="Re-run all 11 FT3 detection rules">Re-Score FT3</button>
+      <select id="theme-select" style="width:165px;" onchange="setTheme(this.value)" title="Select Exploratores Theme (or use Konami Code ↑↑↓↓←→←→BA)">
+        <option value="light" selected>Theme: Exploratores</option>
+        <option value="classical">Theme: Classical (Cinzel)</option>
+        <option value="dark">Theme: Dark Mode</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Main 3-Panel Workspace -->
+  <main class="workspace-grid">
+    <!-- LEFT PANEL: Search, Filters & Ranked Entities -->
+    <aside class="panel panel-left">
+      <div class="panel-header">
+        <div class="panel-title-row">
+          <span class="panel-title">Entity Search &amp; FT3 Filters</span>
+          <span class="search-counter-badge" id="search-count-label"><strong id="search-count-num">0</strong> entity(s)</span>
+        </div>
+        <input type="search" id="search-input" class="input-field" placeholder="e.g., Company Name, CRN, Postcode..." oninput="debounceSearch()">
+        <div class="filter-grid">
+          <select id="ft3-filter" class="input-field" onchange="loadCompanies()">
+            <option value="">All FT3 Techniques</option>
+          </select>
+          <select id="risk-filter" class="input-field" onchange="loadCompanies()">
+            <option value="0">All Risk Scores</option>
+            <option value="1" selected>Flagged Only (&gt; 0)</option>
+            <option value="35">High Risk (&ge; 35)</option>
+            <option value="65">Critical Risk (&ge; 65)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="entity-list" id="entity-list"></div>
+    </aside>
+
+    <!-- CENTER PANEL: Graph | Geo Map | Timeline & FT3 Matrix | FollowTheMoney Inspector | Casework -->
+    <section class="panel panel-center">
+      <div class="center-tabs">
+        <div class="tab-group">
+          <button class="tab-btn active" data-tab="graph" onclick="switchTab('graph')">1. Network Graph</button>
+          <button class="tab-btn" data-tab="map" onclick="switchTab('map')">2. GeoInt &amp; Hubs</button>
+          <button class="tab-btn" data-tab="timeline" onclick="switchTab('timeline')">3. Timeline &amp; FT3 Matrix</button>
+          <button class="tab-btn" data-tab="ftm" onclick="switchTab('ftm')">4. FollowTheMoney (FtM)</button>
+          <button class="tab-btn" data-tab="casework" onclick="switchTab('casework')">5. Casework &amp; Reports</button>
+        </div>
+        <div id="center-status" style="font-size:11px; color:var(--text-secondary); align-self:center;">Select an entity to inspect</div>
+      </div>
+
+      <!-- TAB 1: Interactive Multi-View UNODC / i2 Link Analysis Network Graph -->
+      <div class="center-view active" id="view-graph">
+        <div class="canvas-overlay-controls" style="flex-wrap:wrap; max-width:calc(100% - 24px);">
+          <!-- Layout Views (UNODC / i2 / Sparrow / Klerks / Quaesitor) -->
+          <div class="toolbar-seg">
+            <span class="toolbar-label">View:</span>
+            <button class="btn btn-sm layout-btn active" id="btn-ly-organic" onclick="setGraphLayout('organic')" title="Force-directed SNA layout (Klerks / Organic)">Organic</button>
+            <button class="btn btn-sm layout-btn" id="btn-ly-hierarchical" onclick="setGraphLayout('hierarchical')" title="UNODC Company Tree / i2 Tiered Ownership Hierarchy (Owner → Subsidiary → Hub)">Hierarchical</button>
+            <button class="btn btn-sm layout-btn" id="btn-ly-concentric" onclick="setGraphLayout('concentric')" title="Malcolm Sparrow Ego-Centric Radial Rings (Hop 0 → Hop 1 → Hop 2)">Concentric</button>
+            <button class="btn btn-sm layout-btn" id="btn-ly-circular" onclick="setGraphLayout('circular')" title="Structural POLE Category Ring">Circular</button>
+            <button class="btn btn-sm layout-btn" id="btn-ly-matrix" onclick="setGraphLayout('matrix')" title="UNODC Step 3-5 Triangular Association Matrix &amp; Centrality">Matrix</button>
+          </div>
+
+          <!-- Depth & Untangle Controls -->
+          <div class="toolbar-seg">
+            <span class="toolbar-label">Scope:</span>
+            <button class="btn btn-sm" onclick="loadCompanyGraph(currentCompanyNumber, 1)">1 Hop</button>
+            <button class="btn btn-sm" onclick="loadCompanyGraph(currentCompanyNumber, 2)">2 Hops</button>
+            <button class="btn btn-sm" onclick="loadCompanyGraph(currentCompanyNumber, 3)">3 Hops</button>
+            <button class="btn btn-sm" onclick="loadOverviewGraph()">Global Ring</button>
+          </div>
+
+          <!-- Link Analysis Controls -->
+          <div class="toolbar-seg">
+            <button class="btn btn-sm" id="btn-untangle" onclick="untangleGraph()" title="Minimize edge crossings (UNODC Step 7 Clarify &amp; Re-plot)">✂ Untangle</button>
+            <button class="btn btn-sm" id="btn-toggle-labels" onclick="toggleGraphEdgeLabels()" title="Show/Hide link labels">Labels: ON</button>
+            <button class="btn btn-sm" id="btn-toggle-key" onclick="toggleChartKey()" title="Toggle UNODC Chart Cover &amp; Key">Chart Key</button>
+            <button class="btn btn-sm" onclick="unpinAllGraphNodes()" title="Release all manually dragged/pinned nodes">Unpin Nodes</button>
+            <button class="btn btn-sm" onclick="zoomGraphBy(1.25)" title="Zoom In">+</button>
+            <button class="btn btn-sm" onclick="zoomGraphBy(0.8)" title="Zoom Out">−</button>
+            <button class="btn btn-sm" onclick="resetGraphZoom()" title="Fit to Screen">Fit</button>
+          </div>
+        </div>
+
+        <!-- Interactive SVG Canvas (with draggable nodes & live edges) -->
+        <svg id="graph-svg" class="interactive-svg"></svg>
+
+        <!-- UNODC Step 3-5 Association Matrix View (shown when Matrix layout is active) -->
+        <div id="graph-matrix-view" class="graph-matrix-overlay" style="display:none;"></div>
+
+        <!-- UNODC / i2 Chart Cover & Key Panel (collapsible on right of graph) -->
+        <aside id="graph-chart-key" class="chart-key-panel">
+          <div class="chart-key-header">
+            <span>UNODC / i2 CHART COVER &amp; KEY</span>
+            <button class="btn-icon-close" onclick="toggleChartKey()" title="Close Key">✕</button>
+          </div>
+          <div class="chart-key-meta" id="chart-key-meta">
+            <div><strong>Case / Focus:</strong> <span id="ck-focus">—</span></div>
+            <div><strong>Caveat:</strong> <span class="ck-caveat">TLP:AMBER // FOR OFFICIAL USE</span></div>
+            <div><strong>Date / Seq:</strong> <span id="ck-date">—</span></div>
+            <div><strong>Topology:</strong> <span id="ck-stats">—</span></div>
+          </div>
+          <div class="chart-key-section">
+            <div class="ck-subtitle">POLE / UNODC Entity Shapes</div>
+            <div class="ck-row"><span class="ck-shape ck-rect-red"></span> <span><strong>Rectangle (Red):</strong> Flagged Company / Shell</span></div>
+            <div class="ck-row"><span class="ck-shape ck-rect-blue"></span> <span><strong>Rectangle (Blue):</strong> Standard Company</span></div>
+            <div class="ck-row"><span class="ck-shape ck-rect-amber"></span> <span><strong>Rectangle (Amber):</strong> Offshore / ICIJ Entity</span></div>
+            <div class="ck-row"><span class="ck-shape ck-circle-purple"></span> <span><strong>Circle:</strong> Individual / Person (PSC / PEP)</span></div>
+            <div class="ck-row"><span class="ck-shape ck-circle-dashed"></span> <span><strong>Dashed Circle (?):</strong> Unknown / s.790ZG UBO</span></div>
+            <div class="ck-row"><span class="ck-shape ck-diamond-green"></span> <span><strong>Diamond:</strong> Location / Address Hub</span></div>
+            <div class="ck-row"><span class="ck-shape ck-octagon-red"></span> <span><strong>Octagon:</strong> Official Sanction (UK OFSI)</span></div>
+          </div>
+          <div class="chart-key-section">
+            <div class="ck-subtitle">UNODC 4x4 Link Conventions</div>
+            <div class="ck-row"><span class="ck-line ck-line-solid"></span> <span><strong>Solid Line (→):</strong> Confirmed (Grades A1, A2, B1, B2)</span></div>
+            <div class="ck-row"><span class="ck-line ck-line-dashed"></span> <span><strong>Dashed Line (⇢):</strong> Suspected / Inferred (Grade C3 / Ceased)</span></div>
+            <div class="ck-row"><span class="ck-badge-demo">A1..C3</span> <span><strong>Corner Marks:</strong> NW=Role, NE=4x4 Grade, SW=Country, SE=Risk</span></div>
+          </div>
+          <div class="chart-key-hint">
+            <strong>NOTE:</strong> Drag any node to move &amp; pin • Click to inspect dossier • Double-click company to pivot graph • Scroll to zoom
+          </div>
+        </aside>
+
+        <!-- Bottom Compact Status Bar -->
+        <div class="canvas-overlay-legend">
+          <div class="legend-item"><span class="ck-shape ck-rect-red"></span>Flagged Co</div>
+          <div class="legend-item"><span class="ck-shape ck-rect-blue"></span>Company</div>
+          <div class="legend-item"><span class="ck-shape ck-circle-purple"></span>Person (PSC)</div>
+          <div class="legend-item"><span class="ck-shape ck-rect-amber"></span>Offshore (ICIJ)</div>
+          <div class="legend-item"><span class="ck-shape ck-diamond-green"></span>Address Hub</div>
+          <div class="legend-item"><span class="ck-line ck-line-solid"></span>Confirmed (A1–B2)</div>
+          <div class="legend-item"><span class="ck-line ck-line-dashed"></span>Suspected (C3)</div>
+          <div class="legend-item" style="color:var(--primary-color); font-weight:700;">✋ Drag nodes to move</div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Geospatial UK Map (OpenStreetMap Free No-Key + Vendorized UK Regions GeoJSON) -->
+      <div class="center-view" id="view-map">
+        <div style="display:grid; grid-template-columns: 1fr 340px; height:100%; width:100%;">
+          <div style="position:relative; height:100%; width:100%; overflow:hidden;">
+            <div class="canvas-overlay-controls" style="z-index:1000; flex-wrap:wrap;">
+              <select id="basemap-select" onchange="changeBasemapStyle(this.value)" title="OpenStreetMap requires NO API key">
+                <option value="osm-light" selected>OpenStreetMap Standard (No API Key)</option>
+                <option value="osm-dark">OpenStreetMap Dark (No API Key)</option>
+                <option value="osm-hot">OSM Humanitarian HOT (No API Key)</option>
+                <option value="offline-vector">Offline UK Vector Only (No Network)</option>
+              </select>
+              <button class="btn btn-sm" onclick="loadGeoMap(true)">Flagged Only</button>
+              <button class="btn btn-sm" onclick="loadGeoMap(false)">All Geocoded</button>
+              <button class="btn btn-sm" onclick="focusMapOnLondon()">Focus London</button>
+              <button class="btn btn-sm" onclick="resetUkMapView()">Reset UK</button>
+              <button class="btn btn-sm" onclick="zoomUkMap(1)" title="Zoom In">+</button>
+              <button class="btn btn-sm" onclick="zoomUkMap(-1)" title="Zoom Out">−</button>
+            </div>
+            <!-- OpenStreetMap Leaflet Container + Offline Vector UK Layer -->
+            <div id="uk-leaflet-map" style="width:100%; height:100%; z-index:1;"></div>
+            <svg id="map-svg" class="interactive-svg" style="display:none; width:100%; height:100%;"></svg>
+            <div class="canvas-overlay-legend" style="z-index:1000;">
+              <div class="legend-item"><span class="sam-marker-demo sam-crit"></span>Critical Target (&ge;60)</div>
+              <div class="legend-item"><span class="sam-marker-demo sam-high"></span>High Risk (30–59)</div>
+              <div class="legend-item"><span class="legend-dot" style="background:#0066ff;"></span>Standard Entity</div>
+              <div class="legend-item"><span style="display:inline-block; width:14px; height:2px; background:#8e44ad;"></span>Shared Controller Link</div>
+              <div class="legend-item"><span style="display:inline-block; width:14px; height:2px; border-top:2px dashed #d9534f;"></span>Active Region Boundary</div>
+            </div>
+          </div>
+          <div style="border-left:1px solid var(--border-subtle); background:var(--bg-panel); overflow-y:auto; padding:12px;">
+            <div class="panel-title-row" style="margin-bottom:10px;">
+              <span class="panel-title">Top Co-Registration Hubs (FT3-SC-001)</span>
+            </div>
+            <div class="note"><strong>NOTE:</strong> Click any postcode hub below to fly to its UK coordinates and filter co-registered companies.</div>
+            <div id="hotspots-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Chronological Timeline & Full FT3 Threat Matrix -->
+      <div class="center-view" id="view-timeline">
+        <div class="scrollable-content" id="timeline-and-ft3-container"></div>
+      </div>
+
+      <!-- TAB 4: FollowTheMoney (FtM v3.x) Canonical Ontology Inspector -->
+      <div class="center-view" id="view-ftm">
+        <div class="scrollable-content">
+          <div class="note">
+            <strong>NOTE:</strong> All Aethelburg entities are stored natively as canonical <strong>OCCRP FollowTheMoney (FtM v3.x)</strong> JSON objects compatible with Aleph, OpenSanctions, and Quaesitor.
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div>
+              <h2 style="margin:0 0 4px 0;">FollowTheMoney (FtM v3.x) Canonical Entity Store</h2>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-primary" onclick="exportSelectedCompanyFtm()">Download Subject .ftm.json</button>
+              <button class="btn" onclick="window.location.href='/api/export/ftm?flagged_only=true'">Export All Flagged .ftm.json</button>
+            </div>
+          </div>
+          <div id="ftm-inspector-content"></div>
+        </div>
+      </div>
+
+      <!-- TAB 5: Casework & 10-Section Intelligence Reports -->
+      <div class="center-view" id="view-casework">
+        <div class="scrollable-content" id="casework-container"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: Selected Entity Intelligence Dossier -->
+    <aside class="panel panel-right">
+      <div class="panel-header">
+        <div class="panel-title-row">
+          <span class="panel-title">Intelligence Dossier</span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm btn-primary" onclick="openPrintableReport()">10-Sec Report</button>
+            <button class="btn btn-sm" onclick="enrollCurrentInCase()">+ Add to Case</button>
+          </div>
+        </div>
+      </div>
+      <div class="dossier-scroll" id="dossier-panel">
+        <div class="note" style="margin:12px 0;">
+          <strong>NOTE:</strong> Select a company from the left list or network graph to inspect its FollowTheMoney entity, PSCs, FT3 flags, and UNODC 4x4 grades.
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Exploratores Fixed Bottom Footer -->
+  <footer class="exploratores-footer">
+    <div>
+      <strong>Aethelburg 0.2.0-beta.2</strong> • Corporate Public Records &amp; Shell Company Intelligence
+      <a href="https://github.com/SOsintOps/Exploratores" target="_blank" rel="noopener noreferrer">Exploratores Design System</a>
+    </div>
+    <div>
+      <span id="footer-motto">Omnia tempus revelat</span> • FollowTheMoney v3.x • UNODC 4x4 Link Analysis • OpenStreetMap
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,30 +1,76 @@
-"""SQLAlchemy 2.0 ORM models — Aethelburg ontology v1.0.0."""
+"""SQLAlchemy 2.0 ORM models — Aethelburg ontology v1.1.0 (FollowTheMoney v3.x compatible)."""
 from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Optional
+from typing import Any, Optional
 
-from geoalchemy2 import Geometry
-from sqlalchemy import (
-    BigInteger,
-    Boolean,
-    Date,
-    Float,
-    ForeignKey,
-    SmallInteger,
-    String,
-    Text,
-    UniqueConstraint,
-    CheckConstraint,
-    text,
-)
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+try:
+    from geoalchemy2 import Geometry
+except ImportError:
+    def Geometry(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+        return None
+
+try:
+    from sqlalchemy import (
+        BigInteger,
+        Boolean,
+        CheckConstraint,
+        Computed,
+        Date,
+        Float,
+        ForeignKey,
+        Integer,
+        SmallInteger,
+        String,
+        Text,
+        UniqueConstraint,
+        text,
+    )
+    from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+    from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+    HAS_SQLALCHEMY = True
+except ImportError:
+    HAS_SQLALCHEMY = False
+    Mapped = Optional  # type: ignore[misc,assignment]
+
+    class DeclarativeBase:  # type: ignore[no-redef]
+        metadata = None
+
+    def _noop(*args: Any, **kwargs: Any) -> Any:
+        return None
+
+    BigInteger = Boolean = CheckConstraint = Computed = Date = Float = ForeignKey = _noop  # type: ignore[assignment]
+    Integer = SmallInteger = String = Text = UniqueConstraint = text = ARRAY = JSONB = UUID = _noop  # type: ignore[assignment]
+    mapped_column = relationship = _noop  # type: ignore[assignment]
 
 
 class Base(DeclarativeBase):
     pass
+
+
+# ── Core FollowTheMoney Entity Table (ADR-007 & Ontology Layer 1) ──────
+
+
+class FtmEntity(Base):
+    """Canonical FollowTheMoney entity storage (nodes & edge entities)."""
+
+    __tablename__ = "ftm_entities"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    schema: Mapped[str] = mapped_column(String(64), nullable=False)
+    caption: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_edge: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    source_prop: Mapped[Optional[str]] = mapped_column(String(64))
+    target_prop: Mapped[Optional[str]] = mapped_column(String(64))
+    source_id: Mapped[Optional[str]] = mapped_column(String(128))
+    target_id: Mapped[Optional[str]] = mapped_column(String(128))
+    properties: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'"))
+    datasets: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(100)))
+    referents: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(128)))
+    first_seen: Mapped[datetime] = mapped_column(server_default=text("now()"))
+    last_seen: Mapped[datetime] = mapped_column(server_default=text("now()"))
+    provenance_source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
 
 
 # ── Schema public ──────────────────────────────────────────────────────
@@ -52,12 +98,42 @@ class GeoPostcodeCentroid(Base):
     postcode: Mapped[str] = mapped_column(String(10), primary_key=True)
     lat: Mapped[float] = mapped_column(Float)
     lon: Mapped[float] = mapped_column(Float)
-    geom = mapped_column(Geometry("POINT", srid=4326), nullable=True)
+    geom = mapped_column(
+        Geometry("POINT", srid=4326),
+        Computed("ST_SetSRID(ST_MakePoint(lon, lat), 4326)", persisted=True),
+        nullable=True,
+    )
     admin_district: Mapped[Optional[str]] = mapped_column(String(100))
     admin_county: Mapped[Optional[str]] = mapped_column(String(100))
     admin_ward: Mapped[Optional[str]] = mapped_column(String(100))
     nuts_level1: Mapped[Optional[str]] = mapped_column(String(10))
     country_code: Mapped[Optional[str]] = mapped_column(String(1))
+    lsoa11: Mapped[Optional[str]] = mapped_column(String(15))
+    msoa11: Mapped[Optional[str]] = mapped_column(String(15))
+    laua: Mapped[Optional[str]] = mapped_column(String(15))
+    ward: Mapped[Optional[str]] = mapped_column(String(15))
+    ctry: Mapped[Optional[str]] = mapped_column(String(1))
+    is_active: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text("true"))
+    source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
+
+
+class Address(Base):
+    """Registered and operational addresses (FtM: Address)."""
+
+    __tablename__ = "addresses"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)  # FtM ID
+    address_fingerprint: Mapped[str] = mapped_column(String(200), unique=True)
+    full_address: Mapped[str] = mapped_column(Text)
+    street: Mapped[Optional[str]] = mapped_column(String(300))
+    city: Mapped[Optional[str]] = mapped_column(String(100))
+    county: Mapped[Optional[str]] = mapped_column(String(100))
+    postcode: Mapped[Optional[str]] = mapped_column(String(10))
+    country: Mapped[Optional[str]] = mapped_column(String(10))
+    lat: Mapped[Optional[float]] = mapped_column(Float)
+    lon: Mapped[Optional[float]] = mapped_column(Float)
+    geocoding_source: Mapped[Optional[str]] = mapped_column(String(30))
+    company_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
 
 
@@ -66,6 +142,8 @@ class Company(Base):
 
     company_number: Mapped[str] = mapped_column(String(8), primary_key=True)
     company_name: Mapped[str] = mapped_column(String(500))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Company'"))
     # Registered address
     reg_address_care_of: Mapped[Optional[str]] = mapped_column(String(200))
     reg_address_po_box: Mapped[Optional[str]] = mapped_column(String(50))
@@ -157,6 +235,8 @@ class Person(Base):
     __tablename__ = "persons"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Person'"))
     name: Mapped[str] = mapped_column(String(500))
     name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
     forename: Mapped[Optional[str]] = mapped_column(String(200))
@@ -180,11 +260,13 @@ class LegalEntity(Base):
     __tablename__ = "legal_entities"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'LegalEntity'"))
     name: Mapped[str] = mapped_column(String(500))
     name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
-    jurisdiction: Mapped[Optional[str]] = mapped_column(String(10))
+    jurisdiction: Mapped[Optional[str]] = mapped_column(String(50))
     company_number_foreign: Mapped[Optional[str]] = mapped_column(String(100))
-    entity_type: Mapped[Optional[str]] = mapped_column(String(50))
+    entity_type: Mapped[Optional[str]] = mapped_column(String(80))
     is_offshore: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text("false"))
     source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
@@ -197,21 +279,26 @@ class PscOwnership(Base):
     __tablename__ = "psc_ownerships"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Ownership'"))
     company_number: Mapped[str] = mapped_column(String(8), ForeignKey("companies.company_number"))
     person_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("persons.id"))
     legal_entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("legal_entities.id"))
+    psc_kind: Mapped[Optional[str]] = mapped_column(String(80))
     nature_of_control: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(100)))
     notified_on: Mapped[Optional[date]] = mapped_column(Date)
     ceased_on: Mapped[Optional[date]] = mapped_column(Date)
     is_ceased: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text("false"))
     is_super_secure: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text("false"))
+    is_sanctioned: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text("false"))
     source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
     __table_args__ = (
         CheckConstraint(
             "(person_id IS NOT NULL AND legal_entity_id IS NULL) OR "
-            "(person_id IS NULL AND legal_entity_id IS NOT NULL)",
+            "(person_id IS NULL AND legal_entity_id IS NOT NULL) OR "
+            "(is_super_secure = true AND person_id IS NULL AND legal_entity_id IS NULL)",
             name="chk_psc_owner",
         ),
     )
@@ -225,6 +312,8 @@ class Directorship(Base):
     __tablename__ = "directorships"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Directorship'"))
     company_number: Mapped[str] = mapped_column(String(8), ForeignKey("companies.company_number"))
     person_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("persons.id"))
     officer_role: Mapped[Optional[str]] = mapped_column(String(100))
@@ -273,10 +362,17 @@ class Sanction(Base):
     __tablename__ = "sanctions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Sanction'"))
+    unique_id: Mapped[Optional[str]] = mapped_column(String(50))
+    ofsi_group_id: Mapped[Optional[str]] = mapped_column(String(50))
+    un_reference_number: Mapped[Optional[str]] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(500))
     name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
     aliases: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text))
+    registration_numbers: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text))
     entity_type: Mapped[Optional[str]] = mapped_column(String(50))
+    regime_name: Mapped[Optional[str]] = mapped_column(String(300))
     topics: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(50)))
     countries: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(10)))
     list_name: Mapped[Optional[str]] = mapped_column(String(100))
@@ -293,6 +389,8 @@ class PepPerson(Base):
     __tablename__ = "pep_persons"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Person'"))
     name: Mapped[str] = mapped_column(String(500))
     name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
     country: Mapped[Optional[str]] = mapped_column(String(10))
@@ -311,11 +409,12 @@ class NameVariant(Base):
     __tablename__ = "name_variants"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    entity_id: Mapped[str] = mapped_column(String(128))  # Supports company_number, UUID, ICIJ node_id, or ftm_id
     entity_type: Mapped[str] = mapped_column(String(30))
     variant_text: Mapped[str] = mapped_column(String(500))
     fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
-    ftm_id: Mapped[Optional[str]] = mapped_column(String(64))
+    phonetic_key: Mapped[Optional[str]] = mapped_column(String(200))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
     variant_type: Mapped[Optional[str]] = mapped_column(String(30))
     source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
 
@@ -326,6 +425,8 @@ class IcijEntity(Base):
     __tablename__ = "icij_entities"
 
     node_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Company'"))
     name: Mapped[Optional[str]] = mapped_column(String(500))
     name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
     original_name: Mapped[Optional[str]] = mapped_column(String(500))
@@ -338,7 +439,12 @@ class IcijEntity(Base):
     incorporation_date: Mapped[Optional[date]] = mapped_column(Date)
     inactivation_date: Mapped[Optional[date]] = mapped_column(Date)
     struck_off_date: Mapped[Optional[date]] = mapped_column(Date)
+    dorm_date: Mapped[Optional[date]] = mapped_column(Date)
     status: Mapped[Optional[str]] = mapped_column(String(100))
+    service_provider: Mapped[Optional[str]] = mapped_column(String(200))
+    ibc_ruc: Mapped[Optional[str]] = mapped_column(String(100))
+    country_codes: Mapped[Optional[str]] = mapped_column(String(200))
+    countries: Mapped[Optional[str]] = mapped_column(String(500))
     source_id_list: Mapped[Optional[str]] = mapped_column(String(200))
     valid_until: Mapped[Optional[str]] = mapped_column(String(100))
     note: Mapped[Optional[str]] = mapped_column(Text)
@@ -349,6 +455,8 @@ class IcijOfficer(Base):
     __tablename__ = "icij_officers"
 
     node_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Person'"))
     name: Mapped[Optional[str]] = mapped_column(String(500))
     name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
     icij_id: Mapped[Optional[str]] = mapped_column(String(100))
@@ -356,6 +464,65 @@ class IcijOfficer(Base):
     country_codes: Mapped[Optional[str]] = mapped_column(String(200))
     countries: Mapped[Optional[str]] = mapped_column(String(500))
     source_id_list: Mapped[Optional[str]] = mapped_column(String(200))
+    note: Mapped[Optional[str]] = mapped_column(Text)
+    source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
+
+
+class IcijIntermediary(Base):
+    __tablename__ = "icij_intermediaries"
+
+    node_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'LegalEntity'"))
+    name: Mapped[Optional[str]] = mapped_column(String(500))
+    name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
+    status: Mapped[Optional[str]] = mapped_column(String(100))
+    internal_id: Mapped[Optional[str]] = mapped_column(String(100))
+    address: Mapped[Optional[str]] = mapped_column(Text)
+    countries: Mapped[Optional[str]] = mapped_column(String(500))
+    country_codes: Mapped[Optional[str]] = mapped_column(String(200))
+    source_id_list: Mapped[Optional[str]] = mapped_column(String(200))
+    valid_until: Mapped[Optional[str]] = mapped_column(String(100))
+    note: Mapped[Optional[str]] = mapped_column(Text)
+    source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
+
+
+class IcijAddress(Base):
+    __tablename__ = "icij_addresses"
+
+    node_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'Address'"))
+    address: Mapped[Optional[str]] = mapped_column(Text)
+    name: Mapped[Optional[str]] = mapped_column(String(500))
+    address_fingerprint: Mapped[Optional[str]] = mapped_column(String(200))
+    countries: Mapped[Optional[str]] = mapped_column(String(500))
+    country_codes: Mapped[Optional[str]] = mapped_column(String(200))
+    source_id_list: Mapped[Optional[str]] = mapped_column(String(200))
+    valid_until: Mapped[Optional[str]] = mapped_column(String(100))
+    note: Mapped[Optional[str]] = mapped_column(Text)
+    source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
+
+
+class IcijOther(Base):
+    __tablename__ = "icij_others"
+
+    node_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'LegalEntity'"))
+    name: Mapped[Optional[str]] = mapped_column(String(500))
+    name_fingerprint: Mapped[Optional[str]] = mapped_column(String(500))
+    entity_type: Mapped[Optional[str]] = mapped_column(String(200))
+    incorporation_date: Mapped[Optional[date]] = mapped_column(Date)
+    struck_off_date: Mapped[Optional[date]] = mapped_column(Date)
+    closed_date: Mapped[Optional[date]] = mapped_column(Date)
+    jurisdiction: Mapped[Optional[str]] = mapped_column(String(200))
+    jurisdiction_description: Mapped[Optional[str]] = mapped_column(String(200))
+    countries: Mapped[Optional[str]] = mapped_column(String(500))
+    country_codes: Mapped[Optional[str]] = mapped_column(String(200))
+    source_id_list: Mapped[Optional[str]] = mapped_column(String(200))
+    valid_until: Mapped[Optional[str]] = mapped_column(String(100))
+    note: Mapped[Optional[str]] = mapped_column(Text)
     source_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("data_sources.id"))
 
 
@@ -363,10 +530,13 @@ class IcijRelationship(Base):
     __tablename__ = "icij_relationships"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[Optional[str]] = mapped_column(String(64))
     node_id_start: Mapped[str] = mapped_column(String(50))
     node_id_end: Mapped[str] = mapped_column(String(50))
     rel_type: Mapped[Optional[str]] = mapped_column(String(100))
     link: Mapped[Optional[str]] = mapped_column(String(200))
+    status: Mapped[Optional[str]] = mapped_column(String(100))
     start_date: Mapped[Optional[date]] = mapped_column(Date)
     end_date: Mapped[Optional[date]] = mapped_column(Date)
     source_id_list: Mapped[Optional[str]] = mapped_column(String(200))
@@ -381,6 +551,7 @@ class RiskFlag(Base):
     ft3_technique: Mapped[str] = mapped_column(String(20))
     priority: Mapped[str] = mapped_column(String(10))
     score_contribution: Mapped[float] = mapped_column(Float, server_default=text("0.0"))
+    grade: Mapped[Optional[str]] = mapped_column(String(4))  # UNODC 4x4 e.g. 'A1', 'B2', 'C3'
     evidence: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'"))
     source_ids: Mapped[Optional[list[uuid.UUID]]] = mapped_column(ARRAY(UUID(as_uuid=True)))
     detected_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
@@ -397,7 +568,7 @@ class EntityEvent(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     event_type: Mapped[str] = mapped_column(String(50))
     entity_type: Mapped[str] = mapped_column(String(30))
-    entity_id: Mapped[str] = mapped_column(String(100))
+    entity_id: Mapped[str] = mapped_column(String(128))
     old_value: Mapped[Optional[dict]] = mapped_column(JSONB)
     new_value: Mapped[Optional[dict]] = mapped_column(JSONB)
     detected_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
@@ -416,14 +587,21 @@ class Investigation(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), server_default=text("'open'"))
     priority: Mapped[Optional[str]] = mapped_column(String(10), server_default=text("'medium'"))
+    classification: Mapped[str] = mapped_column(String(30), server_default=text("'TLP:AMBER'"))
+    investigator: Mapped[Optional[str]] = mapped_column(String(200), server_default=text("'Analyst'"))
+    tags: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(50)))
+    metadata_: Mapped[Optional[dict]] = mapped_column("metadata", JSONB, server_default=text("'{}'"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     closed_at: Mapped[Optional[datetime]] = mapped_column()
 
     entities: Mapped[list[InvestigationEntity]] = relationship(back_populates="investigation", cascade="all, delete-orphan")
     annotations: Mapped[list[Annotation]] = relationship(back_populates="investigation", cascade="all, delete-orphan")
+    manual_links: Mapped[list[ManualLink]] = relationship(back_populates="investigation", cascade="all, delete-orphan")
     snapshots: Mapped[list[VisualSnapshot]] = relationship(back_populates="investigation", cascade="all, delete-orphan")
+    saved_queries: Mapped[list[SavedQuery]] = relationship(back_populates="investigation", cascade="all, delete-orphan")
     events: Mapped[list[InvestigationEvent]] = relationship(back_populates="investigation", cascade="all, delete-orphan")
+    reports: Mapped[list[GeneratedReport]] = relationship(back_populates="investigation", cascade="all, delete-orphan")
 
 
 class InvestigationEntity(Base):
@@ -436,7 +614,13 @@ class InvestigationEntity(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     investigation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="CASCADE"))
     entity_type: Mapped[str] = mapped_column(String(30))
-    entity_id: Mapped[str] = mapped_column(String(100))
+    entity_id: Mapped[str] = mapped_column(String(128))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    display_name: Mapped[Optional[str]] = mapped_column(String(500))
+    is_primary: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    risk_score: Mapped[Optional[float]] = mapped_column(Float)
+    flags: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(20)))
+    investigator_tags: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(50)))
     added_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
@@ -450,9 +634,11 @@ class Annotation(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     investigation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="CASCADE"))
     entity_type: Mapped[Optional[str]] = mapped_column(String(30))
-    entity_id: Mapped[Optional[str]] = mapped_column(String(100))
+    entity_id: Mapped[Optional[str]] = mapped_column(String(128))
     annotation_text: Mapped[str] = mapped_column(Text)
-    annotation_type: Mapped[Optional[str]] = mapped_column(String(30), server_default=text("'note'"))
+    annotation_type: Mapped[Optional[str]] = mapped_column(String(30), server_default=text("'note'"))  # note | hypothesis | finding | caveat | source
+    grade: Mapped[Optional[str]] = mapped_column(String(4))  # UNODC 4x4 e.g. 'A1', 'B2'
+    is_pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
@@ -464,15 +650,21 @@ class ManualLink(Base):
     __table_args__ = {"schema": "casework"}
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    investigation_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="SET NULL"))
+    investigation_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="CASCADE"))
+    ftm_id: Mapped[Optional[str]] = mapped_column(String(128))
+    ftm_schema: Mapped[str] = mapped_column(String(64), server_default=text("'UnknownLink'"))
     from_entity_type: Mapped[str] = mapped_column(String(30))
-    from_entity_id: Mapped[str] = mapped_column(String(100))
+    from_entity_id: Mapped[str] = mapped_column(String(128))
     to_entity_type: Mapped[str] = mapped_column(String(30))
-    to_entity_id: Mapped[str] = mapped_column(String(100))
+    to_entity_id: Mapped[str] = mapped_column(String(128))
     link_type: Mapped[Optional[str]] = mapped_column(String(100))
-    confidence: Mapped[Optional[float]] = mapped_column(Float, server_default=text("1.0"))
+    confidence: Mapped[Optional[float]] = mapped_column(Float, server_default=text("0.7"))
+    confidence_level: Mapped[str] = mapped_column(String(20), server_default=text("'moderate'"))  # high | moderate | low
+    grade: Mapped[Optional[str]] = mapped_column(String(4), server_default=text("'B2'"))  # UNODC 4x4 code
     evidence: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    investigation: Mapped[Optional[Investigation]] = relationship(back_populates="manual_links")
 
 
 class VisualSnapshot(Base):
@@ -481,8 +673,10 @@ class VisualSnapshot(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     investigation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="CASCADE"))
+    snapshot_type: Mapped[str] = mapped_column(String(30), server_default=text("'network_graph'"))
     title: Mapped[Optional[str]] = mapped_column(String(300))
     snapshot_png_b64: Mapped[Optional[str]] = mapped_column(Text)
+    viewport_state: Mapped[Optional[dict]] = mapped_column(JSONB)
     graph_json: Mapped[Optional[dict]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
@@ -494,11 +688,13 @@ class SavedQuery(Base):
     __table_args__ = {"schema": "casework"}
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    investigation_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="SET NULL"))
+    investigation_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="CASCADE"))
     title: Mapped[str] = mapped_column(String(300))
     query_type: Mapped[str] = mapped_column(String(30))
     query_text: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    investigation: Mapped[Optional[Investigation]] = relationship(back_populates="saved_queries")
 
 
 class InvestigationEvent(Base):
@@ -520,10 +716,12 @@ class GeneratedReport(Base):
     __table_args__ = {"schema": "casework"}
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    investigation_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="SET NULL"))
+    investigation_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("casework.investigations.id", ondelete="CASCADE"))
     title: Mapped[str] = mapped_column(String(500))
     format: Mapped[str] = mapped_column(String(20))
     file_path: Mapped[Optional[str]] = mapped_column(Text)
     file_size_bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     generated_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     generation_params: Mapped[Optional[dict]] = mapped_column(JSONB, server_default=text("'{}'"))
+
+    investigation: Mapped[Optional[Investigation]] = relationship(back_populates="reports")

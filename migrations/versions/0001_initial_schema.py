@@ -1,19 +1,21 @@
-"""Schema iniziale Aethelburg — ontologia v1.0.0
+"""Schema iniziale Aethelburg — ontologia v2.0.0 (FollowTheMoney v3.x compatible)
 
 Revision ID: 0001
 Revises:
 Create Date: 2026-03-26
 
 Crea:
-  - Schema public: tabelle dati sorgente (Companies House, PSC, ICIJ, Sanctions, PEP, Geo)
-  - Schema casework: tabelle investigative
+  - Tabella canonica ftm_entities (FollowTheMoney v3.x JSONB + indice GIN)
+  - Schema public: tabelle dati sorgente (Addresses, Companies House, PSC, ICIJ, Sanctions, PEP, Geo)
+  - Schema casework: tabelle investigative allineate con Intelligence Field Notes (UNODC 4x4, confidence)
   - Estensioni: postgis, vector, age, pg_trgm, unaccent, uuid-ossp
   - Indici critici per performance
 """
 from __future__ import annotations
+
 from typing import Sequence, Union
+
 from alembic import op
-import sqlalchemy as sa
 
 revision: str = "0001"
 down_revision: Union[str, None] = None
@@ -55,6 +57,30 @@ def upgrade() -> None:
     """)
 
     # ------------------------------------------------------------------ #
+    # TABELLA: ftm_entities — FollowTheMoney v3.x Canonical Entity Store  #
+    # ------------------------------------------------------------------ #
+    op.execute("""
+    CREATE TABLE ftm_entities (
+        id              VARCHAR(128) PRIMARY KEY,
+        schema          VARCHAR(64)  NOT NULL,
+        caption         VARCHAR(500) NOT NULL,
+        properties      JSONB        NOT NULL DEFAULT '{}',
+        datasets        TEXT[]       NOT NULL DEFAULT '{}',
+        referents       TEXT[]       NOT NULL DEFAULT '{}',
+        target          BOOLEAN      NOT NULL DEFAULT false,
+        first_seen      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+        last_seen       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+        last_change     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+        source_id       UUID REFERENCES data_sources(id)
+    )
+    """)
+    op.execute("CREATE INDEX idx_ftm_entities_schema ON ftm_entities(schema)")
+    op.execute("CREATE INDEX idx_ftm_entities_caption ON ftm_entities USING gin(to_tsvector('simple', caption))")
+    op.execute("CREATE INDEX idx_ftm_entities_props ON ftm_entities USING gin(properties)")
+    op.execute("CREATE INDEX idx_ftm_entities_datasets ON ftm_entities USING gin(datasets)")
+    op.execute("CREATE INDEX idx_ftm_entities_target ON ftm_entities(target) WHERE target = true")
+
+    # ------------------------------------------------------------------ #
     # TABELLA: geo_postcode_centroids — ONSPD (ADR-011)                   #
     # ------------------------------------------------------------------ #
     op.execute("""
@@ -75,13 +101,40 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_geo_postcode_geom ON geo_postcode_centroids USING gist(geom)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: companies — Companies House bulk data                       #
+    # TABELLA: addresses — Indirizzi normalizzati (FtM: Address)          #
+    # ------------------------------------------------------------------ #
+    op.execute("""
+    CREATE TABLE addresses (
+        id                  VARCHAR(128) PRIMARY KEY,
+        ftm_id              VARCHAR(128) UNIQUE NOT NULL,
+        ftm_schema          VARCHAR(64)  NOT NULL DEFAULT 'Address',
+        full_address        TEXT         NOT NULL,
+        street              VARCHAR(300),
+        city                VARCHAR(100),
+        county              VARCHAR(100),
+        postcode            VARCHAR(20),
+        country             VARCHAR(100),
+        country_code        VARCHAR(10),
+        address_fingerprint VARCHAR(200) UNIQUE,
+        lat                 DOUBLE PRECISION,
+        lon                 DOUBLE PRECISION,
+        company_count       INTEGER NOT NULL DEFAULT 0,
+        source_id           UUID REFERENCES data_sources(id),
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """)
+    op.execute("CREATE INDEX idx_addresses_postcode ON addresses(postcode)")
+    op.execute("CREATE INDEX idx_addresses_fp ON addresses(address_fingerprint)")
+
+    # ------------------------------------------------------------------ #
+    # TABELLA: companies — Companies House bulk data (FtM: Company)       #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE companies (
-        -- Identificatore
         company_number          VARCHAR(8)   PRIMARY KEY,
         company_name            VARCHAR(500) NOT NULL,
+        ftm_id                  VARCHAR(128),
+        ftm_schema              VARCHAR(64)  NOT NULL DEFAULT 'Company',
 
         -- Indirizzo registrato
         reg_address_care_of     VARCHAR(200),
@@ -120,13 +173,11 @@ def upgrade() -> None:
         mortgages_num_part_satisfied    SMALLINT DEFAULT 0,
         mortgages_num_satisfied         SMALLINT DEFAULT 0,
 
-        -- Codici SIC (testo CH: "74100 - descrizione")
+        -- Codici SIC
         sic_text_1  VARCHAR(200),
         sic_text_2  VARCHAR(200),
         sic_text_3  VARCHAR(200),
         sic_text_4  VARCHAR(200),
-
-        -- Codici SIC (solo numero, estratto da sic_text)
         sic_code_1  VARCHAR(10),
         sic_code_2  VARCHAR(10),
         sic_code_3  VARCHAR(10),
@@ -166,11 +217,11 @@ def upgrade() -> None:
         conf_stmt_last_made_up_date DATE,
 
         -- Aethelburg computed fields
-        address_fingerprint     VARCHAR(200),   -- postcode|house_no|keyword (ADR-015)
-        name_fingerprint        VARCHAR(500),   -- fingerprints.generate(company_name)
+        address_fingerprint     VARCHAR(200),
+        name_fingerprint        VARCHAR(500),
         risk_score              FLOAT DEFAULT 0.0,
         ft3_techniques          VARCHAR(20)[],
-        officers_fetched_at     TIMESTAMPTZ,    -- ultimo fetch officers via API
+        officers_fetched_at     TIMESTAMPTZ,
         is_flagged              BOOLEAN DEFAULT false,
 
         -- Provenance
@@ -180,7 +231,6 @@ def upgrade() -> None:
     )
     """)
 
-    # Indici companies
     op.execute("CREATE INDEX idx_companies_name ON companies USING gin(to_tsvector('simple', company_name))")
     op.execute("CREATE INDEX idx_companies_fingerprint ON companies(name_fingerprint)")
     op.execute("CREATE INDEX idx_companies_postcode ON companies(reg_address_postcode)")
@@ -189,13 +239,16 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_companies_risk ON companies(risk_score DESC) WHERE is_flagged = true")
     op.execute("CREATE INDEX idx_companies_sic1 ON companies(sic_code_1)")
     op.execute("CREATE INDEX idx_companies_incorporation ON companies(incorporation_date)")
+    op.execute("CREATE INDEX idx_companies_ftm_id ON companies(ftm_id)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: persons — persone fisiche (PSC individuali, directors, PEP) #
+    # TABELLA: persons — persone fisiche (FtM: Person)                    #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE persons (
         id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ftm_id                  VARCHAR(128),
+        ftm_schema              VARCHAR(64) NOT NULL DEFAULT 'Person',
         name                    VARCHAR(500) NOT NULL,
         name_fingerprint        VARCHAR(500),
         forename                VARCHAR(200),
@@ -206,7 +259,7 @@ def upgrade() -> None:
         dob_month               SMALLINT,
         dob_year                SMALLINT,
         is_pep                  BOOLEAN DEFAULT false,
-        pep_source              VARCHAR(50),    -- 'opensanctions' | 'everypolitician'
+        pep_source              VARCHAR(50),
         source_id               UUID REFERENCES data_sources(id),
         created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -215,6 +268,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_persons_fingerprint ON persons(name_fingerprint)")
     op.execute("CREATE INDEX idx_persons_name_fts ON persons USING gin(to_tsvector('simple', name))")
     op.execute("CREATE INDEX idx_persons_pep ON persons(is_pep) WHERE is_pep = true")
+    op.execute("CREATE INDEX idx_persons_ftm_id ON persons(ftm_id)")
 
     # ------------------------------------------------------------------ #
     # TABELLA: legal_entities — PSC corporate, entità straniere           #
@@ -222,11 +276,13 @@ def upgrade() -> None:
     op.execute("""
     CREATE TABLE legal_entities (
         id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ftm_id                  VARCHAR(128),
+        ftm_schema              VARCHAR(64) NOT NULL DEFAULT 'LegalEntity',
         name                    VARCHAR(500) NOT NULL,
         name_fingerprint        VARCHAR(500),
-        jurisdiction            VARCHAR(10),    -- ISO 3166-1 alpha-2
+        jurisdiction            VARCHAR(100),
         company_number_foreign  VARCHAR(100),
-        entity_type             VARCHAR(50),    -- 'corporate-psc' | 'legal-person' | 'trust' | ...
+        entity_type             VARCHAR(50),
         is_offshore             BOOLEAN DEFAULT false,
         source_id               UUID REFERENCES data_sources(id),
         created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -235,6 +291,7 @@ def upgrade() -> None:
     """)
     op.execute("CREATE INDEX idx_legal_entities_fingerprint ON legal_entities(name_fingerprint)")
     op.execute("CREATE INDEX idx_legal_entities_jurisdiction ON legal_entities(jurisdiction)")
+    op.execute("CREATE INDEX idx_legal_entities_ftm_id ON legal_entities(ftm_id)")
 
     # ------------------------------------------------------------------ #
     # TABELLA: psc_ownerships — PSC ownership stakes (FtM: Ownership)     #
@@ -242,21 +299,22 @@ def upgrade() -> None:
     op.execute("""
     CREATE TABLE psc_ownerships (
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ftm_id              VARCHAR(128),
+        ftm_schema          VARCHAR(64) NOT NULL DEFAULT 'Ownership',
         company_number      VARCHAR(8) NOT NULL REFERENCES companies(company_number),
-        -- Chi controlla: persona fisica O legal entity (uno dei due è NOT NULL)
         person_id           UUID REFERENCES persons(id),
         legal_entity_id     UUID REFERENCES legal_entities(id),
-        -- Tipo controllo
-        nature_of_control   VARCHAR(100)[],  -- array di stringhe CH
+        nature_of_control   VARCHAR(100)[],
         notified_on         DATE,
         ceased_on           DATE,
         is_ceased           BOOLEAN DEFAULT false,
-        is_super_secure     BOOLEAN DEFAULT false,  -- dati oscurati CH
+        is_super_secure     BOOLEAN DEFAULT false,
         source_id           UUID REFERENCES data_sources(id),
         created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
         CONSTRAINT chk_psc_owner CHECK (
             (person_id IS NOT NULL AND legal_entity_id IS NULL) OR
-            (person_id IS NULL AND legal_entity_id IS NOT NULL)
+            (person_id IS NULL AND legal_entity_id IS NOT NULL) OR
+            (is_super_secure = true)
         )
     )
     """)
@@ -271,19 +329,20 @@ def upgrade() -> None:
     op.execute("""
     CREATE TABLE directorships (
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ftm_id              VARCHAR(128),
+        ftm_schema          VARCHAR(64) NOT NULL DEFAULT 'Directorship',
         company_number      VARCHAR(8) NOT NULL REFERENCES companies(company_number),
         person_id           UUID REFERENCES persons(id),
-        officer_role        VARCHAR(100),   -- director | secretary | llp-member | ...
+        officer_role        VARCHAR(100),
         appointed_on        DATE,
         resigned_on         DATE,
         is_active           BOOLEAN DEFAULT true,
         occupation          VARCHAR(200),
         nationality         VARCHAR(100),
         country_of_residence VARCHAR(100),
-        -- Dati fetched on-demand via CH API
-        api_person_id       VARCHAR(100),   -- CH officer ID (per link API)
+        api_person_id       VARCHAR(100),
         source_id           UUID REFERENCES data_sources(id),
-        fetched_via         VARCHAR(20),    -- 'bulk' | 'api' | 'streaming'
+        fetched_via         VARCHAR(20),
         created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
     )
@@ -299,8 +358,8 @@ def upgrade() -> None:
     CREATE TABLE officers_fetch_queue (
         id              BIGSERIAL PRIMARY KEY,
         company_number  VARCHAR(8) NOT NULL REFERENCES companies(company_number),
-        priority        SMALLINT DEFAULT 5,     -- 1=altissima (flagged), 5=normale
-        status          VARCHAR(20) DEFAULT 'pending',  -- pending | in_progress | done | error
+        priority        SMALLINT DEFAULT 5,
+        status          VARCHAR(20) DEFAULT 'pending',
         enqueued_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
         started_at      TIMESTAMPTZ,
         completed_at    TIMESTAMPTZ,
@@ -315,7 +374,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE streaming_checkpoints (
-        stream_type     VARCHAR(50) PRIMARY KEY,  -- 'officers' | 'psc' | 'company_profile'
+        stream_type     VARCHAR(50) PRIMARY KEY,
         last_event_id   VARCHAR(100),
         last_seq_num    BIGINT,
         last_event_at   TIMESTAMPTZ,
@@ -328,48 +387,54 @@ def upgrade() -> None:
     """)
 
     # ------------------------------------------------------------------ #
-    # TABELLA: sanctions — entità sanzionate (OpenSanctions/OFSI)          #
+    # TABELLA: sanctions — entità sanzionate (FtM: Sanction + Entity)     #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE sanctions (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name            VARCHAR(500) NOT NULL,
-        name_fingerprint VARCHAR(500),
-        aliases         TEXT[],
-        entity_type     VARCHAR(50),        -- 'Person' | 'Company' | 'Organization'
-        topics          VARCHAR(50)[],      -- 'sanction' | 'pep' | 'debarment' | ...
-        countries       VARCHAR(10)[],
-        list_name       VARCHAR(100),       -- 'UK FCDO' | 'OFAC' | 'EU' | ...
-        listed_on       DATE,
-        source          VARCHAR(50),        -- 'opensanctions' | 'ofsi'
-        opensanctions_id VARCHAR(100),      -- ID stabile OpenSanctions
-        raw_properties  JSONB,              -- tutte le proprietà FtM originali
-        source_id       UUID REFERENCES data_sources(id),
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+        id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ftm_id                  VARCHAR(128),
+        ftm_schema              VARCHAR(64) NOT NULL DEFAULT 'Sanction',
+        subject_ftm_id          VARCHAR(128),
+        name                    VARCHAR(500) NOT NULL,
+        name_fingerprint        VARCHAR(500),
+        aliases                 TEXT[],
+        entity_type             VARCHAR(50),
+        topics                  VARCHAR(50)[],
+        countries               VARCHAR(50)[],
+        registration_numbers    TEXT[],
+        list_name               VARCHAR(100),
+        listed_on               DATE,
+        source                  VARCHAR(50),
+        opensanctions_id        VARCHAR(100),
+        raw_properties          JSONB,
+        source_id               UUID REFERENCES data_sources(id),
+        created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
     )
     """)
     op.execute("CREATE INDEX idx_sanctions_fingerprint ON sanctions(name_fingerprint)")
     op.execute("CREATE INDEX idx_sanctions_topics ON sanctions USING gin(topics)")
+    op.execute("CREATE INDEX idx_sanctions_regnums ON sanctions USING gin(registration_numbers)")
     op.execute("CREATE INDEX idx_sanctions_name_fts ON sanctions USING gin(to_tsvector('simple', name))")
 
     # ------------------------------------------------------------------ #
     # TABELLA: pep_persons — Politically Exposed Persons                   #
-    # (ADR-018: OpenSanctions + EveryPolitician)                           #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE pep_persons (
         id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        ftm_id          VARCHAR(128),
+        ftm_schema      VARCHAR(64) NOT NULL DEFAULT 'Person',
         name            VARCHAR(500) NOT NULL,
         name_fingerprint VARCHAR(500),
-        country         VARCHAR(10),        -- ISO 3166-1 alpha-2
+        country         VARCHAR(10),
         party           VARCHAR(200),
         legislature     VARCHAR(200),
         mandate_start   DATE,
         mandate_end     DATE,
         is_current      BOOLEAN DEFAULT false,
-        pep_source      VARCHAR(50) NOT NULL,  -- 'opensanctions' | 'everypolitician'
-        external_id     VARCHAR(200),          -- ID nella fonte originale
+        pep_source      VARCHAR(50) NOT NULL,
+        external_id     VARCHAR(200),
         source_id       UUID REFERENCES data_sources(id),
         created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     )
@@ -383,12 +448,12 @@ def upgrade() -> None:
     op.execute("""
     CREATE TABLE name_variants (
         id              BIGSERIAL PRIMARY KEY,
-        entity_id       UUID NOT NULL,
-        entity_type     VARCHAR(30) NOT NULL,   -- 'company' | 'person' | 'legal_entity' | 'sanction' | 'pep'
+        entity_id       VARCHAR(128) NOT NULL,
+        entity_type     VARCHAR(30) NOT NULL,
         variant_text    VARCHAR(500) NOT NULL,
-        fingerprint     VARCHAR(500),           -- fingerprints.generate(variant_text)
-        ftm_id          VARCHAR(64),            -- make_id() hash per dedup cross-source
-        variant_type    VARCHAR(30),            -- 'original' | 'alias' | 'phonetic_key' | 'transliterated'
+        fingerprint     VARCHAR(500),
+        ftm_id          VARCHAR(128),
+        variant_type    VARCHAR(30),
         source_id       UUID REFERENCES data_sources(id),
         UNIQUE (entity_id, entity_type, fingerprint)
     )
@@ -402,7 +467,9 @@ def upgrade() -> None:
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE icij_entities (
-        node_id         VARCHAR(50) PRIMARY KEY,    -- ICIJ node_id (non stabile cross-release)
+        node_id         VARCHAR(50) PRIMARY KEY,
+        ftm_id          VARCHAR(128),
+        ftm_schema      VARCHAR(64) NOT NULL DEFAULT 'Company',
         name            VARCHAR(500),
         name_fingerprint VARCHAR(500),
         original_name   VARCHAR(500),
@@ -416,8 +483,8 @@ def upgrade() -> None:
         inactivation_date  DATE,
         struck_off_date    DATE,
         status          VARCHAR(100),
-        source_id_list  VARCHAR(200),               -- 'Panama Papers' | 'Pandora Papers' | ...
-        valid_until     VARCHAR(100),               -- ICIJ release version
+        source_id_list  VARCHAR(200),
+        valid_until     VARCHAR(100),
         note            TEXT,
         source_id       UUID REFERENCES data_sources(id)
     )
@@ -425,11 +492,13 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_icij_entities_fp ON icij_entities(name_fingerprint)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: icij_officers — ICIJ officers/intermediaries               #
+    # TABELLA: icij_officers — ICIJ officers/shareholders                 #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE icij_officers (
         node_id         VARCHAR(50) PRIMARY KEY,
+        ftm_id          VARCHAR(128),
+        ftm_schema      VARCHAR(64) NOT NULL DEFAULT 'LegalEntity',
         name            VARCHAR(500),
         name_fingerprint VARCHAR(500),
         icij_id         VARCHAR(100),
@@ -443,15 +512,88 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_icij_officers_fp ON icij_officers(name_fingerprint)")
 
     # ------------------------------------------------------------------ #
+    # TABELLA: icij_intermediaries — ICIJ intermediaries                  #
+    # ------------------------------------------------------------------ #
+    op.execute("""
+    CREATE TABLE icij_intermediaries (
+        node_id         VARCHAR(50) PRIMARY KEY,
+        ftm_id          VARCHAR(128),
+        ftm_schema      VARCHAR(64) NOT NULL DEFAULT 'LegalEntity',
+        name            VARCHAR(500),
+        name_fingerprint VARCHAR(500),
+        status          VARCHAR(100),
+        internal_id     VARCHAR(100),
+        address         TEXT,
+        countries       VARCHAR(500),
+        country_codes   VARCHAR(200),
+        source_id_list  VARCHAR(200),
+        valid_until     VARCHAR(100),
+        note            TEXT,
+        source_id       UUID REFERENCES data_sources(id)
+    )
+    """)
+    op.execute("CREATE INDEX idx_icij_intermediaries_fp ON icij_intermediaries(name_fingerprint)")
+
+    # ------------------------------------------------------------------ #
+    # TABELLA: icij_addresses — ICIJ addresses                            #
+    # ------------------------------------------------------------------ #
+    op.execute("""
+    CREATE TABLE icij_addresses (
+        node_id             VARCHAR(50) PRIMARY KEY,
+        ftm_id              VARCHAR(128),
+        ftm_schema          VARCHAR(64) NOT NULL DEFAULT 'Address',
+        address             TEXT,
+        name                VARCHAR(500),
+        countries           VARCHAR(500),
+        country_codes       VARCHAR(200),
+        address_fingerprint VARCHAR(200),
+        source_id_list      VARCHAR(200),
+        valid_until         VARCHAR(100),
+        note                TEXT,
+        source_id           UUID REFERENCES data_sources(id)
+    )
+    """)
+    op.execute("CREATE INDEX idx_icij_addresses_fp ON icij_addresses(address_fingerprint)")
+
+    # ------------------------------------------------------------------ #
+    # TABELLA: icij_others — ICIJ other nodes                             #
+    # ------------------------------------------------------------------ #
+    op.execute("""
+    CREATE TABLE icij_others (
+        node_id         VARCHAR(50) PRIMARY KEY,
+        ftm_id          VARCHAR(128),
+        ftm_schema      VARCHAR(64) NOT NULL DEFAULT 'LegalEntity',
+        name            VARCHAR(500),
+        name_fingerprint VARCHAR(500),
+        type            VARCHAR(200),
+        incorporation_date DATE,
+        struck_off_date DATE,
+        closed_date     DATE,
+        jurisdiction    VARCHAR(200),
+        jurisdiction_description VARCHAR(200),
+        countries       VARCHAR(500),
+        country_codes   VARCHAR(200),
+        source_id_list  VARCHAR(200),
+        valid_until     VARCHAR(100),
+        note            TEXT,
+        source_id       UUID REFERENCES data_sources(id)
+    )
+    """)
+    op.execute("CREATE INDEX idx_icij_others_fp ON icij_others(name_fingerprint)")
+
+    # ------------------------------------------------------------------ #
     # TABELLA: icij_relationships — ICIJ relationship edges               #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE icij_relationships (
         id              BIGSERIAL PRIMARY KEY,
+        ftm_id          VARCHAR(128),
+        ftm_schema      VARCHAR(64) NOT NULL DEFAULT 'UnknownLink',
         node_id_start   VARCHAR(50) NOT NULL,
         node_id_end     VARCHAR(50) NOT NULL,
         rel_type        VARCHAR(100),
         link            VARCHAR(200),
+        status          VARCHAR(100),
         start_date      DATE,
         end_date        DATE,
         source_id_list  VARCHAR(200),
@@ -468,14 +610,14 @@ def upgrade() -> None:
     CREATE TABLE risk_flags (
         id                  BIGSERIAL PRIMARY KEY,
         company_number      VARCHAR(8) NOT NULL REFERENCES companies(company_number),
-        ft3_technique       VARCHAR(20) NOT NULL,   -- 'FT3-SC-001' ecc.
-        priority            VARCHAR(10) NOT NULL,   -- 'CRITICAL' | 'HIGH' | 'MEDIUM'
+        ft3_technique       VARCHAR(20) NOT NULL,
+        priority            VARCHAR(10) NOT NULL,
         score_contribution  FLOAT NOT NULL DEFAULT 0.0,
         evidence            JSONB NOT NULL DEFAULT '{}',
-        source_ids          UUID[],                 -- provenance multi-sorgente
+        source_ids          UUID[],
         detected_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
         is_active           BOOLEAN NOT NULL DEFAULT true,
-        UNIQUE (company_number, ft3_technique)      -- un flag per tecnica per azienda
+        UNIQUE (company_number, ft3_technique)
     )
     """)
     op.execute("CREATE INDEX idx_risk_company ON risk_flags(company_number) WHERE is_active = true")
@@ -488,13 +630,13 @@ def upgrade() -> None:
     op.execute("""
     CREATE TABLE entity_events (
         id              BIGSERIAL PRIMARY KEY,
-        event_type      VARCHAR(50) NOT NULL,   -- 'company_dissolved' | 'director_resigned' | 'psc_changed' | ...
-        entity_type     VARCHAR(30) NOT NULL,   -- 'company' | 'person' | 'directorship' | 'psc'
-        entity_id       VARCHAR(100) NOT NULL,  -- company_number o UUID
+        event_type      VARCHAR(50) NOT NULL,
+        entity_type     VARCHAR(30) NOT NULL,
+        entity_id       VARCHAR(100) NOT NULL,
         old_value       JSONB,
         new_value       JSONB,
         detected_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-        source          VARCHAR(50)             -- 'bulk_compare' | 'streaming' | 'api'
+        source          VARCHAR(50)
     )
     """)
     op.execute("CREATE INDEX idx_events_entity ON entity_events(entity_type, entity_id)")
@@ -502,7 +644,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_events_date ON entity_events(detected_at DESC)")
 
     # ------------------------------------------------------------------ #
-    # SCHEMA CASEWORK — investigazioni (ADR-012)                           #
+    # SCHEMA CASEWORK — investigazioni (ADR-012 + Intelligence Notes)      #
     # ------------------------------------------------------------------ #
 
     op.execute("""
@@ -510,8 +652,9 @@ def upgrade() -> None:
         id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title           VARCHAR(500) NOT NULL,
         description     TEXT,
+        hypothesis      TEXT,
+        classification  VARCHAR(30) DEFAULT 'CONFIDENTIAL',
         status          VARCHAR(30) NOT NULL DEFAULT 'open',
-        -- open | in_progress | pending_review | closed | archived
         priority        VARCHAR(10) DEFAULT 'medium',
         created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -523,8 +666,10 @@ def upgrade() -> None:
     CREATE TABLE casework.investigation_entities (
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         investigation_id    UUID NOT NULL REFERENCES casework.investigations(id) ON DELETE CASCADE,
-        entity_type         VARCHAR(30) NOT NULL,   -- 'company' | 'person' | 'legal_entity'
-        entity_id           VARCHAR(100) NOT NULL,  -- company_number o UUID
+        entity_type         VARCHAR(30) NOT NULL,
+        entity_id           VARCHAR(100) NOT NULL,
+        role_in_case        VARCHAR(30) DEFAULT 'subject',
+        relevance_note      TEXT,
         added_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
         notes               TEXT,
         UNIQUE (investigation_id, entity_type, entity_id)
@@ -539,7 +684,9 @@ def upgrade() -> None:
         entity_type         VARCHAR(30),
         entity_id           VARCHAR(100),
         annotation_text     TEXT NOT NULL,
-        annotation_type     VARCHAR(30) DEFAULT 'note',  -- note | flag | finding | todo
+        annotation_type     VARCHAR(30) DEFAULT 'note',
+        confidence          VARCHAR(20) DEFAULT 'moderate',
+        source_grade        VARCHAR(5)  DEFAULT 'B2',
         created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
     )
@@ -555,6 +702,8 @@ def upgrade() -> None:
         to_entity_id        VARCHAR(100) NOT NULL,
         link_type           VARCHAR(100),
         confidence          FLOAT DEFAULT 1.0,
+        confidence_level    VARCHAR(20) DEFAULT 'moderate',
+        source_grade        VARCHAR(5)  DEFAULT 'C3',
         evidence            TEXT,
         created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
     )
@@ -565,8 +714,9 @@ def upgrade() -> None:
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         investigation_id    UUID NOT NULL REFERENCES casework.investigations(id) ON DELETE CASCADE,
         title               VARCHAR(300),
-        snapshot_png_b64    TEXT,           -- PNG base64 inline
-        graph_json          JSONB,          -- stato cytoscape serializzato
+        view_type           VARCHAR(30) DEFAULT 'graph',
+        snapshot_png_b64    TEXT,
+        graph_json          JSONB,
         created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
     )
     """)
@@ -576,7 +726,7 @@ def upgrade() -> None:
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         investigation_id    UUID REFERENCES casework.investigations(id) ON DELETE SET NULL,
         title               VARCHAR(300) NOT NULL,
-        query_type          VARCHAR(30) NOT NULL,  -- 'sql' | 'cypher' | 'fts'
+        query_type          VARCHAR(30) NOT NULL,
         query_text          TEXT NOT NULL,
         created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
     )
@@ -599,9 +749,10 @@ def upgrade() -> None:
         id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         investigation_id    UUID REFERENCES casework.investigations(id) ON DELETE SET NULL,
         title               VARCHAR(500) NOT NULL,
-        format              VARCHAR(20) NOT NULL,   -- 'pdf' | 'ftm_json' | 'xlsx' | 'gexf' | 'geojson' | 'kml'
-        file_path           TEXT,                   -- percorso locale del file generato
+        format              VARCHAR(20) NOT NULL,
+        file_path           TEXT,
         file_size_bytes     BIGINT,
+        sha256_hash         VARCHAR(64),
         generated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
         generation_params   JSONB DEFAULT '{}'
     )
@@ -625,6 +776,9 @@ def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS entity_events")
     op.execute("DROP TABLE IF EXISTS name_variants")
     op.execute("DROP TABLE IF EXISTS icij_relationships")
+    op.execute("DROP TABLE IF EXISTS icij_others")
+    op.execute("DROP TABLE IF EXISTS icij_addresses")
+    op.execute("DROP TABLE IF EXISTS icij_intermediaries")
     op.execute("DROP TABLE IF EXISTS icij_officers")
     op.execute("DROP TABLE IF EXISTS icij_entities")
     op.execute("DROP TABLE IF EXISTS pep_persons")
@@ -636,5 +790,7 @@ def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS legal_entities")
     op.execute("DROP TABLE IF EXISTS persons")
     op.execute("DROP TABLE IF EXISTS companies")
+    op.execute("DROP TABLE IF EXISTS addresses")
     op.execute("DROP TABLE IF EXISTS geo_postcode_centroids")
+    op.execute("DROP TABLE IF EXISTS ftm_entities")
     op.execute("DROP TABLE IF EXISTS data_sources")

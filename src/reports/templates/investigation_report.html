@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ report_title }} — Aethelburg Intelligence Report</title>
+  <style>{{ css_content | safe }}</style>
+</head>
+<body>
+  <div class="classification-banner">
+    {{ classification }} // AETHELBURG CORPORATE INTELLIGENCE DOSSIER // ICD 203 &amp; UNODC 4x4 COMPLIANT
+  </div>
+
+  <div class="report-container">
+    <!-- Section 1: Header & Provenance -->
+    <header class="report-header">
+      <div class="report-title-block">
+        <h1>{{ report_title }}</h1>
+        <p class="subtitle">FollowTheMoney (FtM v3.x) Multi-Source Financial &amp; Corporate Intelligence Report</p>
+      </div>
+      <div class="meta-box">
+        <div><strong>Report Ref:</strong> <code>{{ report_id[:12] }}</code></div>
+        <div><strong>Generated (UTC):</strong> {{ generated_at }}</div>
+        <div><strong>Primary Subject:</strong> <code>{{ company.company_number }}</code></div>
+        <div><strong>FtM Entity ID:</strong> <code>{{ company.ftm_id }}</code></div>
+        <div><strong>Overall Confidence:</strong> <strong>{{ overall_confidence | upper }}</strong></div>
+      </div>
+    </header>
+
+    <!-- Section 2: Executive Summary (Bottom Line Up Front - BLUF) -->
+    <div class="bluf-box">
+      <h2>1. Executive Summary — Bottom Line Up Front (BLUF)</h2>
+      <p>{{ bluf_summary }}</p>
+      <div>
+        <strong>Composite Risk Score:</strong>
+        <span class="badge {% if company.risk_score >= 60 %}badge-critical{% elif company.risk_score >= 30 %}badge-high{% else %}badge-medium{% endif %}">
+          {{ company.risk_score }} / 100.0
+        </span>
+        &nbsp;|&nbsp;
+        <strong>FT3 Techniques Triggered:</strong>
+        {% if company.ft3_techniques %}
+          {% for tech in company.ft3_techniques %}<code>{{ tech }}</code> {% endfor %}
+        {% else %}
+          None
+        {% endif %}
+        &nbsp;|&nbsp;
+        <strong>Analytic Confidence:</strong> <code>{{ overall_confidence }}</code> ({{ confidence_explanation }})
+      </div>
+    </div>
+
+    <!-- Section 3: Subject Profile & FtM Ontology Mapping -->
+    <section>
+      <h2>2. Subject Corporate Profile &amp; FollowTheMoney Ontology Mapping</h2>
+      <table>
+        <tbody>
+          <tr>
+            <th style="width: 24%;">Company Name</th>
+            <td><strong>{{ company.company_name }}</strong></td>
+            <th style="width: 24%;">UK Registration No.</th>
+            <td><code>{{ company.company_number }}</code></td>
+          </tr>
+          <tr>
+            <th>FollowTheMoney Schema</th>
+            <td><code>{{ ftm_entity.schema }}</code> (ID: <code>{{ ftm_entity.id }}</code>)</td>
+            <th>Statutory Status</th>
+            <td>{{ company.company_status or 'Active' }} ({{ company.company_category or 'Limited Company' }})</td>
+          </tr>
+          <tr>
+            <th>Incorporation Date</th>
+            <td>{{ company.incorporation_date or 'N/A' }}</td>
+            <th>Dissolution Date</th>
+            <td>{{ company.dissolution_date or 'Active / Not Dissolved' }}</td>
+          </tr>
+          <tr>
+            <th>Registered Office</th>
+            <td colspan="3">
+              {{ company.reg_address_line1 or '' }} {{ company.reg_address_line2 or '' }},
+              {{ company.reg_address_post_town or '' }}, {{ company.reg_address_postcode or '' }}
+              (ADR-015 Fingerprint: <code>{{ company.address_fingerprint or 'N/A' }}</code> — Co-located companies: <strong>{{ colocated_total }}</strong>)
+            </td>
+          </tr>
+          <tr>
+            <th>SIC Activity Classification</th>
+            <td colspan="3">{{ company.sic_text_1 or 'None declared' }} {% if company.sic_text_2 %}| {{ company.sic_text_2 }}{% endif %}</td>
+          </tr>
+          <tr>
+            <th>Accounts Category</th>
+            <td>{{ company.accounts_account_category or 'Not filed' }}</td>
+            <th>FtM Datasets</th>
+            <td><code>{{ (ftm_entity.datasets or []) | join(', ') }}</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 4: FT3 Shell Company Indicators & Mandatory Innocent Explanations -->
+    <section>
+      <h2>3. FT3 Shell Company Threat Assessment &amp; ICD 203 Innocent Explanations</h2>
+      {% if risk_flags %}
+        {% for flag in risk_flags %}
+        <div class="ft3-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <div>
+              <span class="badge {% if flag.priority == 'CRITICAL' %}badge-critical{% elif flag.priority == 'HIGH' %}badge-high{% else %}badge-medium{% endif %}">
+                {{ flag.priority }}
+              </span>
+              <strong>{{ flag.ft3_technique }} — {{ flag.technique_name }}</strong>
+              <span style="color:#475569; font-size:8.5pt;">({{ flag.tactic }})</span>
+            </div>
+            <div>
+              <span class="badge badge-grade">UNODC Grade: {{ flag.evidence.unodc_grade or flag.unodc_grade }}</span>
+              <strong>+{{ flag.score_contribution }} pts</strong>
+            </div>
+          </div>
+          <p style="margin:4px 0;"><strong>Observed Evidence:</strong> {{ flag.evidence.summary or flag.description }}</p>
+          <div class="innocent-box">
+            <strong>Mandatory Alternative / Innocent Explanations (ICD 203):</strong>
+            <ul style="margin:4px 0 0 16px; padding:0;">
+              {% for exp in flag.innocent_explanations %}
+              <li>{{ exp }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p>No active FT3 shell company indicators detected for this entity.</p>
+      {% endif %}
+    </section>
+
+    <!-- Section 5: Beneficial Ownership (PSC) & Control Structure -->
+    <section>
+      <h2>4. Persons with Significant Control (FtM: Ownership) &amp; Officers (FtM: Directorship)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Controller / Officer Name</th>
+            <th>Type &amp; FtM Schema</th>
+            <th>Jurisdiction / Nationality</th>
+            <th>Nature of Control / Role</th>
+            <th>Notified / Appointed</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for psc in psc_ownerships %}
+          <tr>
+            <td>
+              {% if psc.is_super_secure %}
+                <strong>Restricted Beneficial Owner (s.790ZG Super-Secure)</strong>
+              {% elif psc.person_name %}
+                <strong>{{ psc.person_name }}</strong> {% if psc.is_pep %}<span class="badge badge-critical">PEP</span>{% endif %}
+              {% else %}
+                <strong>{{ psc.legal_entity_name }}</strong> {% if psc.is_offshore %}<span class="badge badge-high">OFFSHORE</span>{% endif %}
+              {% endif %}
+            </td>
+            <td>
+              {% if psc.person_name %}Individual PSC (<code>Person</code>){% elif psc.is_super_secure %}s.790ZG (<code>Ownership</code>){% else %}Corporate PSC (<code>LegalEntity</code>){% endif %}
+            </td>
+            <td>{{ psc.person_nationality or psc.legal_entity_jurisdiction or 'UK / Restricted' }}</td>
+            <td><code>{{ (psc.nature_of_control or []) | join(', ') }}</code></td>
+            <td>{{ psc.notified_on or 'N/A' }}</td>
+            <td>{% if psc.is_ceased %}Ceased ({{ psc.ceased_on }}){% else %}Active{% endif %}</td>
+          </tr>
+          {% endfor %}
+          {% for d in directorships %}
+          <tr>
+            <td><strong>{{ d.person_name }}</strong> ({{ d.total_appointments or 1 }} co. appointments)</td>
+            <td>Officer (<code>Directorship</code>)</td>
+            <td>{{ d.nationality or 'N/A' }}</td>
+            <td>{{ d.officer_role or 'director' }}</td>
+            <td>{{ d.appointed_on or 'N/A' }}</td>
+            <td>{% if d.is_active %}Active{% else %}Resigned ({{ d.resigned_on }}){% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 6: Cross-Dataset Links (UK Sanctions & ICIJ Offshore Leaks) -->
+    <section>
+      <h2>5. Cross-Dataset Intelligence Correlations (Sanctions &amp; ICIJ Offshore Leaks)</h2>
+      {% if sanction_matches or icij_matches %}
+      <table>
+        <thead>
+          <tr>
+            <th>Dataset</th>
+            <th>Matched Entity Name</th>
+            <th>Reference / Node ID</th>
+            <th>Jurisdiction / Regime</th>
+            <th>UNODC Grade</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sm in sanction_matches %}
+          <tr>
+            <td><span class="badge badge-critical">UK FCDO / OFSI Sanctions</span></td>
+            <td><strong>{{ sm.name }}</strong></td>
+            <td><code>{{ sm.opensanctions_id }}</code> (FtM: <code>{{ sm.ftm_id }}</code>)</td>
+            <td>{{ sm.list_name }} (Designated: {{ sm.listed_on or 'N/A' }})</td>
+            <td><span class="badge badge-grade">A1</span></td>
+          </tr>
+          {% endfor %}
+          {% for im in icij_matches %}
+          <tr>
+            <td><span class="badge badge-high">ICIJ {{ im.source_id_list or 'Offshore Leaks' }}</span></td>
+            <td><strong>{{ im.name }}</strong> ({{ im.match_category }})</td>
+            <td>Node <code>{{ im.node_id }}</code> (FtM: <code>{{ im.ftm_id }}</code>)</td>
+            <td>{{ im.jurisdiction_description or im.jurisdiction or 'Offshore' }}</td>
+            <td><span class="badge badge-grade">B2</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>No direct designations on the UK Sanctions List or ICIJ Offshore Leaks matched this entity's identifiers.</p>
+      {% endif %}
+    </section>
+
+    <!-- Section 7: Co-Registration Cluster & Geospatial Intelligence -->
+    <section>
+      <h2>6. Geospatial &amp; Address Co-Registration Analysis (ADR-011 / ADR-015)</h2>
+      <p>
+        <strong>Coordinates (WGS84):</strong>
+        {% if company.lat and company.lon %}
+          <code>{{ company.lat }}, {{ company.lon }}</code> ({{ company.admin_district or company.reg_address_post_town }})
+        {% else %}
+          Not geocoded
+        {% endif %}
+        &nbsp;|&nbsp;
+        <strong>Co-registered Entities at Fingerprint <code>{{ company.address_fingerprint }}</code>:</strong> {{ colocated_total }}
+      </p>
+      {% if colocated_companies %}
+      <table>
+        <thead>
+          <tr>
+            <th>Company Number</th>
+            <th>Company Name</th>
+            <th>Status</th>
+            <th>Incorporation</th>
+            <th>Risk Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cc in colocated_companies[:10] %}
+          <tr>
+            <td><code>{{ cc.company_number }}</code></td>
+            <td>{{ cc.company_name }}</td>
+            <td>{{ cc.company_status }}</td>
+            <td>{{ cc.incorporation_date or 'N/A' }}</td>
+            <td>{{ cc.risk_score }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+
+    <!-- Section 8: Chronological Event Timeline -->
+    <section>
+      <h2>7. Chronological Corporate &amp; Regulatory Event Timeline</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:16%;">Date</th>
+            <th style="width:22%;">Event Type</th>
+            <th>Description</th>
+            <th style="width:22%;">Source &amp; Grade</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ev in timeline[:15] %}
+          <tr>
+            <td><code>{{ ev.date }}</code></td>
+            <td><strong>{{ ev.event_type }}</strong></td>
+            <td>{{ ev.title }}</td>
+            <td>{{ ev.source }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 9: UNODC 4x4 Source Evaluation & Intelligence Gaps -->
+    <section>
+      <h2>8. Source Evaluation Matrix (UNODC 4x4) &amp; Intelligence Gaps</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Data Source</th>
+            <th>UNODC Grade</th>
+            <th>Reliability &amp; Credibility Assessment</th>
+            <th>Verification / Intelligence Gaps</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>UK Companies House Bulk &amp; Statutory Register</td>
+            <td><span class="badge badge-grade">A1</span></td>
+            <td>Official statutory registry (A); corporate existence &amp; CRN confirmed (1).</td>
+            <td>Pre-ECCTA historical filings were not identity-verified at submission.</td>
+          </tr>
+          <tr>
+            <td>UK FCDO / OFSI Consolidated Sanctions List</td>
+            <td><span class="badge badge-grade">A1</span></td>
+            <td>Official sovereign sanctions list (A); confirmed statutory designation (1).</td>
+            <td>Alias-only matches without CRN/DOB require secondary corroboration.</td>
+          </tr>
+          <tr>
+            <td>CH Persons with Significant Control (PSC)</td>
+            <td><span class="badge badge-grade">B2</span></td>
+            <td>Statutory self-reported register (B); consistent with corporate structure (2).</td>
+            <td>Foreign corporate PSCs in secrecy jurisdictions obscure ultimate natural persons.</td>
+          </tr>
+          <tr>
+            <td>ICIJ Offshore Leaks Database</td>
+            <td><span class="badge badge-grade">B2</span></td>
+            <td>Verified journalistic leak of offshore corporate service providers (B2).</td>
+            <td>Node IDs are release-specific; point-in-time historical snapshots.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="classification-banner">
+    {{ classification }} // END OF DOSSIER // AETHELBURG v0.2.0-beta.1
+  </div>
+</body>
+</html>

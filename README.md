@@ -1,10 +1,12 @@
 <p align="center">
-  <img src="assets/logo.jpg" alt="Aethelburg" width="300"/>
+  <img src="assets/logo.png" alt="Aethelburg" width="260"/>
 </p>
 
-# Aethelburg
+# Aethelburg (`v0.2.0-beta.1`)
 
-Local desktop platform for analysing UK company register data (Companies House) and identifying shell companies and anomalous corporate structures.
+Local investigative corporate intelligence platform for analysing UK company register data (Companies House), UK FCDO/OFSI Sanctions, and the ICIJ Offshore Leaks Database to identify shell companies and anomalous corporate structures.
+
+**100% Compatible with the [FollowTheMoney (`FtM v3.x`)](https://followthemoney.tech/) Ontology** (interoperable with OCCRP Aleph, OpenSanctions, and [Quaesitor](https://github.com/SOsintOps/quaesitor)).
 
 > **Personal use only.** Data is neither distributed nor shared. See [LEGAL.md](docs/LEGAL.md) for licence and compliance details.
 
@@ -12,152 +14,57 @@ Local desktop platform for analysing UK company register data (Companies House) 
 
 ## What it does
 
-Aethelburg automatically cross-references six public data sources to produce a risk profile for every company registered in the UK:
+Aethelburg automatically cross-references six public data sources to produce an intelligence dossier and FT3 risk profile for UK-registered companies:
 
-| Source | Contents |
-|--------|----------|
-| Companies House Bulk | 5.67M companies with history, SIC codes, addresses, dates |
-| PSC Snapshot | 15M Persons with Significant Control with DOB and nationality |
-| UK Sanctions / OpenSanctions | 329 global sanctions sources (daily updates) |
-| ICIJ Offshore Leaks | Panama Papers, Pandora Papers, Paradise Papers |
-| Companies House API | Officers/directors for high-risk companies |
-| Nominatim / ONSPD | Address geocoding and spatial analysis |
+| Source | Contents | UNODC Default Grade |
+|--------|----------|---------------------|
+| Companies House Bulk | 5.67M companies with history, SIC codes, addresses, dates | `A1` |
+| PSC Snapshot | 15M Persons with Significant Control (individual, corporate, super-secure, OE) | `B2` |
+| UK FCDO / OFSI Sanctions | Official UK Sanctions List (with extracted UK BRNs & aliases) | `A1` |
+| ICIJ Offshore Leaks | Panama Papers, Pandora Papers, Paradise Papers, Bahamas Leaks (6 CSVs) | `B2` |
+| Companies House API | Officers/directors on-demand with local persistence | `B2` |
+| ONSPD / Nominatim | UK Postcode WGS84 centroids & spatial clustering | `A1` |
 
-The system applies detection patterns based on [FT3](https://github.com/stripe/ft3) (Stripe's Fraud Tools, Tactics, and Techniques framework) and produces a composite risk score for each company.
-
----
-
-## Features
-
-### Intelligence & Detection
-- 8 shell company detection patterns (rapid dissolution, incorporation clustering, incongruent SIC, serial PSC, shared addresses, name similarity, offshore connections)
-- Risk score 0–100 with FT3 tags for each triggered flag
-- Cross-source entity resolution via FollowTheMoney fingerprinting
-
-### Geo-Intelligence
-- Interactive map with zoom-based layering (choropleth → heatmap → cluster → marker)
-- DBSCAN spatial clustering on PostCode (PostGIS ST_ClusterDBSCAN)
-- Hotspot analysis: anomalous concentration by postal district
-- Thematic layers: sanctions, ICIJ, dissolved companies by area
-
-### Link Analysis
-- Network graph: PSC → Company → ICIJ → Offshore
-- Interactive visualisation with cytoscape.js (1-hop expansion on click)
-- Structural patterns: star, chain, loop (circular ownership), bridge node
-- Centrality metrics: degree, betweenness, PageRank on subgraph
-
-### Reporting
-- PDF report for investigation (Jinja2 + WeasyPrint)
-- FtM JSON export (Aleph / OCCRP compatible)
-- Graph export: GEXF (Gephi), GraphML, GeoJSON
-- Case management: save investigative sessions with annotations
-- How to write the report (risk score versus judgement, grading the register, sanctions and leak sources, personal data): [docs/REPORT_WRITING.md](docs/REPORT_WRITING.md), applying the [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) shared by the SOsintOps tools
+The system applies **11 detection patterns** mapped to [FT3](https://github.com/stripe/ft3) (Stripe's Financial Threat Taxonomy), grades every finding using the **UNODC 4×4 system (`A1`–`X4`)** and **ICD 203 analytic confidence (`high`, `moderate`, `low`)**, and includes mandatory **innocent explanations** for balanced assessment.
 
 ---
 
-## Prerequisites
+## Quick Start (Zero-Docker Local Beta or Full Docker Stack)
 
-- **Windows 10/11** (64-bit)
-- **Python 3.12+**
-- **Docker Desktop** with WSL2 enabled
-- **Disk space**: ~80–120GB for full DB
-- **RAM**: 16GB recommended (8GB minimum with reduced dataset)
+```powershell
+# 1. One-command Windows Quick Start (auto-bootstraps dati/aethelburg.sqlite if needed and opens UI)
+.\start.ps1
 
----
-
-## Quick installation
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/SOsintOps/Aethelburg-project.git
-cd Aethelburg-project
-
-# 2. Create the virtual environment
-python -m venv .venv
-.venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -e ".[dev]"
-
-# 4. Copy and configure environment variables
-copy .env.example .env
-# Edit .env with your credentials
-
-# 5. Start Docker services
-docker compose up -d
-
-# 6. Initialise the database
-python -m alembic upgrade head
-
-# 7. Start the application
-python -m src.main
+# Or via CLI commands:
+python -m src.main bootstrap     # Import real datasets from dati/ & run FT3 scoring
+python -m src.main serve         # Start Web & API server on http://127.0.0.1:8050
+python -m src.main desktop       # Launch native desktop app window
+python -m src.main stats         # Show DB & FollowTheMoney entity counts
+python -m src.main score         # Re-run Entity Resolution & all 11 FT3 detection rules
+python -m src.main export-ftm -o dati/exports/aethelburg.ftm.json --target-only
+python -m src.main report 14900101
 ```
 
 ---
 
-## Initial data loading
+## FollowTheMoney (`FtM v3.x`) Ontology Compatibility
 
-The import order is **sequential and mandatory** (FK dependencies):
+Every entity and relationship in Aethelburg is stored both in high-speed relational tables and in the canonical `ftm_entities` store, validated against [`src/core/ftm_schema.json`](src/core/ftm_schema.json):
 
-```bash
-# Estimated total time: 4-6 hours (consumer hardware NVMe SSD, 16GB RAM)
-
-python -m src.etl.import_sanctions     # UK Sanctions OFSI (~5 min)
-python -m src.etl.import_icij          # ICIJ Offshore Leaks (~1h)
-python -m src.etl.import_companies     # Companies House 5.67M (~1-2h)
-python -m src.etl.import_psc           # PSC Snapshot 15M (~2-3h)
-```
-
-Companies House data can be downloaded from:
-- [Companies House Data Products](https://download.companieshouse.gov.uk/en_output.html)
-- [PSC Snapshot](https://download.companieshouse.gov.uk/en_pscdata.html)
+| Domain Table | FtM Schema | Key FtM Properties |
+|---|---|---|
+| `companies` | `Company` | `name`, `registrationNumber`, `jurisdiction`, `incorporationDate`, `dissolutionDate`, `status`, `sector`, `previousName`, `addressEntity` |
+| `persons` / `pep_persons` | `Person` | `name`, `firstName`, `lastName`, `birthDate`, `nationality`, `country`, `topics` (`role.pep`) |
+| `legal_entities` | `Company` / `LegalEntity` | `name`, `jurisdiction`, `registrationNumber`, `legalForm`, `topics` (`corp.offshore`) |
+| `addresses` | `Address` | `full`, `street`, `city`, `postalCode`, `country`, `latitude`, `longitude` |
+| `psc_ownerships` | `Ownership` | `owner`, `asset`, `role`, `percentage`, `startDate`, `endDate`, `status` |
+| `directorships` | `Directorship` | `director`, `organization`, `role`, `startDate`, `endDate`, `status` |
+| `sanctions` | `Sanction` + Subject | `entity`, `authority`, `authorityId`, `program`, `reason`, `provisions`, `listingDate` |
+| `icij_*` | `Company` / `Person` / `Ownership` / `Directorship` / `Representation` | Full Panama/Pandora/Paradise Papers node & edge mapping |
 
 ---
 
-## Project structure
-
-```
-aethelburg/
-├── src/                    # Source code
-│   ├── core/               # Domain logic, detection patterns
-│   ├── db/                 # SQLAlchemy models, Alembic migrations
-│   ├── ui/                 # PySide6 windows and widgets
-│   ├── services/           # Service layer (DB, API, Vector, Geo)
-│   ├── intelligence/       # Risk scoring, FT3 mapping, entity resolution
-│   ├── graph/              # Link analysis, Apache AGE, NetworkX
-│   └── reports/            # Report generation, export
-├── scripts/                # Data import, setup, utilities
-├── config/                 # Configuration (settings.py)
-├── tests/                  # Test suite
-├── docs/                   # Documentation
-├── docker-compose.yml
-├── .env.example
-└── pyproject.toml
-```
-
----
-
-## Data and licences
-
-| Dataset | Licence | Notes |
-|---------|---------|-------|
-| Companies House | OGL v3 | Open Government Licence |
-| ICIJ Offshore Leaks | ODbL 1.0 (database), CC BY-SA 3.0 (contents) | Attribution to ICIJ, share-alike |
-| OpenSanctions | CC BY-NC 4.0 | Non-commercial; commercial licence from OpenSanctions |
-| FollowTheMoney | MIT | OCCRP |
-| [FT3](https://github.com/stripe/ft3) Framework | MIT | Stripe |
-
-See [docs/LEGAL.md](docs/LEGAL.md) for the full licence analysis.
-
----
-
-## Documentation and related projects
+## Documentation and Related Projects
 
 - [FAQ](docs/FAQ.md) · [Report writing](docs/REPORT_WRITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Design: intelligence](docs/DESIGN_INTELLIGENCE.md) · [Ontology](docs/ONTOLOGY.md) · [Data sources](docs/DATA_SOURCES.md) · [Setup](docs/SETUP.md) · [Legal](docs/LEGAL.md)
-- Related SOsintOps projects: [Quaesitor](https://github.com/SOsintOps/quaesitor) (case graph with Follow the Money relations), [Wukong](https://github.com/SOsintOps/Wukong) (Chinese corporate due diligence), [Argos](https://github.com/SOsintOps/Argos) and [Speculator](https://github.com/SOsintOps/Speculator-Project) (OSINT workstations), [Exploratores](https://github.com/SOsintOps/Exploratores) (browser toolkit with company-register searches), [Claudii Exploratores](https://github.com/SOsintOps/claudii-exploratores) (the same catalogue as a Claude agent skill), [Acta Diurna](https://github.com/SOsintOps/acta-diurna) (Italian law-enforcement news dashboard), [Il Conclave](https://github.com/SOsintOps/il-conclave) (ACH and premortem as an AI skill, in Italian), [Codex Machinae](https://github.com/SOsintOps/codex-machinae) (playbook for building software with LLMs, including FT3), [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) (the shared method)
-
----
-
-## Technologies
-
-`Python 3.12` · `PySide6` · `PostgreSQL 16` · `PostGIS` · `pgvector` · `Apache AGE` · `Leaflet.js` · `cytoscape.js` · `FollowTheMoney` · `sentence-transformers` · `SQLAlchemy` · `Alembic` · `Docker`
+- Related SOsintOps projects: [Quaesitor](https://github.com/SOsintOps/quaesitor) · [Wukong](https://github.com/SOsintOps/Wukong) · [Argos](https://github.com/SOsintOps/Argos) · [Speculator](https://github.com/SOsintOps/Speculator-Project) · [Exploratores](https://github.com/SOsintOps/Exploratores) · [Claudii Exploratores](https://github.com/SOsintOps/claudii-exploratores) · [Acta Diurna](https://github.com/SOsintOps/acta-diurna) · [Il Conclave](https://github.com/SOsintOps/il-conclave) · [Codex Machinae](https://github.com/SOsintOps/codex-machinae) · [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes)

@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-aethelburg}
       POSTGRES_USER: ${POSTGRES_USER:-aethelburg}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aethelburg_dev_password}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -29,7 +29,7 @@ services:
     environment:
       PBF_URL: ${NOMINATIM_PBF_URL:-https://download.geofabrik.de/europe/great-britain-latest.osm.pbf}
       REPLICATION_URL: ${NOMINATIM_REPLICATION_URL:-https://planet.openstreetmap.org/replication/hour/}
-      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-nominatim_local_password}
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
