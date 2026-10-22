@@ -135,7 +135,7 @@ class CompaniesHouseApiService:
         """Download every officer appointment of a stored company and upsert it."""
         number = _clean_number(company_number)
         items = await self._get_all_items(f"/company/{number}/officers")
-        return self._persist_officers(number, items)
+        return self.persist_officers(number, items)
 
     async def fetch_company_psc(self, company_number: str) -> dict[str, int]:
         """Download every PSC statement of a company and upsert it via the bulk PSC code path."""
@@ -190,7 +190,13 @@ class CompaniesHouseApiService:
             conn=conn,
         )
 
-    def _persist_officers(self, company_number: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def persist_officers(
+        self, company_number: str, items: list[dict[str, Any]], complete_list: bool = True
+    ) -> list[dict[str, Any]]:
+        """Upsert officer appointments (REST list items or Streaming API `data`) for one company.
+
+        `complete_list` marks the company's officers as fully fetched (`officers_fetched_at`).
+        """
         conn = get_sqlite_connection(self.db_path)
         persisted: list[dict[str, Any]] = []
         now = _now()
@@ -275,10 +281,11 @@ class CompaniesHouseApiService:
                         "is_active": bool(is_active),
                     }
                 )
-            conn.execute(
-                "UPDATE companies SET officers_fetched_at = ?, updated_at = ? WHERE company_number = ?",
-                (now, now, company_number),
-            )
+            if complete_list:
+                conn.execute(
+                    "UPDATE companies SET officers_fetched_at = ?, updated_at = ? WHERE company_number = ?",
+                    (now, now, company_number),
+                )
             conn.commit()
             return persisted
         finally:

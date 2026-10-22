@@ -23,7 +23,11 @@ from rich.table import Table
 
 from config.settings import get_settings
 from src.core.logging import setup_logging
+from src.datasources.catalog import SOURCES, latest_release
+from src.datasources.downloader import download_source, local_releases
+from src.datasources.pipeline import refresh_all
 from src.datasources.storage import describe_location, set_location
+from src.datasources.streaming import StreamWorker
 from src.etl.bootstrap_beta import bootstrap_beta_database
 from src.etl.import_onspd import import_onspd
 from src.intelligence.risk_scorer import RiskScorer
@@ -187,6 +191,94 @@ def cmd_data_location(
         raise typer.Exit(code=1) from exc
     console.print_json(data=report)
     console.print("[bold amber1]Restart Aethelburg to use the new data folder.[/bold amber1]")
+
+
+@data_app.command("status")
+def cmd_data_status(
+    check_remote: bool = typer.Option(True, "--check-remote/--offline", help="Ask publishers for their latest release"),
+) -> None:
+    """Show local and latest available release of every bulk source."""
+    table = Table(title="Aethelburg data sources")
+    for col in ("Source", "Local version", "Latest available", "Up to date"):
+        table.add_column(col)
+    for key, info in SOURCES.items():
+        local = local_releases(key)
+        local_version = local[0]["version"] if local else "-"
+        latest = "-"
+        if check_remote:
+            try:
+                latest = latest_release(key).version
+            except Exception as exc:  # network or layout change: report, keep going
+                latest = f"error: {exc}"
+        up_to_date = "yes" if local and local_version == latest else ("?" if not check_remote else "no")
+        table.add_row(info.title, local_version, latest, up_to_date)
+    console.print(table)
+
+
+@data_app.command("download")
+def cmd_data_download(
+    source: list[str] = typer.Option(None, "--source", "-s", help=f"Source key(s): {', '.join(SOURCES)} (default: all)"),
+) -> None:
+    """Download the latest release of the bulk sources into the data folder (skips releases already on disk)."""
+    setup_logging()
+    for key in source or list(SOURCES):
+        if key not in SOURCES:
+            console.print(f"[bold red]Unknown source {key!r}[/bold red]")
+            raise typer.Exit(code=1)
+        console.print(f"[bold cyan]{SOURCES[key].title}[/bold cyan]")
+        last_report = [0.0]
+
+        def report(done: int, total: int | None, _last: list[float] = last_report) -> None:
+            if done - _last[0] >= 100 * 1024 * 1024 or (total and done == total):
+                _last[0] = done
+                pct = f" ({done * 100 // total}%)" if total else ""
+                console.print(f"  {done / 1024**2:,.0f} MB{pct}")
+
+        result = download_source(key, progress=report)
+        console.print(f"  {result['status']}: {result['data_file']}")
+
+
+@data_app.command("import")
+def cmd_data_import(
+    no_score: bool = typer.Option(False, "--no-score", help="Skip FT3 scoring at the end"),
+) -> None:
+    """Index the whole register, select the subset and import it in full (resumes if interrupted)."""
+    setup_logging()
+
+    def report(stage: str, rows: int) -> None:
+        console.print(f"  {stage}: {rows:,}")
+
+    summary = refresh_all(progress=report, score=not no_score)
+    console.print_json(data=summary)
+
+
+@data_app.command("watch")
+def cmd_data_watch() -> None:
+    """Follow the Companies House Streaming API and apply changes until stopped (Ctrl+C)."""
+    import asyncio
+
+    setup_logging()
+    worker = StreamWorker()
+
+    async def run() -> None:
+        worker.start()
+        try:
+            while True:
+                await asyncio.sleep(60)
+                streams = worker.status()["streams"]
+                console.print(
+                    " | ".join(f"{k}: {v['events']} events, timepoint {v['timepoint']}" for k, v in streams.items())
+                )
+        finally:
+            await worker.stop()
+
+    try:
+        asyncio.run(run())
+    except RuntimeError as exc:
+        console.print(f"[bold red]{exc}[/bold red]")
+        raise typer.Exit(code=1) from exc
+    except KeyboardInterrupt:
+        console.print("Stopped. The next start resumes from the saved timepoints.")
 
 
 if __name__ == "__main__":

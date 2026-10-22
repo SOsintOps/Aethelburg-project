@@ -296,6 +296,47 @@ CREATE TABLE IF NOT EXISTS streaming_checkpoints (
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Light index of the whole UK register (search + subset selection); full detail lives in `companies`
+CREATE TABLE IF NOT EXISTS company_index (
+    company_number      TEXT PRIMARY KEY,
+    company_name        TEXT NOT NULL,
+    name_fingerprint    TEXT,
+    postcode            TEXT,
+    address_fingerprint TEXT,
+    company_status      TEXT,
+    company_category    TEXT,
+    incorporation_date  TEXT,
+    source_version      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_company_index_name ON company_index(company_name);
+CREATE INDEX IF NOT EXISTS idx_company_index_name_fp ON company_index(name_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_company_index_address ON company_index(address_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_company_index_incorporated ON company_index(incorporation_date);
+
+-- Companies selected for full import, with the criteria that selected them
+CREATE TABLE IF NOT EXISTS subset_members (
+    company_number  TEXT PRIMARY KEY,
+    reasons         TEXT NOT NULL,
+    selected_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Bulk import runs: progress, resume point and outcome
+CREATE TABLE IF NOT EXISTS ingest_runs (
+    id              TEXT PRIMARY KEY,
+    task            TEXT NOT NULL,
+    source          TEXT,
+    source_version  TEXT,
+    file            TEXT,
+    started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    finished_at     TEXT,
+    status          TEXT NOT NULL DEFAULT 'running',
+    rows_read       INTEGER NOT NULL DEFAULT 0,
+    rows_written    INTEGER NOT NULL DEFAULT 0,
+    last_row        INTEGER NOT NULL DEFAULT 0,
+    message         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_runs_task ON ingest_runs(task, source_version, status);
+
 CREATE TABLE IF NOT EXISTS sanctions (
     id                      TEXT PRIMARY KEY,
     ftm_id                  TEXT,

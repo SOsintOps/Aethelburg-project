@@ -1,0 +1,21 @@
+# Which companies are fully imported from the bulk files.
+# Every UK company is always in the light search index (`company_index`); the companies selected
+# here also get their full record, PSC controllers and FT3 risk scoring.
+# Override any key in the user config file (`subset_<key> = value`) or from the Data & Updates tab.
+
+# Sanctions (company numbers and names), ICIJ Offshore Leaks name matches,
+# corporate PSC registered outside the UK or in offshore jurisdictions, super-secure PSC.
+risk_links = true
+# Also the other companies controlled by the PSC controllers of those companies.
+risk_links_one_hop = true
+
+# Companies registered at an address shared by at least this many companies.
+mass_address = true
+mass_address_min_companies = 50
+
+# Companies incorporated in the last N years.
+recent = true
+recent_years = 3
+
+# Apply the two broad criteria above (mass address, recent) to companies that are not dissolved only.
+broad_criteria_active_only = true

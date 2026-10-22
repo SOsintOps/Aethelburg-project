@@ -7,6 +7,7 @@ Supports:
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 from src.core.logging import get_logger
@@ -21,6 +22,28 @@ _INSERT_ONSPD_SQL = f"""
         (postcode, lat, lon, admin_district, admin_county, admin_ward, nuts_level1, country_code, source_id, precision)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '{PRECISION_POSTCODE}')
 """
+
+
+_GEOGRAPHY_COLUMNS = {
+    # ONSPD renames these every release with the boundary year (lad26cd, cty26cd, ...);
+    # older releases used oslaua/cty/osward/rgn/ctry
+    "district": ("lad", "oslaua"),
+    "county": ("cty",),
+    "ward": ("wd", "osward"),
+    "region": ("rgn",),
+    "country": ("ctry",),
+}
+
+
+def _geography_columns(fieldnames: list[str]) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for key, prefixes in _GEOGRAPHY_COLUMNS.items():
+        candidates = [
+            f for f in fieldnames
+            if any(re.fullmatch(rf"{p}(\d{{2}}cd)?", f) for p in prefixes)
+        ]
+        found[key] = max(candidates) if candidates else ""
+    return found
 
 
 def import_onspd(
@@ -47,6 +70,7 @@ def import_onspd(
             path = Path(csv_path)
             with path.open("r", encoding="utf-8", errors="replace") as fh:
                 reader = csv.DictReader(fh)
+                col = _geography_columns(reader.fieldnames or [])
                 batch = []
                 for row in reader:
                     if limit and imported >= limit:
@@ -67,11 +91,11 @@ def import_onspd(
                             pc,
                             lat,
                             lon,
-                            row.get("oslaua") or row.get("admin_district"),
-                            row.get("cty") or row.get("admin_county"),
-                            row.get("osward") or row.get("admin_ward"),
-                            row.get("rgn") or row.get("nuts_level1"),
-                            (row.get("ctry") or "E")[:1],
+                            row.get(col["district"]) or None,
+                            row.get(col["county"]) or None,
+                            row.get(col["ward"]) or None,
+                            row.get(col["region"]) or None,
+                            (row.get(col["country"]) or "E")[:1],
                             source_id,
                         )
                     )
