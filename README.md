@@ -4,6 +4,8 @@
 
 # Aethelburg (`v0.3.0-beta.1`)
 
+[![CI](https://github.com/SOsintOps/Aethelburg-project/actions/workflows/ci.yml/badge.svg)](https://github.com/SOsintOps/Aethelburg-project/actions/workflows/ci.yml)
+
 Local investigative corporate intelligence platform for analysing UK company register data (Companies House), UK FCDO/OFSI Sanctions, and the ICIJ Offshore Leaks Database to identify shell companies and anomalous corporate structures.
 
 **100% Compatible with the [FollowTheMoney (`FtM v3.x`)](https://followthemoney.tech/) Ontology** (interoperable with OCCRP Aleph, OpenSanctions, and [Quaesitor](https://github.com/SOsintOps/quaesitor)).

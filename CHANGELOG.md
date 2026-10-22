@@ -30,6 +30,10 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - PSC statements keep the time they were first seen (`created_at`) when they are updated.
 
 ### Changed (repository)
+- **Continuous integration** (`.github/workflows/ci.yml`): ruff and the test suite on Windows and Linux with Python 3.13, for every push to `main` and every pull request that changes code.
+- `SECURITY.md` (how to report a vulnerability, where keys belong); `.gitattributes` keeps text files LF in the repository and PowerShell scripts CRLF.
+- `pyproject.toml` declares authors, keywords, classifiers and project links.
+- Removed the duplicate Inter font files at the top of `assets/` (the app uses `assets/fonts/`) and the outdated `todo.txt` (this file records what is done).
 - `ruff check src tests config migrations` passes (365 findings fixed: type annotations, unused imports, a repeated key in the CJK transliteration table).
 - The daily scheduler starts through the FastAPI lifespan instead of the deprecated `on_event`, and stops when the server stops.
 - Every comment, docstring, script message and example file is in English (`config/`, `migrations/`, `docker/`, `scripts/setup_db.sh`, `.env.example`, `.gitignore`, `pyproject.toml`).

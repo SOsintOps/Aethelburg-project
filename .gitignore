@@ -19,9 +19,6 @@ data/
 *.jsonl
 *.txt.gz
 
-# Ma mantieni file txt documentali
-!todo.txt
-!docs/*.txt
 
 # Node
 node_modules/
