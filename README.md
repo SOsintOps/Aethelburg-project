@@ -84,3 +84,9 @@ Every entity and relationship in Aethelburg is stored both in high-speed relatio
 
 - [User guide](docs/guide/01-getting-started.md) · [FAQ](docs/FAQ.md) · [Report writing](docs/REPORT_WRITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Design: intelligence](docs/DESIGN_INTELLIGENCE.md) · [Ontology](docs/ONTOLOGY.md) · [Data sources](docs/DATA_SOURCES.md) · [Setup](docs/SETUP.md) · [Legal](docs/LEGAL.md)
 - Related SOsintOps projects: [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) (method notes on sourcing, grading and reporting) · [Exploratores](https://github.com/SOsintOps/Exploratores) (browser OSINT toolkit; its Public Company Records page searches OpenSanctions and SanctionsKit for officers and companies)
+
+## Contributing and licence
+
+Bug reports and proposals are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
+
+The code is released under the [MIT licence](LICENSE). The data it processes keeps its own licence (Open Government Licence, ICIJ, OpenSanctions): see [NOTICE](NOTICE) and [LEGAL.md](docs/LEGAL.md).

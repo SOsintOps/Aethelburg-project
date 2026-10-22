@@ -1,0 +1,41 @@
+name: Bug report
+description: Something does not work as described in the guide
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not paste API keys or personal data. Security problems go through private vulnerability reporting (see SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in the top bar of the app
+      placeholder: 0.3.0-beta.1
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, Linux, macOS]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open 6. Data & Updates\n2. Press Run import\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error id and log lines
+      description: The error id shown by the app and the matching lines of logs/aethelburg.log in the data folder
+      render: text

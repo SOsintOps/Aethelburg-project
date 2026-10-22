@@ -19,22 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-THIRD-PARTY DATA NOTICES
-
-This software may process data from the following sources, each subject to
-their own terms:
-
-- Companies House data: Open Government Licence v3.0
-  https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
-
-- ICIJ Offshore Leaks Database: Creative Commons Attribution-NonCommercial
-  https://offshoreleaks.icij.org/pages/legal
-
-- OpenSanctions: Creative Commons Attribution-NonCommercial-ShareAlike 4.0
-  https://www.opensanctions.org/licensing/
-
-Users of this software are solely responsible for ensuring their use of
-third-party data complies with the applicable terms and conditions.
