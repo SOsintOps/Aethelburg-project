@@ -235,13 +235,13 @@ class Settings(BaseSettings):
                     self.db.password = stored
 
             if not self.ch.api_key:
-                stored = keyring.get_password("aethelburg", "ch_api_key")
-                if stored:
+                stored = (keyring.get_password("aethelburg", "ch_api_key") or "").strip()
+                if stored:  # a pasted key often carries a space or newline
                     self.ch.api_key = stored
 
             if not self.ch.streaming_key:
-                stored = keyring.get_password("aethelburg", "ch_streaming_key")
-                if stored:
+                stored = (keyring.get_password("aethelburg", "ch_streaming_key") or "").strip()
+                if stored:  # a pasted key often carries a space or newline
                     self.ch.streaming_key = stored
         except ImportError:
             pass

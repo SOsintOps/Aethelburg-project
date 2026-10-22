@@ -60,7 +60,7 @@ def test_singleton_pattern():
 
 
 def test_keys_are_read_from_the_keyring():
-    stored = {"ch_api_key": "rest-key", "ch_streaming_key": "stream-key"}
+    stored = {"ch_api_key": "rest-key", "ch_streaming_key": " stream-key\n"}  # pasted with whitespace
     env = {"POSTGRES_PASSWORD": "test", "APP_ENV": "development", "CH_API_KEY": "", "CH_STREAMING_KEY": ""}
     with patch.dict(os.environ, env), patch("keyring.get_password", lambda service, name: stored.get(name)):
         s = Settings()
