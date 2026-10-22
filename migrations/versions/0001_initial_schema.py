@@ -95,6 +95,7 @@ def upgrade() -> None:
         admin_ward      VARCHAR(100),
         nuts_level1     VARCHAR(10),
         country_code    CHAR(1),
+        precision       VARCHAR(10),
         source_id       UUID REFERENCES data_sources(id)
     )
     """)

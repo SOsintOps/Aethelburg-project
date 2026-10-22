@@ -1792,21 +1792,28 @@ function renderLeafletMarkers(geojson) {
       const score = Number(p.risk_score || 0);
       const fillColor = score >= 60 ? "#ef4444" : score >= 30 ? "#f59e0b" : "#38bdf8";
 
+      const approximate = p.location_precision && p.location_precision !== "postcode";
+      const precisionNote = approximate
+        ? `<div style="font-size:11px; color:#f59e0b; margin-bottom:6px;">Approximate location: centre of the postcode ${escapeHtml(p.location_precision)}, not the exact address. Import ONSPD for exact positions.</div>`
+        : "";
+
       let marker;
       // Acta Diurna / Samaritan convention: High-risk targets are glowing squares
-      if (score >= 30) {
+      if (score >= 30 && !approximate) {
         const sqSize = Math.min(20, 10 + Math.round(Math.log2(Math.max(1, p.colocated_count || 1)) * 2.5));
         marker = L.marker([lat, lon], {
           icon: samSquareIcon(sqSize, fillColor, score >= 60),
         });
       } else {
+        // Approximate positions: hollow dashed ring in the risk colour
         marker = L.circleMarker([lat, lon], {
-          radius: 6,
+          radius: approximate ? 8 : 6,
           fillColor,
-          color: "#ffffff",
-          weight: 1.3,
+          color: approximate ? fillColor : "#ffffff",
+          weight: approximate ? 2 : 1.3,
           opacity: 0.9,
-          fillOpacity: 0.8,
+          fillOpacity: approximate ? 0.15 : 0.8,
+          dashArray: approximate ? "3, 3" : null,
         });
       }
 
@@ -1823,6 +1830,7 @@ function renderLeafletMarkers(geojson) {
           <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;">
             ${escapeHtml(p.address || p.district || "")}
           </div>
+          ${precisionNote}
           <div style="display:flex; gap:6px;">
             <button class="btn btn-sm btn-primary" onclick="selectCompany('${p.company_number}')">Inspect Dossier</button>
             <button class="btn btn-sm" onclick="selectCompany('${p.company_number}'); switchTab('graph');">Network Graph</button>

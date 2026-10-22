@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS geo_postcode_centroids (
     admin_ward      TEXT,
     nuts_level1     TEXT,
     country_code    TEXT,
+    precision       TEXT,  -- postcode (ONSPD) | district | area (built-in approximation)
     source_id       TEXT REFERENCES data_sources(id)
 );
 
@@ -617,6 +618,7 @@ class DatabaseService:
         conn = self.connect()
         try:
             conn.executescript(SQLITE_SCHEMA_DDL)
+            self._migrate_sqlite(conn)
             conn.execute(
                 """
                 INSERT OR IGNORE INTO streaming_checkpoints (stream_type)
@@ -626,6 +628,16 @@ class DatabaseService:
             conn.commit()
         finally:
             conn.close()
+
+    @staticmethod
+    def _migrate_sqlite(conn: sqlite3.Connection) -> None:
+        """Bring databases created by older versions up to the current schema (idempotent)."""
+        geo_cols = {r["name"] for r in conn.execute("PRAGMA table_info(geo_postcode_centroids)")}
+        if "precision" not in geo_cols:
+            conn.execute("ALTER TABLE geo_postcode_centroids ADD COLUMN precision TEXT")
+            # Rows written before 0.3.0 carry a random offset around an area centroid:
+            # drop them so positions are re-resolved with an explicit precision.
+            conn.execute("DELETE FROM geo_postcode_centroids")
 
     # ------------------------------------------------------------------ #
     # DATA SOURCES & PROVENANCE                                          #

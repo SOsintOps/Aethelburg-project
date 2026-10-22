@@ -2,7 +2,7 @@
 
 Supports:
   - Importing an external ONSPD CSV file if provided (`pcds`, `lat`, `long`, `oslaua`, `cty`, `osward`, `rgn`, `ctry`)
-  - Synchronizing built-in UK postcode centroids for all postcodes present in `companies`
+  - Approximate built-in centroids (with `precision`) for company postcodes ONSPD does not cover
 """
 from __future__ import annotations
 
@@ -12,9 +12,15 @@ from pathlib import Path
 from src.core.logging import get_logger
 from src.core.normalizer import normalize_postcode
 from src.services.db_service import DatabaseService
-from src.services.geo_service import GeoService, UK_POSTCODE_CENTROIDS
+from src.services.geo_service import PRECISION_POSTCODE, GeoService
 
 log = get_logger(__name__)
+
+_INSERT_ONSPD_SQL = f"""
+    INSERT OR REPLACE INTO geo_postcode_centroids
+        (postcode, lat, lon, admin_district, admin_county, admin_ward, nuts_level1, country_code, source_id, precision)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '{PRECISION_POSTCODE}')
+"""
 
 
 def import_onspd(
@@ -71,39 +77,14 @@ def import_onspd(
                     )
                     imported += 1
                     if len(batch) >= 2000:
-                        conn.executemany(
-                            """
-                            INSERT OR REPLACE INTO geo_postcode_centroids
-                                (postcode, lat, lon, admin_district, admin_county, admin_ward, nuts_level1, country_code, source_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            batch,
-                        )
+                        conn.executemany(_INSERT_ONSPD_SQL, batch)
                         batch.clear()
                 if batch:
-                    conn.executemany(
-                        """
-                        INSERT OR REPLACE INTO geo_postcode_centroids
-                            (postcode, lat, lon, admin_district, admin_county, admin_ward, nuts_level1, country_code, source_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        batch,
-                    )
+                    conn.executemany(_INSERT_ONSPD_SQL, batch)
 
-        # Always seed outward/area centroids & resolve all company postcodes
-        for outward, (lat, lon, district, ctry) in UK_POSTCODE_CENTROIDS.items():
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO geo_postcode_centroids
-                    (postcode, lat, lon, admin_district, country_code, source_id)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (outward, lat, lon, district, ctry, source_id),
-            )
-            imported += 1
-
+        # Company postcodes missing from ONSPD fall back to built-in outward/area centroids
         synced = geo.sync_company_postcodes(conn=conn)
         conn.commit()
-        return {"centroids": imported + synced}
+        return {"onspd_postcodes": imported, "company_postcodes_resolved": synced}
     finally:
         conn.close()

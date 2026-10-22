@@ -4,6 +4,7 @@ Commands:
   - `serve`: Start the FastAPI web server (`http://127.0.0.1:8050`)
   - `desktop`: Launch the native desktop window + local backend
   - `bootstrap`: Populate `dati/aethelburg.sqlite` from the real datasets in `dati/` and run FT3 scoring
+  - `import-onspd`: Import exact postcode centroids (ONS Postcode Directory CSV) for the map
   - `score`: Run cross-dataset entity resolution and all 11 FT3 shell-company detection rules
   - `export-ftm`: Export FollowTheMoney v3.x (`.ftm.json`) JSONL stream
   - `import-ftm`: Import a FollowTheMoney v3.x (`.ftm.json`) JSONL file
@@ -22,6 +23,7 @@ from rich.table import Table
 from config.settings import get_settings
 from src.core.logging import setup_logging
 from src.etl.bootstrap_beta import bootstrap_beta_database
+from src.etl.import_onspd import import_onspd
 from src.intelligence.risk_scorer import RiskScorer
 from src.reports.pdf_generator import ReportGenerator
 from src.services.db_service import DatabaseService
@@ -86,6 +88,20 @@ def cmd_bootstrap(
     )
     console.print("[bold green]Bootstrap complete![/bold green]")
     console.print_json(data=summary)
+
+
+@app.command("import-onspd")
+def cmd_import_onspd(
+    csv_path: Path = typer.Argument(..., help="ONSPD CSV (columns pcds, lat, long)"),
+    limit: int | None = typer.Option(None, "--limit", help="Max postcodes to import"),
+) -> None:
+    """Import exact UK postcode centroids from the ONS Postcode Directory for the map."""
+    setup_logging()
+    if not csv_path.exists():
+        console.print(f"[bold red]File not found:[/bold red] {csv_path}")
+        raise typer.Exit(code=1)
+    res = import_onspd(csv_path=csv_path, limit=limit)
+    console.print_json(data=res)
 
 
 @app.command("score")

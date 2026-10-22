@@ -8,8 +8,8 @@ Implements ADR-011:
 """
 from __future__ import annotations
 
-import hashlib
 import math
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -222,36 +222,49 @@ UK_POSTCODE_CENTROIDS: dict[str, tuple[float, float, str, str]] = {
 }
 
 
-def resolve_postcode_coords(postcode: str | None) -> tuple[float, float, str, str] | None:
-    """Resolve any UK postcode to `(lat, lon, admin_district, country_code)` using outward/area lookup + deterministic micro-offset."""
+PRECISION_POSTCODE = "postcode"  # exact ONSPD centroid of the full postcode
+PRECISION_DISTRICT = "district"  # centroid of the outward code (e.g. EC1V, SW1A)
+PRECISION_AREA = "area"  # centroid of the postcode area (e.g. B = Birmingham)
+
+_AREA_RE = re.compile(r"[A-Z]+")
+
+
+def resolve_postcode_location(postcode: str | None) -> tuple[float, float, str, str, str] | None:
+    """Resolve a UK postcode from the built-in table to `(lat, lon, district, country_code, precision)`.
+
+    The built-in table only knows outward codes and postcode areas, so the result is never
+    more precise than `district`. Exact positions come from ONSPD (`geo_postcode_centroids`).
+    """
     norm = normalize_postcode(postcode)
-    if not norm:
+    if not norm or " " not in norm:
         return None
+    outward = norm.split(" ")[0]
 
-    parts = norm.split(" ")
-    outward = parts[0]
-
-    # 1. Exact outward code match (e.g. EC1V, W1J, SW1A)
+    # 1. Exact outward code (e.g. EC1V, W1J, SW1A)
     match = UK_POSTCODE_CENTROIDS.get(outward)
+    precision = PRECISION_DISTRICT
 
-    # 2. 3-char prefix match (e.g. EC1, WC2, SW1)
-    if not match and len(outward) >= 3:
-        match = UK_POSTCODE_CENTROIDS.get(outward[:3])
+    # 2. Sub-district letter dropped (EC1V -> EC1); never truncate digits (SE10 is not SE1)
+    if not match and len(outward) >= 3 and outward[-1].isalpha():
+        match = UK_POSTCODE_CENTROIDS.get(outward[:-1])
 
-    # 3. Alpha prefix match (e.g. EC, WC, SW, B, M, EH, CF)
+    # 3. Postcode area = leading letters only (W1A -> W, not WA = Warrington)
     if not match:
-        alpha_prefix = "".join(ch for ch in outward if ch.isalpha())
-        match = UK_POSTCODE_CENTROIDS.get(alpha_prefix)
+        area = _AREA_RE.match(outward)
+        if area:
+            match = UK_POSTCODE_CENTROIDS.get(area.group(0))
+            precision = PRECISION_AREA
 
     if not match:
         return None
+    lat, lon, district, country = match
+    return (lat, lon, district, country, precision)
 
-    base_lat, base_lon, district, country = match
-    # Deterministic micro-offset within ~400m based on full postcode hash so distinct postcodes in the same outward area don't stack on 1 pixel
-    digest = hashlib.sha256(norm.encode("utf-8")).digest()
-    d_lat = ((int.from_bytes(digest[:2], "big") / 65535.0) - 0.5) * 0.006
-    d_lon = ((int.from_bytes(digest[2:4], "big") / 65535.0) - 0.5) * 0.009
-    return (round(base_lat + d_lat, 6), round(base_lon + d_lon, 6), district, country)
+
+def resolve_postcode_coords(postcode: str | None) -> tuple[float, float, str, str] | None:
+    """Resolve a UK postcode to `(lat, lon, admin_district, country_code)` from the built-in table."""
+    loc = resolve_postcode_location(postcode)
+    return loc[:4] if loc else None
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -289,16 +302,24 @@ class GeoService:
             batch: list[tuple[Any, ...]] = []
             for r in rows:
                 pc = r["reg_address_postcode"]
-                resolved = resolve_postcode_coords(pc)
+                resolved = resolve_postcode_location(pc)
                 if resolved:
-                    lat, lon, district, country = resolved
-                    batch.append((pc, lat, lon, district, country))
+                    batch.append((pc, *resolved))
             if batch:
+                # Approximate rows never overwrite an exact ONSPD centroid
                 c.executemany(
                     """
-                    INSERT OR REPLACE INTO geo_postcode_centroids
-                        (postcode, lat, lon, admin_district, country_code)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO geo_postcode_centroids
+                        (postcode, lat, lon, admin_district, country_code, precision)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(postcode) DO UPDATE SET
+                        lat = excluded.lat,
+                        lon = excluded.lon,
+                        admin_district = excluded.admin_district,
+                        country_code = excluded.country_code,
+                        precision = excluded.precision
+                    WHERE geo_postcode_centroids.precision IS NULL
+                       OR geo_postcode_centroids.precision != 'postcode'
                     """,
                     batch,
                 )
@@ -324,7 +345,7 @@ class GeoService:
                        SUM(CASE WHEN c.is_flagged = 1 THEN 1 ELSE 0 END) AS flagged_count,
                        ROUND(AVG(c.risk_score), 1) AS avg_risk_score,
                        ROUND(MAX(c.risk_score), 1) AS max_risk_score,
-                       g.lat, g.lon, g.admin_district
+                       g.lat, g.lon, g.admin_district, g.precision
                 FROM companies c
                 LEFT JOIN geo_postcode_centroids g ON g.postcode = c.reg_address_postcode
                 WHERE c.address_fingerprint IS NOT NULL AND c.address_fingerprint != ''
@@ -339,9 +360,9 @@ class GeoService:
             for r in rows:
                 d = dict(r)
                 if d.get("lat") is None and d.get("postcode"):
-                    resolved = resolve_postcode_coords(d["postcode"])
+                    resolved = resolve_postcode_location(d["postcode"])
                     if resolved:
-                        d["lat"], d["lon"], d["admin_district"], _ = resolved
+                        d["lat"], d["lon"], d["admin_district"], _, d["precision"] = resolved
                 hotspots.append(d)
             return hotspots
         finally:
@@ -370,7 +391,7 @@ class GeoService:
                 SELECT c.company_number, c.company_name, c.company_status,
                        c.reg_address_line1, c.reg_address_post_town, c.reg_address_postcode,
                        c.address_fingerprint, c.risk_score, c.ft3_techniques, c.is_flagged,
-                       g.lat, g.lon, g.admin_district,
+                       g.lat, g.lon, g.admin_district, g.precision,
                        (SELECT COUNT(*) FROM companies c2 WHERE c2.address_fingerprint = c.address_fingerprint) AS colocated_count
                 FROM companies c
                 LEFT JOIN geo_postcode_centroids g ON g.postcode = c.reg_address_postcode
@@ -385,11 +406,11 @@ class GeoService:
             company_coords: dict[str, tuple[float, float, str]] = {}
 
             for r in rows:
-                lat, lon = r["lat"], r["lon"]
+                lat, lon, precision = r["lat"], r["lon"], r["precision"]
                 if lat is None or lon is None:
-                    resolved = resolve_postcode_coords(r["reg_address_postcode"])
+                    resolved = resolve_postcode_location(r["reg_address_postcode"])
                     if resolved:
-                        lat, lon = resolved[0], resolved[1]
+                        lat, lon, precision = resolved[0], resolved[1], resolved[4]
                 if lat is None or lon is None:
                     continue
 
@@ -411,6 +432,7 @@ class GeoService:
                             ),
                             "postcode": r["reg_address_postcode"],
                             "district": r["admin_district"] or r["reg_address_post_town"],
+                            "location_precision": precision or PRECISION_AREA,
                             "risk_score": round(float(r["risk_score"] or 0.0), 1),
                             "is_flagged": bool(r["is_flagged"]),
                             "colocated_count": int(r["colocated_count"] or 1),
