@@ -530,7 +530,10 @@ function renderDossierPanel(d) {
       <h3><span>Co-Located Entities at Address</span><span>${d.colocated_total || 1} total</span></h3>
       ${colocHtml}
     </div>
+
+    <div class="dossier-card" id="documents-card"></div>
   `;
+  loadFilings(c.company_number);
 }
 
 /* ============================================================================

@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from config.settings import get_settings
-from config.user_config import save_user_config
+from config.user_config import load_user_config, save_user_config
 from src.core.normalizer import normalize_name
 from src.datasources.backup import create_backup, list_backups, restore_backup
 from src.datasources.catalog import SOURCES, latest_release
@@ -29,6 +29,8 @@ from src.etl.company_changes import CHANGE_TYPES, change_counts, changes_csv, li
 from src.intelligence.risk_scorer import RiskScorer
 from src.services.api_service import CompaniesHouseApiError, CompaniesHouseApiService
 from src.services.db_service import DatabaseService
+from src.services.documents import fetch_filing_history
+from src.ui.documents_api import add_document_routes
 
 
 class LocationRequest(BaseModel):
@@ -48,6 +50,7 @@ class OfficersRequest(BaseModel):
 class DailyRequest(BaseModel):
     enabled: bool
     time: str = "06:00"
+    documents: bool = False
 
 
 class SubsetRequest(BaseModel):
@@ -149,10 +152,17 @@ def build_data_router(db: DatabaseService) -> APIRouter:
         except CompaniesHouseApiError as exc:
             status = exc.status if exc.status in (400, 401, 404, 429) else 502
             raise HTTPException(status_code=status, detail=exc.message) from exc
+        try:
+            summary["filings"] = await fetch_filing_history(ch_api, summary["company_number"])
+        except CompaniesHouseApiError as exc:  # the profile, officers and PSC are already saved
+            summary["filings_error"] = exc.message
+            logging.getLogger(__name__).warning("filing history of %s: %s", company_number, exc.message)
         if rescore:
             await asyncio.to_thread(RiskScorer(db).run_all_detections)
         summary["dossier"] = db.get_company_dossier(summary["company_number"])
         return summary
+
+    add_document_routes(router, db, ch_api)
 
     @router.get("/api/persons/search")
     async def persons_search(q: str, limit: int = 15) -> dict[str, Any]:
@@ -213,7 +223,8 @@ def build_data_router(db: DatabaseService) -> APIRouter:
             "subset": {"config": SubsetConfig.load().__dict__, "members": members, "by_reason": by_reason},
             "runs": runs,
             "backups": list_backups()[:5],
-            "daily": {"enabled": schedule()[0], "time": schedule()[1], "last_run": last_run_day(db)},
+            "daily": {"enabled": schedule()[0], "time": schedule()[1], "last_run": last_run_day(db),
+                      "documents": bool(load_user_config().get("documents_auto_download", False))},
             "job": jobs.current,
             "job_history": jobs.history,
             "stream": stream_worker().status(),
@@ -284,8 +295,9 @@ def build_data_router(db: DatabaseService) -> APIRouter:
         hh, _, mm = req.time.partition(":")
         if not (hh.isdigit() and mm.isdigit() and int(hh) < 24 and int(mm) < 60):
             raise HTTPException(status_code=400, detail="Time must be HH:MM")
-        save_user_config({"daily_update_enabled": req.enabled, "daily_update_time": f"{int(hh):02d}:{int(mm):02d}"})
-        return {"enabled": req.enabled, "time": f"{int(hh):02d}:{int(mm):02d}"}
+        save_user_config({"daily_update_enabled": req.enabled, "daily_update_time": f"{int(hh):02d}:{int(mm):02d}",
+                          "documents_auto_download": req.documents})
+        return {"enabled": req.enabled, "time": f"{int(hh):02d}:{int(mm):02d}", "documents": req.documents}
 
     @router.post("/api/data/daily/run")
     async def daily_run_now() -> dict[str, Any]:

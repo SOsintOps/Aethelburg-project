@@ -45,7 +45,7 @@ async function fetchFromCompaniesHouse(companyNumber) {
   try {
     const res = await postJson(`/api/companies/${encodeURIComponent(companyNumber)}/refresh`);
     if (status) {
-      status.textContent = `Companies House: ${res.officers} appointments (${res.active_officers} active), ${res.psc_statements} PSC statements — ${res.company_status || ""}`;
+      status.textContent = `Companies House: ${res.officers} appointments (${res.active_officers} active), ${res.psc_statements} PSC statements, ${res.filings ?? 0} filings — ${res.company_status || ""}`;
     }
     await loadCompanies();
     await selectCompany(res.company_number);
@@ -53,6 +53,86 @@ async function fetchFromCompaniesHouse(companyNumber) {
     if (status) status.textContent = `Companies House: ${err.message}`;
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+/* ---------- Filing history and documents (dossier card) ---------- */
+
+let filingsShowAll = false;
+
+async function loadFilings(companyNumber, items = null) {
+  const card = document.getElementById("documents-card");
+  if (!card) return;
+  if (!items) {
+    try {
+      items = (await apiJson(`/api/companies/${encodeURIComponent(companyNumber)}/filings`)).items;
+    } catch (err) {
+      card.innerHTML = `<h3><span>Documents</span></h3><div class="note">${escapeHtml(err.message)}</div>`;
+      return;
+    }
+  }
+  const num = escapeHtml(companyNumber);
+  const shown = filingsShowAll ? items : items.slice(0, 15);
+  const rows = shown.map((f) => {
+    const action = f.downloaded
+      ? `<a class="btn btn-sm" href="/api/documents/${num}/${encodeURIComponent(f.file_name)}" target="_blank" rel="noopener">Open</a>`
+      : f.has_document
+      ? `<button class="btn btn-sm" onclick="downloadFiling('${num}', '${escapeHtml(f.transaction_id)}', this)">PDF</button>`
+      : `<span style="color:var(--text-secondary);" title="Companies House has no image of this filing">—</span>`;
+    return `<tr><td><code>${escapeHtml(f.date || "")}</code></td><td>${escapeHtml(f.type || "")}</td>
+      <td style="font-size:11px;">${escapeHtml(f.description_text)}${f.pages ? ` <span style="color:var(--text-secondary);">(${f.pages} p.)</span>` : ""}</td><td>${action}</td></tr>`;
+  }).join("");
+  const hasAccounts = items.some((f) => f.category === "accounts" && f.has_document && !f.downloaded);
+  card.innerHTML = `
+    <h3><span>Documents (CH filing history)</span><span>${items.length}</span></h3>
+    <div style="display:flex; gap:6px; margin-bottom:6px;">
+      <button class="btn btn-sm" onclick="refreshFilings('${num}', this)">${items.length ? "Refresh list" : "Get filing list"}</button>
+      ${hasAccounts ? `<button class="btn btn-sm" onclick="downloadAllAccounts('${num}', this)">Download all accounts</button>` : ""}
+    </div>
+    ${items.length ? `<table class="matrix-table" style="width:100%; font-size:11.5px;">
+      <thead><tr><th>Date</th><th>Form</th><th>Description</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+      ${items.length > 15 ? `<a href="#" style="font-size:11px;" onclick="filingsShowAll = !filingsShowAll; loadFilings('${num}'); return false;">${filingsShowAll ? "Show fewer" : `Show all ${items.length}`}</a>` : ""}`
+    : `<div style="color:var(--text-secondary); font-size:12px;">No filing list yet. It is downloaded with <strong>Update from CH</strong> or with the button above (API key needed); PDFs are downloaded only when you ask, into the <code>documents</code> folder.</div>`}
+    <div id="documents-result" style="font-size:11px; margin-top:4px;"></div>`;
+}
+
+async function refreshFilings(companyNumber, btn) {
+  btn.disabled = true;
+  btn.textContent = "Downloading…";
+  try {
+    const res = await postJson(`/api/companies/${encodeURIComponent(companyNumber)}/filings/refresh`);
+    await loadFilings(companyNumber, res.items);
+  } catch (err) {
+    btn.disabled = false;
+    document.getElementById("documents-result").textContent = err.message;
+  }
+}
+
+async function downloadFiling(companyNumber, transactionId, btn) {
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const res = await postJson(`/api/companies/${encodeURIComponent(companyNumber)}/documents/${encodeURIComponent(transactionId)}`);
+    window.open(res.url, "_blank", "noopener");
+    await loadFilings(companyNumber);
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "PDF";
+    document.getElementById("documents-result").textContent = err.message;
+  }
+}
+
+async function downloadAllAccounts(companyNumber, btn) {
+  btn.disabled = true;
+  btn.textContent = "Downloading accounts…";
+  try {
+    const res = await postJson(`/api/companies/${encodeURIComponent(companyNumber)}/documents?category=accounts`);
+    await loadFilings(companyNumber);
+    const failed = res.failed.length ? `, ${res.failed.length} failed (${escapeHtml(res.failed[0].error)})` : "";
+    document.getElementById("documents-result").innerHTML = `${res.documents} accounts downloaded${failed}`;
+  } catch (err) {
+    btn.disabled = false;
+    document.getElementById("documents-result").textContent = err.message;
   }
 }
 
@@ -351,6 +431,7 @@ function renderDataPanel(st, checkedRemote) {
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px;">
         <label><input type="checkbox" id="daily-enabled" ${st.daily && st.daily.enabled ? "checked" : ""}> run every day at</label>
         <input type="text" id="daily-time" class="input-field" style="width:70px;" value="${escapeHtml((st.daily && st.daily.time) || "06:00")}">
+        <label title="Latest accounts and confirmation statement PDFs of the 50 highest-risk flagged companies"><input type="checkbox" id="daily-documents" ${st.daily && st.daily.documents ? "checked" : ""}> also download latest documents</label>
         <button class="btn btn-sm" onclick="saveDaily()">Save</button>
         <button class="btn btn-sm btn-primary" onclick="runDailyNow()" ${jobRunning ? "disabled" : ""}>Run now</button>
         <span style="color:var(--text-secondary);">last run: ${escapeHtml((st.daily && st.daily.last_run) || "never")}</span>
@@ -446,6 +527,7 @@ async function saveDaily() {
   await postJson("/api/data/daily", {
     enabled: document.getElementById("daily-enabled")?.checked || false,
     time: document.getElementById("daily-time")?.value || "06:00",
+    documents: document.getElementById("daily-documents")?.checked || false,
   }).catch((err) => alertInPanel(err.message));
   loadDataPanel();
 }

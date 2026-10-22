@@ -18,6 +18,12 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Added (Companies House documents)
+- **Filing history**: **Update from CH** also downloads every filing of the company (`filings` table: date, form type, category, description, pages); filings appear as `FILING` events in the timeline and in a **Documents** card in the dossier. List pagination now also follows `total_count`, which the filing history uses instead of `total_results`.
+- **Documents on request** through the Companies House Document API (metadata, then `/content` as PDF, whose signed download address is fetched without the key): **PDF** for one filing, **Download all accounts**, **Open** for documents already on disk. Files go to `<data folder>/documents/<company number>/<date>-<form>-<transaction>.pdf` and are never downloaded twice; only `document-api.company-information.service.gov.uk` addresses are followed and file names are checked before serving.
+- Optional in the daily update (*also download latest documents*, user config `documents_auto_download`, off by default): latest accounts and confirmation statement of the 50 highest-risk flagged companies.
+- API: `GET /api/companies/{n}/filings`, `POST /api/companies/{n}/filings/refresh`, `POST /api/companies/{n}/documents/{transaction}`, `POST /api/companies/{n}/documents?category=accounts`, `GET /api/documents/{n}/{file}`.
+
 ### Added (change history)
 - **Company change history** (`company_changes` table, created automatically on start): every update of a company already in the database (bulk import, Streaming API, Update from CH) records what changed — address, status, name, category, SIC codes, dissolution date, accounts and confirmation statement filed, number of charges — with old and new value, date observed, date of effect where known and source. Officers appointed or resigned and PSC added or ceased after the first load are recorded too.
 - Not counted as changes: the first load of a company, a stub company taking its real details, a value the earlier source did not have, and the same value written differently by the bulk file and the API (case, punctuation; addresses compared by fingerprint).

@@ -6,11 +6,16 @@ The **Update from CH** button in the dossier downloads, for the selected company
 
 - the company profile (name, status, registered office, dates, SIC codes, accounts, previous names);
 - every officer appointment, current and past (all pages, not only the first 35);
-- every PSC statement.
+- every PSC statement;
+- the filing history (every form filed: date, form type, description, pages).
 
 The data is written with the same rules as the bulk import, then FT3 scoring runs again. Pressing it twice does not create duplicates.
 
 A company that is not in the database yet (for example one found in the search index) is created from its profile: use **Fetch** next to it in the search results.
+
+## Documents
+
+The **Documents** card in the dossier lists the filing history, newest first. **Get filing list** / **Refresh list** downloads it on its own; **PDF** downloads one filing through the Companies House Document API and opens it; **Open** shows a document already downloaded; **Download all accounts** fetches every accounts filing that has an image. Files are kept in `documents\<company number>` inside the data folder and never downloaded twice. A filing without an image (some paper filings) shows —.
 
 ## Limits and errors
 

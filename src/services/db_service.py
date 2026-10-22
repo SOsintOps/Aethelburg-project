@@ -548,6 +548,23 @@ CREATE TABLE IF NOT EXISTS company_changes (
 CREATE INDEX IF NOT EXISTS idx_changes_company ON company_changes(company_number, observed_at);
 CREATE INDEX IF NOT EXISTS idx_changes_observed ON company_changes(observed_at);
 
+-- Companies House filing history; downloaded_path is set once the PDF is in <data folder>/documents
+CREATE TABLE IF NOT EXISTS filings (
+    transaction_id          TEXT PRIMARY KEY,
+    company_number          TEXT NOT NULL,
+    date                    TEXT,
+    category                TEXT,
+    type                    TEXT,
+    description             TEXT,
+    description_values      TEXT,
+    pages                   INTEGER,
+    paper_filed             INTEGER NOT NULL DEFAULT 0,
+    document_metadata_url   TEXT,
+    downloaded_path         TEXT,
+    fetched_at              TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_filings_company ON filings(company_number, date);
+
 -- Casework tables (prefix casework_ in SQLite for single-file portability)
 CREATE TABLE IF NOT EXISTS casework_investigations (
     id              TEXT PRIMARY KEY,
@@ -1434,6 +1451,20 @@ class DatabaseService:
                         "severity": "warning" if ch["change_type"] in ("ADDRESS_CHANGED", "STATUS_CHANGED") else "info",
                     }
                 )
+            for f in conn.execute(
+                "SELECT date, category, type, description FROM filings WHERE company_number = ?",
+                (company["company_number"],),
+            ):
+                if f["date"]:
+                    timeline.append(
+                        {
+                            "date": f["date"],
+                            "event_type": "FILING",
+                            "title": f"{f['type'] or ''} {(f['description'] or '').replace('-', ' ')}".strip(),
+                            "source": f"CH filing history ({f['category'] or 'other'})",
+                            "severity": "info",
+                        }
+                    )
             timeline.sort(key=lambda x: str(x.get("date") or ""), reverse=True)
 
             # Casework annotations for this company

@@ -55,7 +55,9 @@ Before overwriting, Aethelburg compares the stored company with the update and r
 
 ### Can Aethelburg download company documents (accounts, confirmation statements)?
 
-Not yet. The planned optional download uses the Companies House filing history and Document API: list a company's filings and download the PDFs you choose into the data folder.
+Yes, on request. **Update from CH** also downloads the company's **filing history** (every form filed, with date, type and description; it appears in the dossier's **Documents** card and in the timeline). From that card, **PDF** downloads one filing and **Download all accounts** all the accounts with an image; the files go to `<data folder>\documents\<company number>\<date>-<form>-<transaction>.pdf`, are never downloaded twice and open in the browser. They come from the Companies House Document API with the same REST key and the same rate limit (600 requests per 5 minutes; a document costs about 2 requests). Some old or paper filings have no image (shown as —).
+
+The daily update can also fetch the latest accounts and confirmation statement of the 50 highest-risk flagged companies (*also download latest documents* in the Data tab, off by default). Importing the figures of the accounts (iXBRL bulk files) is not part of Aethelburg yet.
 
 ### Are sanctions and ICIJ data updated?
 

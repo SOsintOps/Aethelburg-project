@@ -109,7 +109,8 @@ class CompaniesHouseApiService:
             page = await self._get(path, {"items_per_page": _PAGE_SIZE, "start_index": len(items)})
             batch = page.get("items") or []
             items.extend(batch)
-            total = int(page.get("total_results") or 0)
+            # most lists report total_results; the filing history reports total_count
+            total = int(page.get("total_results") or page.get("total_count") or 0)
             if not batch or len(items) >= total:
                 return items
 

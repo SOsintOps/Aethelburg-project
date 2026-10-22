@@ -19,6 +19,7 @@ from src.datasources.officers import fetch_officers_batch
 from src.datasources.pipeline import refresh_all
 from src.datasources.runs import finish_run, start_run
 from src.services.db_service import DatabaseService
+from src.services.documents import auto_download_latest
 
 log = get_logger(__name__)
 DEFAULT_TIME = "06:00"
@@ -39,6 +40,8 @@ def run_daily_update(db: DatabaseService | None = None, progress: Callable[..., 
         if changed:
             summary["import"] = {k: v for k, v in refresh_all(db=db, progress=progress).items() if k != "scoring"}
             summary["officers"] = fetch_officers_batch("flagged", limit=NEW_FLAGGED_OFFICERS_LIMIT, db=db)
+            if load_user_config().get("documents_auto_download", False):
+                summary["documents"] = auto_download_latest(db)
         else:
             summary["import"] = "nothing new to import"
         status = "completed"
