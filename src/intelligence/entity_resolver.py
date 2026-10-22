@@ -1,8 +1,10 @@
 """Cross-dataset Entity Resolution engine (ADR-017).
 
 Links UK Companies House (`companies`, `persons`, `legal_entities`) with:
-  - UK FCDO / OFSI `sanctions` (via exact UK CRN `A1`, exact `name_fingerprint` `B2`, or fuzzy/phonetic `C3`)
-  - ICIJ Offshore Leaks (`icij_entities`, `icij_officers`)
+  - UK FCDO / OFSI `sanctions`: exact UK CRN (`A1`), exact company `name_fingerprint` (`B2`); people by
+    `name_fingerprint` checked against the published date of birth (`A2` when month/year agree, dropped
+    when they differ, `B3` low confidence when either side has no date)
+  - ICIJ Offshore Leaks (`icij_entities`, `icij_officers`; officers have no date of birth: `C3` low)
   - Updates `ftm_entities.referents` to preserve canonical FollowTheMoney cross-dataset links
 """
 from __future__ import annotations
@@ -14,6 +16,16 @@ from src.core.logging import get_logger
 from src.services.db_service import DatabaseService, _parse_json_field
 
 log = get_logger(__name__)
+
+
+def compare_birth_dates(birth_dates: list[dict[str, Any]], year: Any, month: Any) -> str:
+    """`match`, `conflict` or `unknown` for a CH month/year against the sanction's published dates."""
+    if not year or not birth_dates:
+        return "unknown"
+    for d in birth_dates:
+        if d.get("year") == int(year) and (d.get("month") is None or not month or d["month"] == int(month)):
+            return "match"
+    return "conflict"
 
 
 class EntityResolver:
@@ -79,7 +91,7 @@ class EntityResolver:
                        s.id AS sanction_id, s.name AS sanction_name, s.opensanctions_id,
                        s.list_name, s.listed_on, s.subject_ftm_id, s.ftm_id AS sanc_ftm_id
                 FROM companies c
-                JOIN sanctions s ON s.name_fingerprint = c.name_fingerprint
+                JOIN sanctions s ON s.name_fingerprint = c.name_fingerprint AND s.entity_type != 'Person'
                 WHERE c.name_fingerprint IS NOT NULL AND c.name_fingerprint != ''
                 """
             ).fetchall()
@@ -104,39 +116,49 @@ class EntityResolver:
                     )
                     self._add_ftm_referent(conn, row["comp_ftm_id"], row["subject_ftm_id"] or row["sanc_ftm_id"])
 
-            # PSC Person / Corporate PSC -> Sanctions match
+            # PSC Person -> sanctioned Person: same name, then the date of birth decides
             psc_sanc_rows = conn.execute(
                 """
                 SELECT po.company_number, c.company_name, p.name AS controller_name, p.ftm_id AS person_ftm_id,
+                       p.dob_year, p.dob_month,
                        s.id AS sanction_id, s.name AS sanction_name, s.opensanctions_id,
-                       s.list_name, s.listed_on, s.subject_ftm_id
+                       s.list_name, s.listed_on, s.subject_ftm_id, s.raw_properties
                 FROM psc_ownerships po
                 JOIN companies c ON c.company_number = po.company_number
                 JOIN persons p ON p.id = po.person_id
-                JOIN sanctions s ON s.name_fingerprint = p.name_fingerprint
+                JOIN sanctions s ON s.name_fingerprint = p.name_fingerprint AND s.entity_type = 'Person'
                 WHERE p.name_fingerprint IS NOT NULL AND p.name_fingerprint != ''
                 """
             ).fetchall()
+            best: dict[tuple[str, str], dict[str, Any]] = {}
             for row in psc_sanc_rows:
                 pair = (row["company_number"], row["sanction_id"])
-                if pair not in seen_pairs:
-                    seen_pairs.add(pair)
-                    sanction_matches.append(
-                        {
-                            "company_number": row["company_number"],
-                            "company_name": row["company_name"],
-                            "controller_name": row["controller_name"],
-                            "sanction_id": row["sanction_id"],
-                            "sanction_name": row["sanction_name"],
-                            "opensanctions_id": row["opensanctions_id"],
-                            "list_name": row["list_name"],
-                            "listed_on": row["listed_on"],
-                            "match_type": "psc_controller_sanctioned",
-                            "unodc_grade": "B2",
-                            "confidence": "high",
-                        }
-                    )
-                    self._add_ftm_referent(conn, row["person_ftm_id"], row["subject_ftm_id"])
+                if pair in seen_pairs:
+                    continue
+                birth_dates = _parse_json_field(row["raw_properties"], {}).get("birth_dates") or []
+                outcome = compare_birth_dates(birth_dates, row["dob_year"], row["dob_month"])
+                if outcome == "conflict":
+                    continue  # same name, different person
+                if outcome != "match" and pair in best:
+                    continue
+                best[pair] = {
+                    "company_number": row["company_number"],
+                    "company_name": row["company_name"],
+                    "controller_name": row["controller_name"],
+                    "controller_dob": f"{row['dob_month'] or '?'}/{row['dob_year']}" if row["dob_year"] else None,
+                    "sanction_id": row["sanction_id"],
+                    "sanction_name": row["sanction_name"],
+                    "opensanctions_id": row["opensanctions_id"],
+                    "list_name": row["list_name"],
+                    "listed_on": row["listed_on"],
+                    "match_type": "psc_name_and_dob" if outcome == "match" else "psc_name_only",
+                    "unodc_grade": "A2" if outcome == "match" else "B3",
+                    "confidence": "high" if outcome == "match" else "low",
+                    "_ftm": (row["person_ftm_id"], row["subject_ftm_id"]),
+                }
+            for match in best.values():
+                self._add_ftm_referent(conn, *match.pop("_ftm"))
+                sanction_matches.append(match)
 
             # 3. Cross-Dataset ICIJ Offshore Matches (Companies, Corporate PSCs, Individual PSCs)
             comp_icij_rows = conn.execute(
@@ -220,8 +242,8 @@ class EntityResolver:
                         "jurisdiction": row["jurisdiction_description"],
                         "dataset": row["source_id_list"],
                         "match_role": "individual_psc_in_icij_officers",
-                        "unodc_grade": "B2",
-                        "confidence": "moderate",
+                        "unodc_grade": "C3",  # name only: ICIJ publishes no date of birth
+                        "confidence": "low",
                     }
                 )
                 self._add_ftm_referent(conn, row["p_ftm_id"], row["icij_ftm_id"])

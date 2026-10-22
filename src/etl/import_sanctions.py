@@ -40,6 +40,22 @@ def _parse_uk_date(val: str | None) -> str | None:
     return v[:10]
 
 
+def parse_birth_date(val: str | None) -> dict[str, int | None] | None:
+    """`dd/mm/yyyy`, partly masked `dd/mm/1945` / `dd/03/1945`, or `yyyy` -> {year, month, day}."""
+    v = (val or "").strip()
+    if not v:
+        return None
+    parts = v.split("/")
+    if len(parts) == 1:
+        return {"year": int(v), "month": None, "day": None} if v.isdigit() and len(v) == 4 else None
+    if len(parts) != 3 or not (parts[2].isdigit() and len(parts[2]) == 4):
+        return None
+    day, month = (int(x) if x.isdigit() else None for x in parts[:2])
+    if month is not None and not 1 <= month <= 12:
+        return None
+    return {"year": int(parts[2]), "month": month, "day": day}
+
+
 def parse_uk_sanctions_row(row: list[str]) -> dict[str, Any] | None:
     """Parse a single row from `UK-Sanctions-List.txt` using right-anchored column indexing."""
     if len(row) < 50:
@@ -180,6 +196,7 @@ def import_uk_sanctions_file(
                     "addresses": set(),
                     "statement_of_reasons": parsed["statement_of_reasons"],
                     "sanctions_imposed": parsed["sanctions_imposed"],
+                    "birth_dates": [],
                 }
 
             rec = grouped[uid]
@@ -198,6 +215,9 @@ def import_uk_sanctions_file(
                 rec["registration_numbers"].add(rn)
             if parsed["address"]:
                 rec["addresses"].add(parsed["address"])
+            dob = parse_birth_date(parsed["dob"])
+            if dob and dob not in rec["birth_dates"]:
+                rec["birth_dates"].append(dob)
 
     conn = db.connect()
     try:
@@ -219,7 +239,8 @@ def import_uk_sanctions_file(
         for uid, rec in grouped.items():
             sanc_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"uk-sanctions:{uid}"))
             primary_name = rec["primary_name"]
-            fp = normalize_name(primary_name)
+            is_company = rec["entity_type"] != "Person"
+            fp = normalize_name(primary_name, is_company=is_company)
             aliases_list = sorted(rec["aliases"])
             countries_list = sorted(rec["countries"])
             reg_nums_list = sorted(rec["registration_numbers"])
@@ -233,6 +254,7 @@ def import_uk_sanctions_file(
                 "reasons": rec["statement_of_reasons"][:600],
                 "addresses": sorted(rec["addresses"])[:5],
                 "registrationNumber": reg_nums_list,
+                "birth_dates": rec["birth_dates"],
             }
 
             sanc_dict = {
@@ -298,7 +320,7 @@ def import_uk_sanctions_file(
                 )
                 variants_inserted += 1
             for alias in aliases_list[:5]:
-                afp = normalize_name(alias)
+                afp = normalize_name(alias, is_company=is_company)
                 if afp:
                     conn.execute(
                         """

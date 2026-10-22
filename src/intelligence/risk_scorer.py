@@ -81,19 +81,23 @@ class RiskScorer:
             sanc_by_comp: dict[str, list[dict[str, Any]]] = {}
             for m in resolved["sanction_matches"]:
                 sanc_by_comp.setdefault(m["company_number"], []).append(m)
+            # best evidence first: registration number, name + date of birth, company name, name only
+            sanction_rank = {"A1": (0, 48.0), "A2": (1, 45.0), "B2": (2, 42.0), "B3": (3, 25.0)}
             for comp_num, matches in sanc_by_comp.items():
-                best_grade = "A1" if any(m.get("unodc_grade") == "A1" for m in matches) else "B2"
+                matches.sort(key=lambda m: sanction_rank.get(m.get("unodc_grade"), (9, 25.0))[0])
+                top = matches[0]
+                basis = "name only, no date of birth to compare" if top.get("match_type") == "psc_name_only" else top.get("match_type")
                 _upsert_flag(
                     comp_num,
                     "FT3-SC-007",
                     {
-                        "unodc_grade": best_grade,
-                        "confidence": "high",
+                        "unodc_grade": top.get("unodc_grade"),
+                        "confidence": top.get("confidence", "high"),
                         "match_count": len(matches),
                         "sanctions": matches[:5],
-                        "summary": f"Matched {len(matches)} UK FCDO/OFSI sanctions designation(s): {matches[0]['sanction_name']} ({matches[0]['opensanctions_id']})",
+                        "summary": f"Matched {len(matches)} UK FCDO/OFSI sanctions designation(s): {top['sanction_name']} ({top['opensanctions_id']}; {basis})",
                     },
-                    score_override=48.0 if best_grade == "A1" else 42.0,
+                    score_override=sanction_rank.get(top.get("unodc_grade"), (9, 25.0))[1],
                 )
 
             # ------------------------------------------------------------------ #
@@ -103,16 +107,21 @@ class RiskScorer:
             for m in resolved["icij_matches"]:
                 icij_by_comp.setdefault(m["company_number"], []).append(m)
             for comp_num, matches in icij_by_comp.items():
+                # a company or corporate PSC name match outweighs a person matched on name alone
+                matches.sort(key=lambda m: m.get("confidence") == "low")
+                name_only = matches[0].get("confidence") == "low"
                 _upsert_flag(
                     comp_num,
                     "FT3-SC-017",
                     {
-                        "unodc_grade": "B2",
-                        "confidence": "high",
+                        "unodc_grade": matches[0].get("unodc_grade", "B2"),
+                        "confidence": matches[0].get("confidence", "high"),
                         "match_count": len(matches),
                         "offshore_matches": matches[:5],
-                        "summary": f"Linked to {len(matches)} ICIJ Offshore Leaks record(s): {matches[0]['icij_name']} ({matches[0].get('dataset') or 'Offshore Leaks'})",
+                        "summary": f"Linked to {len(matches)} ICIJ Offshore Leaks record(s): {matches[0]['icij_name']} ({matches[0].get('dataset') or 'Offshore Leaks'})"
+                        + ("; person matched on name only, ICIJ publishes no date of birth" if name_only else ""),
                     },
+                    score_override=20.0 if name_only else None,
                 )
 
             # ------------------------------------------------------------------ #

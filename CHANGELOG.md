@@ -12,6 +12,8 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 ## [Unreleased]
 
 ### Fixed
+- **Sanctions matches of people now check the date of birth.** People with significant control were matched to sanctioned individuals on the name fingerprint alone, so namesakes were flagged as sanctioned (on the full register, 109 of 149 matched people were born in a different month or year). The sanctions import now keeps the dates of birth published by OFSI, including partial ones (`dd/mm/1945`, `1970`). A match with the same month and year is graded A2 with high confidence. A match where either side has no date is kept as B3 with low confidence and a lower score (25 instead of 42); the flag says "name only". A match whose dates disagree is dropped. People are no longer matched to sanctioned companies, and sanctioned people are normalised as people, without titles.
+- ICIJ Offshore Leaks matches of people (no date of birth in the leaks) are graded C3 with low confidence and score 20 instead of 38, unless the same company also matches by company name.
 - Generic environment variables changed the PostgreSQL settings: on Linux `$USER` became the database user and `$NAME` the database name. Only the `POSTGRES_*` variables are read now.
 - The tests no longer depend on the machine: the settings tests ignore its database variables, and the end-to-end test is skipped (with the reason) when the configured database is not populated.
 - The Companies House **Streaming key** stored with `python -m keyring set aethelburg ch_streaming_key` was never read (only the REST key was loaded from the keyring), so live updates reported a missing key.
