@@ -56,6 +56,45 @@ async function fetchFromCompaniesHouse(companyNumber) {
   }
 }
 
+/* ---------- Search: people (PSC controllers and officers) ---------- */
+
+async function appendPersonMatches(q) {
+  const container = document.getElementById("entity-list");
+  if (!container || !q || q.trim().length < 3) return;
+  let people = [];
+  try {
+    people = (await apiJson(`/api/persons/search?q=${encodeURIComponent(q)}&limit=10`)).items || [];
+  } catch (err) {
+    return;
+  }
+  if (!people.length) return;
+  if (container.textContent.includes("No matching companies found")) container.innerHTML = "";
+  const dob = (p) => (p.dob_year ? ` • born ${p.dob_month ? String(p.dob_month).padStart(2, "0") + "/" : ""}${p.dob_year}` : "");
+  container.insertAdjacentHTML(
+    "afterbegin",
+    `<div style="padding:8px 10px; font-size:11px; color:var(--text-secondary); border-bottom:1px solid var(--border-subtle);">
+       People matching “${escapeHtml(q)}” — PSC controllers and officers, with their companies
+     </div>` +
+      people
+        .map(
+          (p) => `
+        <div class="entity-item" style="cursor:default;">
+          <div class="entity-item-top"><div class="entity-name">${escapeHtml(p.name)}</div></div>
+          <div class="entity-meta"><span>${escapeHtml(p.nationality || "nationality n/a")}${escapeHtml(dob(p))}${p.country_of_residence ? " • lives in " + escapeHtml(p.country_of_residence) : ""}</span></div>
+          <div style="margin-top:5px; display:flex; gap:4px; flex-wrap:wrap;">
+            ${(p.companies || [])
+              .map(
+                (c) => `<span class="tech-tag" style="cursor:pointer;" title="${escapeHtml(c.role)} • ${escapeHtml(c.company_status || "")}"
+                   onclick="selectCompany('${escapeHtml(c.company_number)}')">${escapeHtml(c.company_name)}</span>`
+              )
+              .join("") || "<em>no imported company</em>"}
+          </div>
+        </div>`
+        )
+        .join("")
+  );
+}
+
 /* ---------- Search: companies only in the register index ---------- */
 
 async function appendIndexMatches(q) {

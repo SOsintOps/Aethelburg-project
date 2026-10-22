@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from config.settings import get_settings
 from config.user_config import save_user_config
+from src.core.normalizer import normalize_name
 from src.datasources.backup import create_backup, list_backups, restore_backup
 from src.datasources.catalog import SOURCES, latest_release
 from src.datasources.downloader import download_source, local_releases
@@ -139,6 +140,11 @@ def build_data_router(db: DatabaseService) -> APIRouter:
             await asyncio.to_thread(RiskScorer(db).run_all_detections)
         summary["dossier"] = db.get_company_dossier(summary["company_number"])
         return summary
+
+    @router.get("/api/persons/search")
+    async def persons_search(q: str, limit: int = 15) -> dict[str, Any]:
+        """People (PSC controllers and officers) whose name contains every word typed, with their companies."""
+        return {"items": await asyncio.to_thread(_person_search, db, q, min(max(limit, 1), 50))}
 
     @router.get("/api/index/search")
     async def index_search(q: str, limit: int = 20) -> dict[str, Any]:
@@ -281,6 +287,44 @@ def _guide_chapters() -> list[tuple[str, str, Path]]:
         first = path.read_text(encoding="utf-8").splitlines()[0] if path.stat().st_size else slug
         chapters.append((slug, first.lstrip("# ").strip() or slug, path))
     return chapters
+
+
+def _person_search(db: DatabaseService, q: str, limit: int) -> list[dict[str, Any]]:
+    words = [w for w in normalize_name(q or "").split() if len(w) >= 2]
+    if not words:
+        return []
+    conn = db.connect()
+    try:
+        where = " AND ".join("p.name_fingerprint LIKE ?" for _ in words)
+        people = conn.execute(
+            f"""
+            SELECT p.id, p.name, p.nationality, p.country_of_residence, p.dob_month, p.dob_year
+            FROM persons p WHERE {where}
+            ORDER BY p.name LIMIT ?
+            """,
+            [*(f"%{w}%" for w in words), limit],
+        ).fetchall()
+        result = []
+        for p in people:
+            companies = conn.execute(
+                """
+                SELECT c.company_number, c.company_name, c.company_status, c.risk_score,
+                       GROUP_CONCAT(DISTINCT link.role) AS role
+                FROM (
+                    SELECT company_number, 'PSC' AS role FROM psc_ownerships WHERE person_id = ?
+                    UNION
+                    SELECT company_number, COALESCE(officer_role, 'officer') AS role FROM directorships WHERE person_id = ?
+                ) link
+                JOIN companies c ON c.company_number = link.company_number
+                GROUP BY c.company_number
+                ORDER BY c.risk_score DESC LIMIT 12
+                """,
+                (p["id"], p["id"]),
+            ).fetchall()
+            result.append({**dict(p), "companies": [dict(c) for c in companies]})
+        return result
+    finally:
+        conn.close()
 
 
 def _index_search(db: DatabaseService, q: str, limit: int) -> list[dict[str, Any]]:

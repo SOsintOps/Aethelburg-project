@@ -16,6 +16,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Added (search)
+- **People search**: the search box also finds people (PSC controllers and officers) by any order of their names (`ROSSI, Mario` = `Mario Rossi`), with nationality, birth month and the companies they are linked to, each with its role.
+
 ### Added (backups)
 - **Backups**: `data backup`, `data backups`, `data restore NAME` and a Backups card in the Data tab. A consistent copy (SQLite online backup, safe while the server or an import runs, integrity-checked) goes to `<data folder>/backups/` with the user config; one is made automatically before every import; the newest 7 are kept (`backup_keep`). Restoring backs up the current database first.
 

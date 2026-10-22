@@ -29,3 +29,24 @@ def test_guide_is_complete_and_consistent(tmp_path):
     assert tabs and all(mapping.get(t) in slugs for t in tabs), (tabs, mapping)
 
     assert client.get("/api/help/..%2F..%2Fpyproject").status_code == 404
+
+
+def test_person_search_groups_roles_per_company(tmp_path):
+    from src.etl.import_companies import parse_ch_company_row, upsert_company_record
+    from src.etl.import_psc import ingest_psc_record
+    from src.services.db_service import DatabaseService
+
+    db = DatabaseService(tmp_path / "people.sqlite")
+    conn = db.connect()
+    sid = db.register_data_source("t", "t", conn=conn)
+    upsert_company_record(conn, db, parse_ch_company_row({"CompanyName": "ROSSI TRADING LTD", " CompanyNumber": "00000009"}), sid)
+    counts = dict.fromkeys(("psc_ownerships", "persons", "legal_entities", "stub_companies", "directorships", "ftm_entities"), 0)
+    ingest_psc_record(conn, db, "00000009", {
+        "kind": "individual-person-with-significant-control", "name": "Mr Mario Rossi", "nationality": "Italian",
+        "date_of_birth": {"year": 1960, "month": 1}, "links": {"self": "/x"}}, sid, "2026-10-22", {"00000009"}, counts)
+    conn.commit()
+    conn.close()
+
+    items = TestClient(create_app(tmp_path / "people.sqlite")).get("/api/persons/search", params={"q": "ROSSI mario"}).json()["items"]
+    assert len(items) == 1 and items[0]["nationality"] == "Italian"
+    assert [c["company_number"] for c in items[0]["companies"]] == ["00000009"]

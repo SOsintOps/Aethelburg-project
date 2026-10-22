@@ -302,6 +302,7 @@ async function loadCompanies() {
     }
     renderEntityList(items);
     if (typeof appendIndexMatches === "function") appendIndexMatches(q);
+    if (typeof appendPersonMatches === "function") appendPersonMatches(q);
 
     if (!currentCompanyNumber && items.length > 0) {
       selectCompany(items[0].company_number);
