@@ -93,6 +93,8 @@ def _toml_value(value: Any) -> str:
         return "true" if value else "false"
     if isinstance(value, int | float):
         return str(value)
+    if isinstance(value, list | tuple):
+        return "[" + ", ".join(_toml_value(v) for v in value) + "]"
     text = str(value)
     if "'" in text:
         return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'

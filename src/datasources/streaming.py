@@ -8,8 +8,8 @@ restart resumes from it. If the stream refuses a timepoint (too old: HTTP 416) t
 reported and the monthly bulk refresh fills it.
 
 Rules: events for companies already fully imported update them; new incorporations join the
-subset when the "recent" criterion is on; a PSC registered offshore/abroad or super-secure pulls
-its company into the subset; every company event refreshes the light index.
+subset when the "recent" criterion is on; a PSC registered offshore/abroad, super-secure or of a wanted
+nationality pulls its company into the subset; every company event refreshes the light index.
 """
 from __future__ import annotations
 
@@ -25,9 +25,14 @@ import orjson
 from config.settings import get_settings
 from src.core.logging import get_logger
 from src.core.normalizer import compute_address_fingerprint, normalize_name
-from src.datasources.subset import SubsetConfig, _is_uk, _jurisdiction
+from src.datasources.subset import (
+    SubsetConfig,
+    _nationality_set,
+    nationality_match,
+    psc_risk_reason,
+)
 from src.etl.import_companies import upsert_company_record
-from src.etl.import_psc import _is_offshore_jurisdiction, ingest_psc_record
+from src.etl.import_psc import ingest_psc_record
 from src.intelligence.risk_scorer import RiskScorer
 from src.services.api_service import CompaniesHouseApiService
 from src.services.ch_mapping import profile_to_record
@@ -207,7 +212,7 @@ class StreamWorker:
         conn = self.db.connect()
         try:
             in_subset = self._in_subset(number, conn)
-            reason = _psc_risk_reason(data) if self.cfg.risk_links else None
+            reason = self._psc_reason(data)
             if not in_subset and reason is None:
                 return False
             if not in_subset:
@@ -228,6 +233,15 @@ class StreamWorker:
     # ------------------------------------------------------------------ #
     # HELPERS                                                            #
     # ------------------------------------------------------------------ #
+
+    def _psc_reason(self, data: dict[str, Any]) -> str | None:
+        """Same rules as the bulk selection: risk links, then wanted PSC nationalities."""
+        if self.cfg.risk_links:
+            reason = psc_risk_reason(data)
+            if reason:
+                return reason
+        label = nationality_match(data.get("nationality"), _nationality_set(self.cfg.psc_nationalities))
+        return f"nationality_{label}" if label else None
 
     def _in_subset(self, number: str, conn: Any = None) -> bool:
         own = conn is None
@@ -313,19 +327,6 @@ class StreamWorker:
             if self._dirty_since and time.monotonic() - self._dirty_since >= _RESCORE_EVERY_S:
                 self._dirty_since = None
                 await asyncio.to_thread(RiskScorer(self.db).run_all_detections)
-
-
-def _psc_risk_reason(data: dict[str, Any]) -> str | None:
-    kind = data.get("kind") or ""
-    if "super-secure" in kind:
-        return "super_secure_psc"
-    if "corporate-entity" in kind or "legal-person" in kind:
-        jurisdiction = _jurisdiction(data)
-        if _is_offshore_jurisdiction(jurisdiction):
-            return "offshore_psc"
-        if jurisdiction and not _is_uk(jurisdiction):
-            return "foreign_psc"
-    return None
 
 
 def _is_recent(incorporated: str | None, years: int) -> bool:

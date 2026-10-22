@@ -17,5 +17,15 @@ mass_address_min_companies = 50
 recent = true
 recent_years = 3
 
+# How the two broad criteria combine when both are on:
+#   "and" = recent incorporations at a mass registration address (the typical shell profile)
+#   "or"  = either one (well over half of the register with the defaults above)
+broad_criteria_mode = "and"
+
 # Apply the two broad criteria above (mass address, recent) to companies that are not dissolved only.
 broad_criteria_active_only = true
+
+# Companies with at least one individual PSC of these nationalities (Companies House wording,
+# e.g. "Italian"; "Italy" is also recognised). Empty list = off. Officers' nationality is not in
+# the bulk files: use "Update from CH" on a company to load its officers.
+psc_nationalities = ["Italian"]

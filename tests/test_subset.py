@@ -5,7 +5,14 @@ import csv
 import json
 from datetime import date
 
-from src.datasources.subset import SubsetConfig, _is_uk, build_company_index, select_subset
+from src.datasources.subset import (
+    SubsetConfig,
+    _is_uk,
+    _nationality_set,
+    build_company_index,
+    nationality_match,
+    select_subset,
+)
 from src.services.db_service import DatabaseService
 
 HEADER = [
@@ -61,7 +68,7 @@ def test_index_and_subset(tmp_path):
     conn = db.connect()
     try:
         assert build_company_index(conn, _companies(tmp_path), "2026-10-01") == 7
-        cfg = SubsetConfig(mass_address_min_companies=3, recent_years=3)
+        cfg = SubsetConfig(mass_address_min_companies=3, recent_years=3, broad_criteria_mode="or", psc_nationalities=[])
         counts = select_subset(conn, cfg, _psc(tmp_path), None, None)
         members = dict(conn.execute("SELECT company_number, reasons FROM subset_members"))
     finally:
@@ -99,3 +106,35 @@ def test_uk_jurisdiction_detection():
         assert _is_uk(text), text
     for text in ("Ukraine", "British Virgin Islands", "Cyprus", "Delaware, USA"):
         assert not _is_uk(text), text
+
+
+def test_and_mode_and_nationality(tmp_path):
+    # a recent company at the mass address, and an Italian PSC on an old company
+    companies = _companies(tmp_path)
+    with companies.open("a", encoding="utf-8", newline="") as fh:
+        csv.writer(fh).writerow(
+            ["FRESH AGENT LTD", "00000008", "1 HUB STREET", "", "LONDON", "EC1V 2NX", "Private Limited Company", "Active", RECENT]
+        )
+    psc = tmp_path / "psc_it.txt"
+    psc.write_text(json.dumps({"company_number": "00000007", "data": {
+        "kind": "individual-person-with-significant-control", "name": "Sig. Mario Rossi",
+        "nationality": "British,Italian", "date_of_birth": {"year": 1960, "month": 1}}}) + "\n", encoding="utf-8")
+
+    db = DatabaseService(tmp_path / "and.sqlite")
+    conn = db.connect()
+    try:
+        build_company_index(conn, companies, "2026-10-01")
+        select_subset(conn, SubsetConfig(mass_address_min_companies=3, risk_links=False), psc, None, None)
+        members = dict(conn.execute("SELECT company_number, reasons FROM subset_members"))
+    finally:
+        conn.close()
+
+    assert members == {"00000008": "mass_address,recent", "00000007": "nationality_italian"}
+
+
+def test_nationality_spellings():
+    italian = _nationality_set(["Italian"])
+    for text in ("Italian", "british,italian", "Italian,", "Italy", " ITALIAN "):
+        assert nationality_match(text, italian) == "italian", text
+    for text in ("Italo-American", "British", "", None):
+        assert nationality_match(text, italian) is None, text

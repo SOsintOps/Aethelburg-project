@@ -36,7 +36,9 @@ The UK register has about 5.7 million companies. Aethelburg keeps **all of them 
 - **+ one hop**: the other companies controlled by the same PSC controllers.
 - **Mass registration addresses**: addresses shared by at least *N* companies (default 50).
 - **Recent incorporations**: incorporated in the last *N* years (default 3).
-- **Live companies only** for the two broad criteria above.
+- **Combine the two**: *both* keeps only companies that are recent **and** at a mass address (the typical shell profile, about 570,000 companies in October 2026); *either* takes any of them (about 3.1 million, more than half of the register).
+- **Live companies only** for the two broad criteria above. Basic Company Data lists live companies only, so this matters for companies added by live updates.
+- **PSC nationalities**: companies with at least one individual PSC of these nationalities (default `Italian`; `Italy` written as nationality is recognised too). Officers' nationality is not in the bulk files: open a company and use **Update from CH** to load its officers.
 
 **Save filters** stores your choice (in your user configuration file); **Run import** applies it. The badges show how many companies each criterion selected; a company can match several.
 
@@ -45,7 +47,7 @@ Any other company can still be found with the search box and loaded on demand wi
 ### What Run import does
 
 1. Builds the search index from Basic Company Data.
-2. Selects the subset (reads the PSC snapshot up to three times: about 14 GB each).
+2. Selects the subset (reads the 14 GB PSC snapshot up to three times, about 4 minutes each).
 3. Imports the full records of the subset, then their PSC statements.
 4. Imports the UK Sanctions List and the ONS Postcode Directory.
 5. Runs FT3 scoring.
@@ -60,7 +62,7 @@ There are two complementary ways.
 
 - companies already imported are updated (profile, officers, PSC);
 - new incorporations join the subset when *Recent incorporations* is on;
-- a company that gets a foreign, offshore or super-secure PSC joins the subset;
+- a company that gets a foreign, offshore or super-secure PSC, or a PSC of one of the chosen nationalities, joins the subset;
 - every company change also updates the search index;
 - FT3 scores are recalculated at most every 15 minutes while changes arrive.
 

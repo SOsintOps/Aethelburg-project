@@ -6,7 +6,7 @@ import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -40,7 +40,9 @@ class SubsetRequest(BaseModel):
     mass_address_min_companies: int | None = None
     recent: bool | None = None
     recent_years: int | None = None
+    broad_criteria_mode: Literal["and", "or"] | None = None
     broad_criteria_active_only: bool | None = None
+    psc_nationalities: list[str] | None = None
 
 
 class _Jobs:

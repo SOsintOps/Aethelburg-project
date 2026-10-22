@@ -197,7 +197,15 @@ function renderDataPanel(st, checkedRemote) {
           <label>min companies <input type="number" id="subset-mass_address_min_companies" class="input-field" style="width:70px;" value="${cfg.mass_address_min_companies}"></label>
           ${check("recent", "Recent incorporations")}
           <label>last <input type="number" id="subset-recent_years" class="input-field" style="width:55px;" value="${cfg.recent_years}"> years</label>
+          <label>combine the two:
+            <select id="subset-broad_criteria_mode" class="input-field" style="width:auto;">
+              <option value="and" ${cfg.broad_criteria_mode === "and" ? "selected" : ""}>both (recent AND mass address)</option>
+              <option value="or" ${cfg.broad_criteria_mode === "or" ? "selected" : ""}>either (OR)</option>
+            </select></label>
           ${check("broad_criteria_active_only", "Broad criteria: live companies only")}
+          <label style="grid-column:1 / span 2;">PSC nationalities
+            <input type="text" id="subset-psc_nationalities" class="input-field" style="width:60%;"
+                   value="${escapeHtml((cfg.psc_nationalities || []).join(", "))}" placeholder="e.g. Italian, Maltese (empty = off)"></label>
         </div>
         <div style="display:flex; gap:6px; margin-top:10px;">
           <button class="btn btn-sm" onclick="saveSubsetConfig()">Save filters</button>
@@ -266,6 +274,11 @@ async function saveSubsetConfig() {
   });
   payload.mass_address_min_companies = Number(document.getElementById("subset-mass_address_min_companies")?.value || 50);
   payload.recent_years = Number(document.getElementById("subset-recent_years")?.value || 3);
+  payload.broad_criteria_mode = document.getElementById("subset-broad_criteria_mode")?.value || "and";
+  payload.psc_nationalities = (document.getElementById("subset-psc_nationalities")?.value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   await postJson("/api/data/subset", payload);
   loadDataPanel();
 }

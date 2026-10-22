@@ -12,10 +12,11 @@ sets of selected company numbers and controller keys.
 from __future__ import annotations
 
 import csv
+import re
 import tomllib
 from collections import defaultdict
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -58,7 +59,11 @@ class SubsetConfig:
     mass_address_min_companies: int = 50
     recent: bool = True
     recent_years: int = 3
+    # "and": only companies that are both recent and at a mass address; "or": either
+    broad_criteria_mode: str = "and"
     broad_criteria_active_only: bool = True
+    # Companies with at least one individual PSC of these nationalities (empty list = off)
+    psc_nationalities: list[str] = field(default_factory=lambda: ["Italian"])
 
     @classmethod
     def load(cls) -> SubsetConfig:
@@ -165,8 +170,13 @@ def select_subset(
         if icij_dir and icij_dir.is_dir():
             for n in _match_names(conn, _icij_names(icij_dir)):
                 reasons[n].add("icij")
-        if psc_path and psc_path.exists():
-            risky = _scan_psc_risk(psc_path, progress)
+
+    nationalities = _nationality_set(cfg.psc_nationalities)
+    if psc_path and psc_path.exists() and (cfg.risk_links or nationalities):
+        risky, by_nationality = _scan_psc(psc_path, nationalities, progress)
+        for n, why in by_nationality.items():
+            reasons[n].update(why)
+        if cfg.risk_links:
             for n, why in risky.items():
                 reasons[n].update(why)
             if cfg.risk_links_one_hop and risky:
@@ -176,26 +186,35 @@ def select_subset(
                         reasons[n].add("psc_one_hop")
 
     active_sql = "AND company_status NOT LIKE '%Dissolved%'" if cfg.broad_criteria_active_only else ""
+    mass: set[str] = set()
+    recent: set[str] = set()
     if cfg.mass_address:
-        rows = conn.execute(
-            f"""
-            SELECT company_number FROM company_index
-            WHERE address_fingerprint IN (
-                SELECT address_fingerprint FROM company_index
-                WHERE address_fingerprint IS NOT NULL
-                GROUP BY address_fingerprint HAVING COUNT(*) >= ?
-            ) {active_sql}
-            """,
-            (int(cfg.mass_address_min_companies),),
-        )
-        for (n,) in rows:
-            reasons[n].add("mass_address")
+        mass = {
+            n for (n,) in conn.execute(
+                f"""
+                SELECT company_number FROM company_index
+                WHERE address_fingerprint IN (
+                    SELECT address_fingerprint FROM company_index
+                    WHERE address_fingerprint IS NOT NULL
+                    GROUP BY address_fingerprint HAVING COUNT(*) >= ?
+                ) {active_sql}
+                """,
+                (int(cfg.mass_address_min_companies),),
+            )
+        }
     if cfg.recent:
         since = date.today().replace(year=date.today().year - int(cfg.recent_years)).isoformat()
-        for (n,) in conn.execute(
-            f"SELECT company_number FROM company_index WHERE incorporation_date >= ? {active_sql}", (since,)
-        ):
-            reasons[n].add("recent")
+        recent = {
+            n for (n,) in conn.execute(
+                f"SELECT company_number FROM company_index WHERE incorporation_date >= ? {active_sql}", (since,)
+            )
+        }
+    if cfg.mass_address and cfg.recent and cfg.broad_criteria_mode == "and":
+        mass = recent = mass & recent  # recent shell-like registrations only
+    for n in mass:
+        reasons[n].add("mass_address")
+    for n in recent:
+        reasons[n].add("recent")
 
     conn.execute("DELETE FROM subset_members")
     conn.executemany(
@@ -265,21 +284,65 @@ def _match_names(conn: Any, names: set[str]) -> set[str]:
 # ---------------------------------------------------------------------- #
 
 
-def _scan_psc_risk(path: Path, progress: Progress | None) -> dict[str, set[str]]:
+def _scan_psc(
+    path: Path, nationalities: dict[str, str], progress: Progress | None
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """One pass: risk reasons per company, and companies with a PSC of a wanted nationality."""
     risky: dict[str, set[str]] = defaultdict(set)
+    by_nationality: dict[str, set[str]] = defaultdict(set)
     for idx, (number, data) in enumerate(_iter_psc(path)):
-        kind = data.get("kind") or ""
-        if "super-secure" in kind:
-            risky[number].add("super_secure_psc")
-        elif "corporate-entity" in kind or "legal-person" in kind:
-            jurisdiction = _jurisdiction(data)
-            if _is_offshore_jurisdiction(jurisdiction):
-                risky[number].add("offshore_psc")
-            elif jurisdiction and not _is_uk(jurisdiction):
-                risky[number].add("foreign_psc")
+        reason = psc_risk_reason(data)
+        if reason:
+            risky[number].add(reason)
+        if nationalities:
+            label = nationality_match(data.get("nationality"), nationalities)
+            if label:
+                by_nationality[number].add(f"nationality_{label}")
         if progress and idx % 500_000 == 0:
-            progress("psc_risk", idx)
-    return risky
+            progress("psc_scan", idx)
+    return risky, by_nationality
+
+
+def psc_risk_reason(data: dict[str, Any]) -> str | None:
+    """Why a PSC statement makes its company a risk link (None if it does not)."""
+    kind = data.get("kind") or ""
+    if "super-secure" in kind:
+        return "super_secure_psc"
+    if "corporate-entity" in kind or "legal-person" in kind:
+        jurisdiction = _jurisdiction(data)
+        if _is_offshore_jurisdiction(jurisdiction):
+            return "offshore_psc"
+        if jurisdiction and not _is_uk(jurisdiction):
+            return "foreign_psc"
+    return None
+
+
+# Country names written instead of the demonym in the nationality field
+_NATIONALITY_ALIASES = {"italian": ("italy", "italia", "italiana", "italiano")}
+
+
+def _nationality_set(wanted: list[str]) -> dict[str, str]:
+    """Lower-case spellings -> label used in the reason (`nationality_italian`)."""
+    spellings: dict[str, str] = {}
+    for value in wanted or []:
+        label = value.strip().lower()
+        if not label:
+            continue
+        spellings[label] = label
+        for alias in _NATIONALITY_ALIASES.get(label, ()):
+            spellings[alias] = label
+    return spellings
+
+
+def nationality_match(nationality: str | None, spellings: dict[str, str]) -> str | None:
+    """`British,Italian` matches `italian`; the field is a comma-separated list of free text."""
+    if not nationality or not spellings:
+        return None
+    for part in re.split(r"[,/;]", nationality.lower()):
+        label = spellings.get(part.strip())
+        if label:
+            return label
+    return None
 
 
 def _controllers_of(path: Path, companies: set[str], progress: Progress | None) -> set[str]:
