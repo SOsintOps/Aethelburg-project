@@ -7,7 +7,7 @@ The window has a top bar and three panels.
 - **Counters**: companies fully imported, companies flagged by FT3 rules, sanctions records, ICIJ Offshore Leaks nodes, entities in the FollowTheMoney store.
 - **Export Intelligence…**: downloads the data in one of eight formats; see [Exports](exports).
 - **Re-Score FT3**: re-runs entity resolution and all FT3 detection rules on the whole database; see [Risk scoring](risk-scoring).
-- **? Help**: opens this guide on the chapter of the tab you are in.
+- **? Help** (or F1): opens this guide on the chapter of the tab you are in; the [FAQ](faq) and the [Version history](version-history) are at the end of the index. Clicking the version number in the top bar opens the version history.
 - **Theme**: light, classical or dark.
 
 ## Left panel: search and filters

@@ -331,7 +331,11 @@ def build_data_router(db: DatabaseService) -> APIRouter:
     return router
 
 
-GUIDE_DIR = Path(__file__).resolve().parents[2] / "docs" / "guide"
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+GUIDE_DIR = PROJECT_DIR / "docs" / "guide"
+# Extra chapters after the numbered guide: fixed list, never a path taken from the request
+EXTRA_CHAPTERS = (("faq", "FAQ", PROJECT_DIR / "docs" / "FAQ.md"),
+                  ("version-history", "Version history", PROJECT_DIR / "CHANGELOG.md"))
 
 
 def _guide_chapters() -> list[tuple[str, str, Path]]:
@@ -340,6 +344,7 @@ def _guide_chapters() -> list[tuple[str, str, Path]]:
         slug = path.stem[3:]
         first = path.read_text(encoding="utf-8").splitlines()[0] if path.stat().st_size else slug
         chapters.append((slug, first.lstrip("# ").strip() or slug, path))
+    chapters.extend(c for c in EXTRA_CHAPTERS if c[2].exists())
     return chapters
 
 

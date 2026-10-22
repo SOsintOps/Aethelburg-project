@@ -21,7 +21,7 @@ def test_guide_is_complete_and_consistent(tmp_path):
         res = client.get(f"/api/help/{slug}")
         assert res.status_code == 200
         for target in re.findall(r"\]\(([^)\s]+)\)", res.json()["markdown"]):
-            if not target.startswith("http"):
+            if not target.startswith("http") and not re.search(r"[./]", target):  # repo files are not chapters
                 assert target in slugs, f"{slug} links to missing chapter {target!r}"
 
     tabs = set(re.findall(r'data-tab="([a-z]+)"', (FRONTEND / "index.html").read_text(encoding="utf-8")))

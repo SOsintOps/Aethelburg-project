@@ -24,6 +24,10 @@ Companies House allows **600 requests every 5 minutes** per key. Aethelburg spac
 | rate limit exceeded | too many requests in 5 minutes | wait a few minutes |
 | Invalid company number | not 1 to 8 letters and digits | numbers like `123456` are padded to `00123456` |
 
+## People across the whole register
+
+Type a name in the search box and press **Search officers on Companies House**: every officer whose name contains all the words typed, with date of birth (month and year) and address, and for each one the list of appointments, current and past, with **Fetch** to load the company. Companies House returns loose matches; Aethelburg keeps only full-name matches.
+
 ## What the stream adds
 
 The REST API answers one company at a time. To follow the whole register continuously use the Streaming API in [Data & Updates](data-and-updates).

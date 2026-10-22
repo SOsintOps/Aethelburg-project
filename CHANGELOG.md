@@ -3,7 +3,9 @@
 All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-Versioning follows [Semantic Versioning](https://semver.org/).
+Versioning follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`, with `-beta.N` while the program is in beta. The version is shown in the top bar and footer (read from `config/settings.py`) and in `pyproject.toml`; each release is tagged `vX.Y.Z[-beta.N]` in git.
+
+To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .`, restart. The database schema is upgraded automatically on start; make a backup first (**Data & Updates → Back up now**).
 
 ---
 
@@ -15,6 +17,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `start.ps1` uses the project virtual environment and points first-time users to the Data & Updates tab.
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
+
+### Added (documentation)
+- **FAQ rewritten** to match the program (it described Docker, PostgreSQL, automatic APScheduler updates and features that do not exist) and answering: where the data is, how to update, how to download PSC and officers, company changes, documents, backups, logs, versions; available in the app (**? Help → FAQ**).
+- **Version history** in the app (**? Help → Version history**, or click the version number); versioning and update rules at the top of this file.
+- Guide chapters updated for backups, daily update, officers in bulk, officer search, logs.
 
 ### Added (officers and daily update)
 - **Officers in bulk** (`data officers --scope flagged|case|subset`, *Fetch officers* in the Data tab): Companies House has no free bulk officers file, so officers come from the API one company at a time (about 7,000 companies per hour); resumable, skips companies fetched in the last 30 days, a failing company does not stop the batch.

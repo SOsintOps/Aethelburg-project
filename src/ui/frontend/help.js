@@ -119,6 +119,8 @@ function renderInline(text) {
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, href) =>
       /^https?:\/\//.test(href)
         ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`
+        : /[./]/.test(href) // a file of the repository, not a chapter: show it as text
+        ? label
         : `<a href="#" onclick="showHelpChapter('${href.replace(/[^a-z0-9-]/gi, "")}'); return false;">${label}</a>`
     );
 }

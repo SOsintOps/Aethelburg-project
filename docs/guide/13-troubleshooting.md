@@ -1,5 +1,11 @@
 # Troubleshooting
 
+**Where are the logs?** `<data folder>\logs\aethelburg.log`. When the interface shows an *error id*, search it in the log: the full details are next to it.
+
+**Something broke the data.** **6. Data & Updates → Backups → Restore** brings back an earlier copy (the current database is saved first).
+
+**"database is locked".** Another Aethelburg process is writing (for example an import started from the command line); it waits up to a minute. If it persists, check that no other copy of the program is running.
+
 **The map shows "Access blocked" tiles.** The browser is not sending the page address to OpenStreetMap. Reload the page with Ctrl+F5; if it persists, check that no browser extension strips the `Referer` header for `tile.openstreetmap.org`.
 
 **Markers are dashed rings / many companies on one point.** Positions are approximate because the ONS Postcode Directory is not imported. Download it in [Data & Updates](data-and-updates) and run the import.

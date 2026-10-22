@@ -25,6 +25,9 @@ Add `--help` to any command for its options.
 | `data download [-s SOURCE ...]` | downloads the latest releases (`ch_companies`, `ch_psc`, `uk_sanctions`, `onspd`) |
 | `data import [--no-score]` | builds the index, selects the subset, imports it, scores (resumes if interrupted) |
 | `data watch` | follows the Companies House Streaming API until Ctrl+C |
+| `data daily` | daily update: new releases, import if needed, officers of new flagged companies |
+| `data officers [--scope flagged\|case\|subset] [--limit N]` | officers for many companies through the API (resumable) |
+| `data backup` / `data backups` / `data restore NAME` | back up, list and restore the database |
 | `import-onspd FILE` | imports postcode positions from an ONS Postcode Directory CSV |
 | `bootstrap` | small demonstration database from the files in the old `dati` folder |
 

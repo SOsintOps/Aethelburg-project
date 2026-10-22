@@ -70,6 +70,14 @@ Each stream remembers the last event it processed (its *timepoint*), so after a 
 
 **Monthly refresh.** The stream can only go back a limited time. If Aethelburg stays off too long the stream reports a gap: then **Check for new releases**, **Download all** and **Run import** bring everything back in line. Doing this once a month (when Companies House publishes a new Basic Company Data) is a good routine even when the stream runs.
 
+**Daily update.** In the *Daily update & officers* card, tick *run every day at* and choose a time: while Aethelburg is open it downloads new releases every day (the PSC snapshot is daily), imports only when something changed (with a backup first) and fetches officers of up to 500 flagged companies. A day missed while the program was closed is caught up at the next start; **Run now** starts it immediately. For a run with Aethelburg closed, schedule `data daily` with Windows Task Scheduler (see the [FAQ](faq)).
+
+**Officers.** Officers are not in the free bulk files: **Fetch officers** downloads them from the API for the flagged companies, the companies of the active case or the whole subset (about 7,000 companies per hour; the run resumes and skips companies fetched in the last 30 days).
+
 **One company now.** **Update from CH** in the dossier refreshes a single company immediately.
+
+## Backups
+
+**Back up now** copies the database to the `backups` sub-folder (safe while an import runs) and checks the copy; a backup is also made before every import, and the newest 7 are kept. **Restore** replaces the database with a backup after backing up the current one; restart Aethelburg afterwards.
 
 From the command line: `data status`, `data download`, `data import`, `data watch`; see [Command line](cli-reference).
