@@ -47,3 +47,12 @@ def test_singleton_pattern():
         b = get_settings()
         assert a is b
     get_settings.cache_clear()
+
+
+def test_keys_are_read_from_the_keyring():
+    stored = {"ch_api_key": "rest-key", "ch_streaming_key": "stream-key"}
+    env = {"POSTGRES_PASSWORD": "test", "APP_ENV": "development", "CH_API_KEY": "", "CH_STREAMING_KEY": ""}
+    with patch.dict(os.environ, env), patch("keyring.get_password", lambda service, name: stored.get(name)):
+        s = Settings()
+    assert s.ch.api_key == "rest-key"
+    assert s.ch.streaming_key == "stream-key"

@@ -243,6 +243,11 @@ class Settings(BaseSettings):
                 stored = keyring.get_password("aethelburg", "ch_api_key")
                 if stored:
                     self.ch.api_key = stored
+
+            if not self.ch.streaming_key:
+                stored = keyring.get_password("aethelburg", "ch_streaming_key")
+                if stored:
+                    self.ch.streaming_key = stored
         except ImportError:
             pass
         except Exception as e:
