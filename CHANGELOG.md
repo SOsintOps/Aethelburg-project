@@ -16,6 +16,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Fixed (Data & Updates tab)
+- Bulk-source buttons looked dead: downloading a release already on disk finished in under a second and only said "completed". Each source now shows **Up to date ✓** (disabled), **Download <new release>** or **Download latest**; the task result says per source "already up to date (release …), nothing to download" or "downloaded release … (size)"; downloads show MB and percentage; **Check for new releases** shows that it is working; publishers are checked automatically when the tab is first opened and the answer is cached for 10 minutes; buttons are disabled while a task runs.
+- The tab re-read every subset member (a million rows) on each refresh; counts per criterion are now stored when the subset is selected.
+
 ### Added
 - **In-app user guide**: **? Help** (or F1) opens a guide with a chapter for every tab and function — getting started, interface, the six tabs, Companies House API, exports, risk scoring, command line, troubleshooting, data licences — with search; chapters live in `docs/guide/` and are served by `/api/help`.
 - **6. Data & Updates tab**: data folder (change and copy), bulk sources with local and latest release, download buttons, subset filters with counts per criterion, import runs, live-update controls and status.

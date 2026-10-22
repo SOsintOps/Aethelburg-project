@@ -95,9 +95,16 @@ async function appendIndexMatches(q) {
 
 /* ---------- Tab 6: Data & Updates ---------- */
 
+let releasesCheckedThisSession = false;
+
 async function loadDataPanel(checkRemote = false) {
   const container = document.getElementById("data-container");
   if (!container) return;
+  // first visit of the tab: ask publishers for their latest release (cached 10 min on the server)
+  if (!releasesCheckedThisSession) {
+    checkRemote = true;
+    releasesCheckedThisSession = true;
+  }
   let st;
   try {
     st = await apiJson(`/api/data/status?check_remote=${checkRemote}`);
@@ -120,15 +127,22 @@ function renderDataPanel(st, checkedRemote) {
   const job = st.job;
   const stream = st.stream || {};
 
+  const jobRunning = !!(job && job.status === "running");
   const sourcesRows = (st.sources || [])
     .map((s) => {
-      const latest = s.latest_version || (s.latest_error ? "error" : checkedRemote ? "—" : "not checked");
+      const latest = s.latest_version || (s.latest_error ? "could not check" : "not checked");
+      const upToDate = s.latest_version && s.local_version === s.latest_version;
       const outdated = s.latest_version && s.local_version !== s.latest_version;
+      let button;
+      if (jobRunning) button = `<button class="btn btn-sm" disabled title="Wait for the running task">Busy</button>`;
+      else if (upToDate) button = `<button class="btn btn-sm" disabled title="The latest release is already on disk">Up to date</button>`;
+      else if (outdated) button = `<button class="btn btn-sm btn-primary" onclick="startDownload(['${s.key}'])">Download ${escapeHtml(s.latest_version)}</button>`;
+      else button = `<button class="btn btn-sm" onclick="startDownload(['${s.key}'])">Download latest</button>`;
       return `<tr>
         <td><strong>${escapeHtml(s.title)}</strong><div style="font-size:10.5px; color:var(--text-secondary);">${escapeHtml(s.licence)} • ${escapeHtml(s.frequency)}</div></td>
         <td>${escapeHtml(s.local_version || "not downloaded")}</td>
-        <td style="${outdated ? "color:var(--risk-critical); font-weight:700;" : ""}">${escapeHtml(latest)}</td>
-        <td><button class="btn btn-sm" onclick="startDownload(['${s.key}'])">Download</button></td>
+        <td style="${outdated ? "color:var(--risk-critical); font-weight:700;" : ""}" title="${escapeHtml(s.latest_error || (s.checked_at ? "checked " + s.checked_at.slice(0, 16) + " UTC" : ""))}">${escapeHtml(latest)}${upToDate ? " ✓" : ""}</td>
+        <td>${button}</td>
       </tr>`;
     })
     .join("");
@@ -147,11 +161,7 @@ function renderDataPanel(st, checkedRemote) {
     )
     .join("");
 
-  const jobHtml = job
-    ? `<div class="note" style="margin:0 0 12px 0;"><strong>${escapeHtml(job.kind)}:</strong> ${escapeHtml(job.status)}
-        ${job.stage ? ` — ${escapeHtml(job.stage)} ${Number(job.progress || 0).toLocaleString()}` : ""}
-        ${job.error ? `<div style="color:var(--risk-critical);">${escapeHtml(job.error)}</div>` : ""}</div>`
-    : "";
+  const jobHtml = job ? renderJob(job) : "";
 
   const streamRows = Object.entries(stream.streams || {})
     .map(
@@ -217,8 +227,8 @@ function renderDataPanel(st, checkedRemote) {
     <div class="dossier-card" style="margin-top:14px;">
       <h3><span>Bulk sources</span>
         <span style="display:flex; gap:6px;">
-          <button class="btn btn-sm" onclick="loadDataPanel(true)">Check for new releases</button>
-          <button class="btn btn-sm btn-primary" onclick="startDownload(null)">Download all</button>
+          <button class="btn btn-sm" id="check-releases-btn" onclick="checkReleases(this)" ${jobRunning ? "disabled" : ""}>Check for new releases</button>
+          <button class="btn btn-sm btn-primary" onclick="startDownload(null)" ${jobRunning ? "disabled" : ""}>Download all new</button>
         </span></h3>
       <table class="matrix-table" style="width:100%;">
         <thead><tr><th>Source</th><th>On disk</th><th>Latest available</th><th></th></tr></thead>
@@ -247,6 +257,51 @@ function renderDataPanel(st, checkedRemote) {
         <tbody>${runsRows || `<tr><td colspan="5"><em>None yet</em></td></tr>`}</tbody>
       </table>
     </div>`;
+}
+
+function formatBytes(n) {
+  if (n == null) return "";
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(2)} GB`;
+  return `${Math.round(n / 1024 ** 2).toLocaleString()} MB`;
+}
+
+const JOB_TITLES = { download: "Download", import: "Import", officers: "Officers", daily: "Daily update", backup: "Backup" };
+
+function renderJob(job) {
+  const title = JOB_TITLES[job.kind] || job.kind;
+  let body = "";
+  if (job.status === "running") {
+    if (job.kind === "download" && job.stage) {
+      const pct = job.total ? ` (${Math.floor((job.progress * 100) / job.total)}%)` : "";
+      body = `downloading <strong>${escapeHtml(job.stage)}</strong>: ${formatBytes(job.progress)}${job.total ? " of " + formatBytes(job.total) : ""}${pct}`;
+    } else if (job.stage) {
+      body = `${escapeHtml(job.stage)}: ${Number(job.progress || 0).toLocaleString()}`;
+    } else {
+      body = "starting…";
+    }
+  } else if (job.status === "failed") {
+    body = `<span style="color:var(--risk-critical);">failed — ${escapeHtml(job.error || "unknown error")}</span>`;
+  } else if (job.kind === "download" && Array.isArray(job.result)) {
+    body = job.result
+      .map((r) =>
+        r.status === "already-downloaded"
+          ? `${escapeHtml(r.title)}: already up to date (release ${escapeHtml(r.version)}), nothing to download`
+          : `${escapeHtml(r.title)}: downloaded release ${escapeHtml(r.version)} (${formatBytes(r.bytes)})`
+      )
+      .join("<br>");
+  } else {
+    body = "completed";
+  }
+  const when = (job.finished_at || job.started_at || "").slice(11, 19);
+  return `<div class="note" style="margin:0 0 12px 0;"><strong>${escapeHtml(title)}</strong> ${when ? `<span style="color:var(--text-secondary);">(${when} UTC)</span>` : ""}<div>${body}</div></div>`;
+}
+
+async function checkReleases(btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Checking publishers…";
+  }
+  await loadDataPanel(true);
 }
 
 async function startDownload(sources) {

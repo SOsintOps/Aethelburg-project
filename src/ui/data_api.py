@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,7 +19,7 @@ from src.datasources.downloader import download_source, local_releases
 from src.datasources.pipeline import refresh_all
 from src.datasources.storage import describe_location, set_location
 from src.datasources.streaming import StreamWorker
-from src.datasources.subset import SubsetConfig
+from src.datasources.subset import SubsetConfig, subset_counts
 from src.intelligence.risk_scorer import RiskScorer
 from src.services.api_service import CompaniesHouseApiError, CompaniesHouseApiService
 from src.services.db_service import DatabaseService
@@ -58,11 +59,11 @@ class _Jobs:
             if self.current and self.current["status"] == "running":
                 raise HTTPException(status_code=409, detail=f"Another task is running: {self.current['kind']}")
             job = {"id": str(uuid.uuid4()), "kind": kind, "status": "running", "stage": None, "progress": None,
-                   "started_at": _now(), "finished_at": None, "result": None, "error": None}
+                   "total": None, "started_at": _now(), "finished_at": None, "result": None, "error": None}
             self.current = job
 
-        def progress(stage: str, value: int) -> None:
-            job["stage"], job["progress"] = stage, value
+        def progress(stage: str, value: int, total: int | None = None) -> None:
+            job["stage"], job["progress"], job["total"] = stage, value, total
 
         def run() -> None:
             try:
@@ -78,10 +79,36 @@ class _Jobs:
         return job
 
 
+class _ReleaseCache:
+    """Latest published release per source, kept 10 minutes so the Data tab does not hit publishers on every refresh."""
+
+    TTL_SECONDS = 600
+
+    def __init__(self) -> None:
+        self._data: dict[str, tuple[float, dict[str, Any]]] = {}
+
+    def get(self, key: str, refresh: bool = True) -> dict[str, Any] | None:
+        hit = self._data.get(key)
+        if hit and time.monotonic() - hit[0] < self.TTL_SECONDS:
+            return hit[1]
+        if not refresh:
+            return None
+        try:
+            value: dict[str, Any] = {"latest_version": latest_release(key).version, "checked_at": _now()}
+        except Exception as exc:  # network down or page layout changed: shown in the table
+            value = {"latest_error": str(exc), "checked_at": _now()}
+        self._data[key] = (time.monotonic(), value)
+        return value
+
+    def forget(self, key: str) -> None:
+        self._data.pop(key, None)
+
+
 def build_data_router(db: DatabaseService) -> APIRouter:
     router = APIRouter()
     ch_api = CompaniesHouseApiService(db.db_path)
     jobs = _Jobs()
+    releases = _ReleaseCache()
     worker: dict[str, StreamWorker] = {}
 
     def stream_worker() -> StreamWorker:
@@ -130,28 +157,24 @@ def build_data_router(db: DatabaseService) -> APIRouter:
                 "local_file": local[0]["data_file"] if local else None,
                 "downloaded_at": local[0]["downloaded_at"] if local else None,
             }
-            if check_remote:
-                try:
-                    entry["latest_version"] = (await asyncio.to_thread(latest_release, key)).version
-                except Exception as exc:
-                    entry["latest_error"] = str(exc)
+            # cached result (<10 min) is always shown; check_remote asks publishers when it is stale
+            cached = await asyncio.to_thread(releases.get, key) if check_remote else releases.get(key, refresh=False)
+            if cached is not None:
+                entry.update(cached)
             sources.append(entry)
         conn = db.connect()
         try:
             runs = [dict(r) for r in conn.execute("SELECT * FROM ingest_runs ORDER BY started_at DESC LIMIT 20")]
             index_rows = conn.execute("SELECT COUNT(*) FROM company_index").fetchone()[0]
-            members = conn.execute("SELECT reasons FROM subset_members").fetchall()
+            by_reason = subset_counts(conn)
         finally:
             conn.close()
-        by_reason: dict[str, int] = {}
-        for (reasons,) in members:
-            for r in reasons.split(","):
-                by_reason[r] = by_reason.get(r, 0) + 1
+        members = by_reason.pop("total", 0)
         return {
             "location": describe_location(),
             "sources": sources,
             "index_rows": index_rows,
-            "subset": {"config": SubsetConfig.load().__dict__, "members": len(members), "by_reason": by_reason},
+            "subset": {"config": SubsetConfig.load().__dict__, "members": members, "by_reason": by_reason},
             "runs": runs,
             "job": jobs.current,
             "job_history": jobs.history,
@@ -175,7 +198,10 @@ def build_data_router(db: DatabaseService) -> APIRouter:
         def task(progress: Any) -> list[dict[str, Any]]:
             results = []
             for key in keys:
-                results.append(download_source(key, progress=lambda done, total, k=key: progress(k, done), db=db))
+                res = download_source(key, progress=lambda done, total, k=key: progress(k, done, total), db=db)
+                results.append({"source": key, "title": SOURCES[key].title, "status": res["status"],
+                                "version": res["version"], "bytes": res.get("bytes")})
+                releases.forget(key)
             return results
 
         return jobs.start("download", task)

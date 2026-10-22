@@ -12,6 +12,7 @@ sets of selected company numbers and controller keys.
 from __future__ import annotations
 
 import csv
+import json
 import re
 import tomllib
 from collections import defaultdict
@@ -228,6 +229,32 @@ def select_subset(
         for reason in r:
             counts[reason] += 1
     counts["total"] = len(reasons)
+    # Keep the counts so the Data tab does not re-read a million members on every refresh
+    run = start_run(conn, "subset_select", None, date.today().isoformat(), None)
+    run.rows_read = run.rows_written = len(reasons)
+    finish_run(conn, run, message=json.dumps(dict(counts)))
+    return dict(counts)
+
+
+def subset_counts(conn: Any) -> dict[str, int]:
+    """Counts per criterion of the last selection (computed once for selections made before they were stored)."""
+    row = conn.execute(
+        "SELECT message FROM ingest_runs WHERE task = 'subset_select' AND status = 'completed' "
+        "ORDER BY started_at DESC LIMIT 1"
+    ).fetchone()
+    if row and row[0]:
+        return json.loads(row[0])
+    counts: dict[str, int] = defaultdict(int)
+    total = 0
+    for (reasons,) in conn.execute("SELECT reasons FROM subset_members"):
+        total += 1
+        for reason in reasons.split(","):
+            counts[reason] += 1
+    counts["total"] = total
+    if total:
+        run = start_run(conn, "subset_select", None, "before-0.3.0", None)
+        run.rows_read = run.rows_written = total
+        finish_run(conn, run, message=json.dumps(dict(counts)))
     return dict(counts)
 
 
