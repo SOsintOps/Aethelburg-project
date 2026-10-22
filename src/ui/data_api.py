@@ -18,7 +18,9 @@ from config.user_config import save_user_config
 from src.core.normalizer import normalize_name
 from src.datasources.backup import create_backup, list_backups, restore_backup
 from src.datasources.catalog import SOURCES, latest_release
+from src.datasources.daily import last_run_day, run_daily_update, schedule, scheduler_loop
 from src.datasources.downloader import download_source, local_releases
+from src.datasources.officers import COMPANIES_PER_HOUR, fetch_officers_batch, pending_companies
 from src.datasources.pipeline import refresh_all
 from src.datasources.storage import describe_location, set_location
 from src.datasources.streaming import StreamWorker
@@ -35,6 +37,16 @@ class LocationRequest(BaseModel):
 
 class DownloadRequest(BaseModel):
     sources: list[str] | None = None
+
+
+class OfficersRequest(BaseModel):
+    scope: Literal["flagged", "case", "subset"] = "flagged"
+    limit: int | None = None
+
+
+class DailyRequest(BaseModel):
+    enabled: bool
+    time: str = "06:00"
 
 
 class SubsetRequest(BaseModel):
@@ -200,6 +212,7 @@ def build_data_router(db: DatabaseService) -> APIRouter:
             "subset": {"config": SubsetConfig.load().__dict__, "members": members, "by_reason": by_reason},
             "runs": runs,
             "backups": list_backups()[:5],
+            "daily": {"enabled": schedule()[0], "time": schedule()[1], "last_run": last_run_day(db)},
             "job": jobs.current,
             "job_history": jobs.history,
             "stream": stream_worker().status(),
@@ -253,6 +266,33 @@ def build_data_router(db: DatabaseService) -> APIRouter:
         else:
             raise HTTPException(status_code=400, detail="action must be start or stop")
         return w.status()
+
+    # ------------------------------------------------------------------ #
+    # OFFICERS IN BULK, DAILY UPDATE                                     #
+    # ------------------------------------------------------------------ #
+
+    @router.post("/api/data/officers")
+    async def officers_batch(req: OfficersRequest) -> dict[str, Any]:
+        todo = len(await asyncio.to_thread(pending_companies, db, req.scope))
+        todo = min(todo, req.limit) if req.limit else todo
+        job = jobs.start("officers", lambda progress: fetch_officers_batch(req.scope, req.limit, db=db, progress=progress))
+        return {**job, "companies": todo, "hours": round(todo / COMPANIES_PER_HOUR, 1)}
+
+    @router.post("/api/data/daily")
+    async def daily_settings(req: DailyRequest) -> dict[str, Any]:
+        hh, _, mm = req.time.partition(":")
+        if not (hh.isdigit() and mm.isdigit() and int(hh) < 24 and int(mm) < 60):
+            raise HTTPException(status_code=400, detail="Time must be HH:MM")
+        save_user_config({"daily_update_enabled": req.enabled, "daily_update_time": f"{int(hh):02d}:{int(mm):02d}"})
+        return {"enabled": req.enabled, "time": f"{int(hh):02d}:{int(mm):02d}"}
+
+    @router.post("/api/data/daily/run")
+    async def daily_run_now() -> dict[str, Any]:
+        return jobs.start("daily", lambda progress: run_daily_update(db, progress))
+
+    @router.on_event("startup")
+    async def start_daily_scheduler() -> None:
+        asyncio.get_running_loop().create_task(scheduler_loop(db, jobs.start))
 
     # ------------------------------------------------------------------ #
     # BACKUPS                                                            #

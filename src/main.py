@@ -25,7 +25,9 @@ from config.settings import get_settings
 from src.core.logging import setup_logging
 from src.datasources.backup import create_backup, list_backups, restore_backup
 from src.datasources.catalog import SOURCES, latest_release
+from src.datasources.daily import run_daily_update
 from src.datasources.downloader import download_source, local_releases
+from src.datasources.officers import COMPANIES_PER_HOUR, fetch_officers_batch, pending_companies
 from src.datasources.pipeline import refresh_all
 from src.datasources.runs import mark_interrupted
 from src.datasources.storage import describe_location, set_location
@@ -273,6 +275,27 @@ def cmd_data_restore(name: str = typer.Argument(..., help="Backup file name, see
     except (ValueError, FileNotFoundError) as exc:
         console.print(f"[bold red]{exc}[/bold red]")
         raise typer.Exit(code=1) from exc
+
+
+@data_app.command("officers")
+def cmd_data_officers(
+    scope: str = typer.Option("flagged", "--scope", help="flagged | case | subset"),
+    limit: int | None = typer.Option(None, "--limit", help="Max companies in this run"),
+    max_age_days: int = typer.Option(30, "--max-age-days", help="Skip companies fetched more recently"),
+) -> None:
+    """Download officers for many companies through the API (about 7,000 companies per hour; resumable)."""
+    setup_logging()
+    todo = len(pending_companies(DatabaseService(), scope, max_age_days))
+    todo = min(todo, limit) if limit else todo
+    console.print(f"{todo:,} companies to fetch, about {todo / COMPANIES_PER_HOUR:.1f} hours")
+    console.print_json(data=fetch_officers_batch(scope, limit, max_age_days))
+
+
+@data_app.command("daily")
+def cmd_data_daily() -> None:
+    """Daily update: download new releases, import if anything changed, fetch officers of new flagged companies."""
+    setup_logging()
+    console.print_json(data=run_daily_update())
 
 
 @data_app.command("import")

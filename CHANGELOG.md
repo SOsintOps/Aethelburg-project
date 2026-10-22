@@ -16,6 +16,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Added (officers and daily update)
+- **Officers in bulk** (`data officers --scope flagged|case|subset`, *Fetch officers* in the Data tab): Companies House has no free bulk officers file, so officers come from the API one company at a time (about 7,000 companies per hour); resumable, skips companies fetched in the last 30 days, a failing company does not stop the batch.
+- **Daily update** (`data daily`, or every day at a set time while Aethelburg is open — Data tab): downloads new releases (the PSC snapshot is daily), imports only when something changed (backup first), then fetches officers of up to 500 flagged companies; a day missed while the program was closed is caught up at the next start; one attempt per day.
+
 ### Added (search)
 - **Officer search on the whole register**: from the people results, *Search officers on Companies House* queries the Companies House officer search (results filtered to names containing every word typed) and lists each officer's appointments, current and past, with **Fetch** for each company.
 - **People search**: the search box also finds people (PSC controllers and officers) by any order of their names (`ROSSI, Mario` = `Mario Rossi`), with nationality, birth month and the companies they are linked to, each with its role.

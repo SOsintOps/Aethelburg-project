@@ -346,6 +346,26 @@ function renderDataPanel(st, checkedRemote) {
     </div>
 
     <div class="dossier-card" style="margin-top:14px;">
+      <h3><span>Daily update &amp; officers</span></h3>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px;">
+        <label><input type="checkbox" id="daily-enabled" ${st.daily && st.daily.enabled ? "checked" : ""}> run every day at</label>
+        <input type="text" id="daily-time" class="input-field" style="width:70px;" value="${escapeHtml((st.daily && st.daily.time) || "06:00")}">
+        <button class="btn btn-sm" onclick="saveDaily()">Save</button>
+        <button class="btn btn-sm btn-primary" onclick="runDailyNow()" ${jobRunning ? "disabled" : ""}>Run now</button>
+        <span style="color:var(--text-secondary);">last run: ${escapeHtml((st.daily && st.daily.last_run) || "never")}</span>
+      </div>
+      <div style="font-size:11px; color:var(--text-secondary); margin:4px 0 10px 0;">Downloads new releases (the PSC snapshot is daily), imports only if something changed (with a backup first), then fetches officers of up to 500 flagged companies. Works while Aethelburg is open; see the guide for Windows Task Scheduler.</div>
+      <div style="display:flex; gap:8px; align-items:center; font-size:12px;">
+        Officers (API, ~7,000 companies/hour):
+        <select id="officers-scope" class="input-field" style="width:auto;">
+          <option value="flagged">flagged companies</option><option value="case">companies in the active case</option><option value="subset">whole subset</option>
+        </select>
+        <button class="btn btn-sm" onclick="fetchOfficers()" ${jobRunning ? "disabled" : ""}>Fetch officers</button>
+        <span id="officers-result"></span>
+      </div>
+    </div>
+
+    <div class="dossier-card" style="margin-top:14px;">
       <h3><span>Backups</span><button class="btn btn-sm btn-primary" onclick="backupNow()" ${jobRunning ? "disabled" : ""}>Back up now</button></h3>
       <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:6px;">A backup is made automatically before every import; the newest 7 are kept in the <code>backups</code> sub-folder of the data folder.</div>
       <table class="matrix-table" style="width:100%;">
@@ -408,6 +428,31 @@ async function checkReleases(btn) {
     btn.textContent = "Checking publishers…";
   }
   await loadDataPanel(true);
+}
+
+async function saveDaily() {
+  await postJson("/api/data/daily", {
+    enabled: document.getElementById("daily-enabled")?.checked || false,
+    time: document.getElementById("daily-time")?.value || "06:00",
+  }).catch((err) => alertInPanel(err.message));
+  loadDataPanel();
+}
+
+async function runDailyNow() {
+  await postJson("/api/data/daily/run").catch((err) => alertInPanel(err.message));
+  loadDataPanel();
+}
+
+async function fetchOfficers() {
+  const scope = document.getElementById("officers-scope")?.value || "flagged";
+  try {
+    const res = await postJson("/api/data/officers", { scope });
+    const out = document.getElementById("officers-result");
+    if (out) out.textContent = `${res.companies.toLocaleString()} companies, about ${res.hours} h`;
+  } catch (err) {
+    alertInPanel(err.message);
+  }
+  loadDataPanel();
 }
 
 async function backupNow() {
