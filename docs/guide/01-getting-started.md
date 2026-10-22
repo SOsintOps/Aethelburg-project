@@ -26,12 +26,14 @@ All downloads, the database (`aethelburg.sqlite`), exports and logs are kept in 
 
 Two keys from the Companies House developer hub (developer.company-information.service.gov.uk), both free:
 
-| Key | Used for | Store it with |
-|---|---|---|
-| REST key | **Update from CH** in the dossier, **Fetch** in search results | `.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key` |
-| Streaming key | Live updates in **6. Data & Updates** | `.venv\Scripts\python.exe -m keyring set aethelburg ch_streaming_key` |
+| Key | Used for |
+|---|---|
+| REST key | **Update from CH** in the dossier, **Fetch** in search results |
+| Streaming key | Live updates in **6. Data & Updates** |
 
-Run the command in PowerShell and paste the key when asked: it is stored in the Windows Credential Manager, never in a file. Restart Aethelburg after storing a key.
+Create one application with one key of each type, then open **7. Settings**, paste each key (use the **Copy** link on the developer hub and paste once), press **Save keys** and **Test with Companies House**. The keys are saved in the local database and work at once, without a restart; the page shows only their last four characters.
+
+Alternatives: the system keyring (`.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key`, `... ch_streaming_key`), used when the page has no key, or the `CH_API_KEY` / `CH_STREAMING_KEY` environment variables, which win over both.
 
 ## First data load
 

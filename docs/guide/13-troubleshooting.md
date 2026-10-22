@@ -12,7 +12,7 @@
 
 **The page does not open / "address already in use".** Another Aethelburg is already running on port 8050. Close it, or start with `serve --port 8051`.
 
-**"No Companies House API key configured".** Store the REST key with `.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key` in PowerShell and restart.
+**"No Companies House API key configured".** Paste the REST key in **7. Settings** and press **Save keys**, then **Test with Companies House**. If the test answers 401, the key in the field is wrong (often the Streaming key, or the key pasted twice).
 
 **The stream reports a gap.** Aethelburg was off longer than the stream keeps its history. Run the monthly refresh: **Check for new releases**, **Download all**, **Run import**.
 

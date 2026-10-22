@@ -18,7 +18,7 @@ The window has a top bar and three panels.
 - Each result shows name, risk score, CRN, status, postcode and up to three FT3 technique codes. Click it to open the company in every tab.
 - Below the results, companies that are only in the **register index** (not imported in full) have a **Fetch** button that downloads them from Companies House (needs the REST key).
 
-## Centre panel: six tabs
+## Centre panel: seven tabs
 
 1. [Network Graph](network-graph)
 2. [GeoInt & Hubs](geoint-and-hubs)
@@ -26,6 +26,7 @@ The window has a top bar and three panels.
 4. [FollowTheMoney](followthemoney)
 5. [Casework & Reports](casework-and-reports)
 6. [Data & Updates](data-and-updates)
+7. Settings: Companies House keys, daily update, backups to keep (see [Companies House API](companies-house-api))
 
 ## Right panel: Intelligence Dossier
 

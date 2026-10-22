@@ -20,6 +20,15 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - The Companies House **Streaming key** stored with `python -m keyring set aethelburg ch_streaming_key` was never read (only the REST key was loaded from the keyring), so live updates reported a missing key.
 - `data fix-person-names`: people imported before names were normalised without titles kept fingerprints such as `mr john smith`, and an import with the fixed rule created them again. The command (backup first) recomputes every fingerprint and FtM id, merges each duplicate into one person (PSC statements, appointments and case references moved, repeated PSC-derived appointments removed) and rewrites the old id inside Ownership and Directorship entities. Safe to run twice.
 
+### Added (Settings page)
+- **7. Settings** tab:
+  - **Companies House keys**: paste the REST and Streaming keys, **Save keys**, **Test with Companies House**, **Remove**. Keys are saved in the new `app_settings` table of the database and used at once, without a restart (Update from CH, Fetch, documents, live updates). Each key shows where it comes from (saved here, system keyring, environment variable); the browser only ever receives its last four characters.
+  - A key pasted twice or with spaces inside is refused before it is saved. The test tells a wrong key from a key of the other type.
+  - **Daily update** (moved here from Data & Updates, where *Run now* stays) and **backups to keep**.
+  - Where the data folder, database and user settings file are.
+- Key order: `CH_API_KEY` / `CH_STREAMING_KEY` environment variables, then the keys saved on the Settings page, then the system keyring.
+- API: `GET /api/settings`, `POST /api/settings/ch-keys`, `POST /api/settings/ch-keys/test`, `POST /api/settings/general`.
+
 ### Added (Companies House documents)
 - **Filing history**: **Update from CH** also downloads every filing of the company (`filings` table: date, form type, category, description, pages); filings appear as `FILING` events in the timeline and in a **Documents** card in the dossier. List pagination now also follows `total_count`, which the filing history uses instead of `total_results`.
 - **Documents on request** through the Companies House Document API (metadata, then `/content` as PDF, whose signed download address is fetched without the key): **PDF** for one filing, **Download all accounts**, **Open** for documents already on disk. Files go to `<data folder>/documents/<company number>/<date>-<form>-<transaction>.pdf` and are never downloaded twice; only `document-api.company-information.service.gov.uk` addresses are followed and file names are checked before serving.

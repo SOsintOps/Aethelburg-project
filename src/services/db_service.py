@@ -537,6 +537,13 @@ CREATE TABLE IF NOT EXISTS company_changes (
 CREATE INDEX IF NOT EXISTS idx_changes_company ON company_changes(company_number, observed_at);
 CREATE INDEX IF NOT EXISTS idx_changes_observed ON company_changes(observed_at);
 
+-- Settings edited on the Settings page (Companies House keys); read by config.settings
+CREATE TABLE IF NOT EXISTS app_settings (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
 -- Companies House filing history; downloaded_path is set once the PDF is in <data folder>/documents
 CREATE TABLE IF NOT EXISTS filings (
     transaction_id          TEXT PRIMARY KEY,

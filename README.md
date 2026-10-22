@@ -41,11 +41,11 @@ python -m venv .venv
 
 Then open **6. Data & Updates** → **Download all** → **Run import**. The **? Help** button (or F1) opens the full user guide; the chapters are also in [`docs/guide/`](docs/guide/).
 
-Companies House keys (free, from the developer hub) are stored in the Windows Credential Manager:
+Companies House keys (free, from the developer hub: one *REST* key for **Update from CH** and **Fetch**, one *Streaming* key for live updates) are pasted in **7. Settings**, which saves them in the local database and checks them with Companies House. The system keyring still works as an alternative:
 
 ```powershell
-.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key        # REST: Update from CH / Fetch
-.venv\Scripts\python.exe -m keyring set aethelburg ch_streaming_key  # live updates
+.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key
+.venv\Scripts\python.exe -m keyring set aethelburg ch_streaming_key
 ```
 
 ## Keeping data up to date

@@ -131,6 +131,7 @@ const EXPLORATORES_TAB_MOTTOES = {
   ftm: "Numero, pondere et mensura",
   casework: "Littera gesta docet",
   data: "Tempora mutantur",
+  settings: "Clavis aperit",
 };
 
 function initTheme() {
@@ -226,6 +227,8 @@ function switchTab(tabName) {
     }, 40);
   } else if (tabName === "data" && typeof loadDataPanel === "function") {
     loadDataPanel();
+  } else if (tabName === "settings" && typeof loadSettingsPanel === "function") {
+    loadSettingsPanel();
   }
 }
 

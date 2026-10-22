@@ -418,7 +418,7 @@ function renderDataPanel(st, checkedRemote) {
           <button class="btn btn-sm btn-primary" onclick="streamAction('start')" ${stream.running ? "disabled" : ""}>Start</button>
           <button class="btn btn-sm" onclick="streamAction('stop')" ${stream.running ? "" : "disabled"}>Stop</button>
         </span></h3>
-      ${stream.configured ? "" : `<div class="note" style="margin:0 0 8px 0;"><strong>No streaming key.</strong> Create a <em>Streaming</em> key on developer.company-information.service.gov.uk and store it with <code>python -m keyring set aethelburg ch_streaming_key</code>.</div>`}
+      ${stream.configured ? "" : `<div class="note" style="margin:0 0 8px 0;"><strong>No streaming key.</strong> Create a <em>Streaming</em> key on developer.company-information.service.gov.uk and paste it in <a href="#" onclick="switchTab('settings'); return false;">7. Settings</a>.</div>`}
       <div id="stream-result" style="font-size:11.5px; color:var(--risk-critical);"></div>
       <table class="matrix-table" style="width:100%;">
         <thead><tr><th>Stream</th><th>State</th><th>Events</th><th>Applied</th><th>Timepoint</th><th>Last event</th><th>Error</th></tr></thead>
@@ -429,10 +429,8 @@ function renderDataPanel(st, checkedRemote) {
     <div class="dossier-card" style="margin-top:14px;">
       <h3><span>Daily update &amp; officers</span></h3>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px;">
-        <label><input type="checkbox" id="daily-enabled" ${st.daily && st.daily.enabled ? "checked" : ""}> run every day at</label>
-        <input type="text" id="daily-time" class="input-field" style="width:70px;" value="${escapeHtml((st.daily && st.daily.time) || "06:00")}">
-        <label title="Latest accounts and confirmation statement PDFs of the 50 highest-risk flagged companies"><input type="checkbox" id="daily-documents" ${st.daily && st.daily.documents ? "checked" : ""}> also download latest documents</label>
-        <button class="btn btn-sm" onclick="saveDaily()">Save</button>
+        <span>${st.daily && st.daily.enabled ? `every day at <strong>${escapeHtml(st.daily.time)}</strong>${st.daily.documents ? ", with latest documents" : ""}` : "<strong>off</strong>"}
+          (<a href="#" onclick="switchTab('settings'); return false;">change in Settings</a>)</span>
         <button class="btn btn-sm btn-primary" onclick="runDailyNow()" ${jobRunning ? "disabled" : ""}>Run now</button>
         <span style="color:var(--text-secondary);">last run: ${escapeHtml((st.daily && st.daily.last_run) || "never")}</span>
       </div>
@@ -449,7 +447,7 @@ function renderDataPanel(st, checkedRemote) {
 
     <div class="dossier-card" style="margin-top:14px;">
       <h3><span>Backups</span><button class="btn btn-sm btn-primary" onclick="backupNow()" ${jobRunning ? "disabled" : ""}>Back up now</button></h3>
-      <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:6px;">A backup is made automatically before every import; the newest 7 are kept in the <code>backups</code> sub-folder of the data folder.</div>
+      <div style="font-size:11.5px; color:var(--text-secondary); margin-bottom:6px;">A backup is made automatically before every import; the newest ones are kept in the <code>backups</code> sub-folder of the data folder (how many: Settings).</div>
       <table class="matrix-table" style="width:100%;">
         <thead><tr><th>Backup</th><th>Size</th><th>Created</th><th></th></tr></thead>
         <tbody>${(st.backups || []).map((b) => `<tr><td><code>${escapeHtml(b.name)}</code></td><td>${b.gb} GB</td><td>${escapeHtml(b.created.replace("T", " "))}</td>
@@ -521,15 +519,6 @@ async function checkReleases(btn) {
     btn.textContent = "Checking publishers…";
   }
   await loadDataPanel(true);
-}
-
-async function saveDaily() {
-  await postJson("/api/data/daily", {
-    enabled: document.getElementById("daily-enabled")?.checked || false,
-    time: document.getElementById("daily-time")?.value || "06:00",
-    documents: document.getElementById("daily-documents")?.checked || false,
-  }).catch((err) => alertInPanel(err.message));
-  loadDataPanel();
 }
 
 async function runDailyNow() {

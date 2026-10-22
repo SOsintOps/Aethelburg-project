@@ -5,21 +5,43 @@ Precedence (later entries win):
   1. Defaults in this file
   2. `.env` in the project root
   3. Environment variables
-  4. python-keyring for secrets (database password, API keys)
+
+Secrets left empty by the above are filled from, in order: the `app_settings` table of the
+database (Companies House keys saved on the Settings page), then python-keyring.
 """
 from __future__ import annotations
 
 import os
+import sqlite3
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import quote, quote_plus
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field, model_validator
 
 from config.user_config import DB_FILENAME, resolve_data_dir
 
 PROJECT_ROOT = Path(__file__).parent.parent
+# Companies House key field -> name in the `app_settings` table and in the keyring
+CH_KEY_NAMES = {"api_key": "ch_api_key", "streaming_key": "ch_streaming_key"}
+
+
+def read_app_settings(db_path: Path | str | None, names: list[str]) -> dict[str, str]:
+    """Values saved in the `app_settings` table (read-only; empty when the database or table is missing)."""
+    if not db_path or not Path(db_path).exists():
+        return {}
+    uri = "file:" + quote(Path(db_path).resolve().as_posix(), safe="/:") + "?mode=ro"
+    try:
+        conn = sqlite3.connect(uri, uri=True, timeout=5)
+        try:
+            marks = ",".join("?" for _ in names)
+            rows = conn.execute(f"SELECT key, value FROM app_settings WHERE key IN ({marks})", names).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return {}
+    return {key: (value or "").strip() for key, value in rows if (value or "").strip()}
 
 try:
     from dotenv import dotenv_values
@@ -127,6 +149,12 @@ class CompaniesHouseSettings(BaseSettings):
     streaming_base_url: str = "https://stream.companieshouse.gov.uk"
     rate_limit: int = 600
     rate_window: int = 300
+    # where each key came from: environment, database, keyring (filled by Settings.resolve_ch_keys)
+    _key_sources: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    @property
+    def key_sources(self) -> dict[str, str]:
+        return self._key_sources
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -220,10 +248,43 @@ class Settings(BaseSettings):
             self.paths.onspd_path = data_dir / "onspd" / "ONSPD_latest.csv"
         return self
 
+    def resolve_ch_keys(self, db_path: Path | str | None = None) -> None:
+        """Companies House keys: environment, else the Settings page (database), else the keyring.
+
+        Called again after the Settings page saves a key; keys set in the environment are kept.
+        """
+        sources = {
+            f: "environment"
+            for f in CH_KEY_NAMES
+            if self.ch.key_sources.get(f, "environment") == "environment" and getattr(self.ch, f)
+        }
+        for field in CH_KEY_NAMES:
+            if field not in sources:
+                setattr(self.ch, field, "")
+        missing = [f for f in CH_KEY_NAMES if f not in sources]
+        stored = read_app_settings(db_path or self.db.sqlite_path, [CH_KEY_NAMES[f] for f in missing]) if missing else {}
+        for field in missing:
+            value = stored.get(CH_KEY_NAMES[field], "")
+            if not value:
+                try:
+                    import keyring
+
+                    value = (keyring.get_password("aethelburg", CH_KEY_NAMES[field]) or "").strip()
+                    source = "keyring"
+                except Exception:  # keyring missing or no backend
+                    value = ""
+            else:
+                source = "database"
+            if value:  # a pasted key often carries a space or newline: stripped above
+                setattr(self.ch, field, value)
+                sources[field] = source
+        self.ch._key_sources = sources
+
     @model_validator(mode="after")
     def _load_keyring_and_validate(self) -> Settings:
         """
-        1. Load secrets from python-keyring when the environment does not set them.
+        1. Load the database password from python-keyring and the Companies House keys
+           (`resolve_ch_keys`) when the environment does not set them.
         2. Require a database password outside development when the backend is not SQLite.
         """
         try:
@@ -233,22 +294,13 @@ class Settings(BaseSettings):
                 stored = keyring.get_password("aethelburg", "postgres")
                 if stored:
                     self.db.password = stored
-
-            if not self.ch.api_key:
-                stored = (keyring.get_password("aethelburg", "ch_api_key") or "").strip()
-                if stored:  # a pasted key often carries a space or newline
-                    self.ch.api_key = stored
-
-            if not self.ch.streaming_key:
-                stored = (keyring.get_password("aethelburg", "ch_streaming_key") or "").strip()
-                if stored:  # a pasted key often carries a space or newline
-                    self.ch.streaming_key = stored
         except ImportError:
             pass
         except Exception as e:
             import logging
 
             logging.getLogger(__name__).warning("keyring error: %s", e)
+        self.resolve_ch_keys()
 
         effective_env = os.environ.get("APP_ENV") or self.app.env
         if (

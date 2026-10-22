@@ -92,6 +92,7 @@
           <button class="tab-btn" data-tab="ftm" onclick="switchTab('ftm')">4. FollowTheMoney (FtM)</button>
           <button class="tab-btn" data-tab="casework" onclick="switchTab('casework')">5. Casework &amp; Reports</button>
           <button class="tab-btn" data-tab="data" onclick="switchTab('data')">6. Data &amp; Updates</button>
+          <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">7. Settings</button>
         </div>
         <div id="center-status" style="font-size:11px; color:var(--text-secondary); align-self:center;">Select an entity to inspect</div>
       </div>
@@ -255,6 +256,11 @@
       <div class="center-view" id="view-data">
         <div class="scrollable-content" id="data-container"></div>
       </div>
+
+      <!-- TAB 7: Companies House keys (saved in the database), daily update, backups -->
+      <div class="center-view" id="view-settings">
+        <div class="scrollable-content" id="settings-container"></div>
+      </div>
     </section>
 
     <!-- RIGHT PANEL: Selected Entity Intelligence Dossier -->
@@ -293,6 +299,7 @@
   <script src="/static/graph-layout.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/data.js"></script>
+  <script src="/static/settings.js"></script>
   <script src="/static/help.js"></script>
 </body>
 </html>

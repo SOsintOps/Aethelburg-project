@@ -9,6 +9,7 @@ const TAB_HELP_CHAPTERS = {
   ftm: "followthemoney",
   casework: "casework-and-reports",
   data: "data-and-updates",
+  settings: "companies-house-api",
 };
 let helpChapters = [];
 const helpCache = {};
