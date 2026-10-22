@@ -25,6 +25,64 @@ log = get_logger(__name__)
 _SIC_CODE_RE = re.compile(r"^(\d{4,5})\b")
 
 
+# Registry fields written by bulk imports and API refreshes. Analysis fields (risk_score,
+# ft3_techniques, is_flagged, officers_fetched_at, ...) are never touched by an update.
+_COMPANY_REGISTRY_COLUMNS: tuple[str, ...] = (
+    "company_number",
+    "company_name",
+    "ftm_id",
+    "reg_address_care_of",
+    "reg_address_po_box",
+    "reg_address_line1",
+    "reg_address_line2",
+    "reg_address_post_town",
+    "reg_address_county",
+    "reg_address_country",
+    "reg_address_postcode",
+    "company_category",
+    "company_status",
+    "country_of_origin",
+    "dissolution_date",
+    "incorporation_date",
+    "accounts_account_ref_day",
+    "accounts_account_ref_month",
+    "accounts_account_category",
+    "accounts_next_due_date",
+    "accounts_last_made_up_date",
+    "returns_next_due_date",
+    "returns_last_made_up_date",
+    "mortgages_num_charges",
+    "mortgages_num_outstanding",
+    "mortgages_num_part_satisfied",
+    "mortgages_num_satisfied",
+    "sic_text_1",
+    "sic_text_2",
+    "sic_text_3",
+    "sic_text_4",
+    "sic_code_1",
+    "sic_code_2",
+    "sic_code_3",
+    "sic_code_4",
+    "lp_num_gen_partners",
+    "lp_num_lim_partners",
+    "ch_uri",
+    *(f"prev_name_{i}{suffix}" for i in range(1, 11) for suffix in ("_date", "")),
+    "conf_stmt_next_due_date",
+    "conf_stmt_last_made_up_date",
+    "address_fingerprint",
+    "name_fingerprint",
+    "source_id",
+)
+
+_UPSERT_COMPANY_SQL = (
+    f"INSERT INTO companies ({', '.join(_COMPANY_REGISTRY_COLUMNS)}, ftm_schema, created_at, updated_at) "
+    f"VALUES ({', '.join('?' for _ in _COMPANY_REGISTRY_COLUMNS)}, 'Company', ?, ?) "
+    "ON CONFLICT(company_number) DO UPDATE SET "
+    + ", ".join(f"{c} = excluded.{c}" for c in _COMPANY_REGISTRY_COLUMNS if c != "company_number")
+    + ", updated_at = excluded.updated_at"
+)
+
+
 def _parse_ch_date(val: str | None) -> str | None:
     if not val:
         return None
@@ -176,127 +234,25 @@ def upsert_company_record(
                 now,
             ),
         )
-        conn.execute(
-            "UPDATE addresses SET company_count = company_count + 1 WHERE id = ?",
-            (addr_ftm["id"],),
-        )
+        previous = conn.execute(
+            "SELECT address_fingerprint FROM companies WHERE company_number = ?",
+            (rec["company_number"],),
+        ).fetchone()
+        if previous is None or previous["address_fingerprint"] != rec.get("address_fingerprint"):
+            conn.execute(
+                "UPDATE addresses SET company_count = company_count + 1 WHERE id = ?",
+                (addr_ftm["id"],),
+            )
 
     comp_ftm = company_to_ftm(rec, address_ftm_id=addr_ftm_id)
     db.upsert_ftm_entity(comp_ftm, source_id=source_id, conn=conn)
 
+    values = {**rec, "ftm_id": comp_ftm["id"], "source_id": source_id}
+    for col in ("mortgages_num_charges", "mortgages_num_outstanding", "mortgages_num_part_satisfied", "mortgages_num_satisfied"):
+        values.setdefault(col, 0)
     conn.execute(
-        """
-        INSERT OR REPLACE INTO companies (
-            company_number, company_name, ftm_id, ftm_schema,
-            reg_address_care_of, reg_address_po_box, reg_address_line1, reg_address_line2,
-            reg_address_post_town, reg_address_county, reg_address_country, reg_address_postcode,
-            company_category, company_status, country_of_origin,
-            dissolution_date, incorporation_date,
-            accounts_account_ref_day, accounts_account_ref_month, accounts_account_category,
-            accounts_next_due_date, accounts_last_made_up_date,
-            returns_next_due_date, returns_last_made_up_date,
-            mortgages_num_charges, mortgages_num_outstanding, mortgages_num_part_satisfied, mortgages_num_satisfied,
-            sic_text_1, sic_text_2, sic_text_3, sic_text_4,
-            sic_code_1, sic_code_2, sic_code_3, sic_code_4,
-            lp_num_gen_partners, lp_num_lim_partners, ch_uri,
-            prev_name_1_date, prev_name_1, prev_name_2_date, prev_name_2,
-            prev_name_3_date, prev_name_3, prev_name_4_date, prev_name_4,
-            prev_name_5_date, prev_name_5, prev_name_6_date, prev_name_6,
-            prev_name_7_date, prev_name_7, prev_name_8_date, prev_name_8,
-            prev_name_9_date, prev_name_9, prev_name_10_date, prev_name_10,
-            conf_stmt_next_due_date, conf_stmt_last_made_up_date,
-            address_fingerprint, name_fingerprint,
-            source_id, created_at, updated_at
-        ) VALUES (
-            ?, ?, ?, 'Company',
-            ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?,
-            ?, ?,
-            ?, ?, ?,
-            ?, ?,
-            ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?,
-            ?, ?,
-            ?, ?, ?
-        )
-        """,
-        (
-            rec["company_number"],
-            rec["company_name"],
-            comp_ftm["id"],
-            rec.get("reg_address_care_of"),
-            rec.get("reg_address_po_box"),
-            rec.get("reg_address_line1"),
-            rec.get("reg_address_line2"),
-            rec.get("reg_address_post_town"),
-            rec.get("reg_address_county"),
-            rec.get("reg_address_country"),
-            rec.get("reg_address_postcode"),
-            rec.get("company_category"),
-            rec.get("company_status"),
-            rec.get("country_of_origin"),
-            rec.get("dissolution_date"),
-            rec.get("incorporation_date"),
-            rec.get("accounts_account_ref_day"),
-            rec.get("accounts_account_ref_month"),
-            rec.get("accounts_account_category"),
-            rec.get("accounts_next_due_date"),
-            rec.get("accounts_last_made_up_date"),
-            rec.get("returns_next_due_date"),
-            rec.get("returns_last_made_up_date"),
-            rec.get("mortgages_num_charges", 0),
-            rec.get("mortgages_num_outstanding", 0),
-            rec.get("mortgages_num_part_satisfied", 0),
-            rec.get("mortgages_num_satisfied", 0),
-            rec.get("sic_text_1"),
-            rec.get("sic_text_2"),
-            rec.get("sic_text_3"),
-            rec.get("sic_text_4"),
-            rec.get("sic_code_1"),
-            rec.get("sic_code_2"),
-            rec.get("sic_code_3"),
-            rec.get("sic_code_4"),
-            rec.get("lp_num_gen_partners"),
-            rec.get("lp_num_lim_partners"),
-            rec.get("ch_uri"),
-            rec.get("prev_name_1_date"),
-            rec.get("prev_name_1"),
-            rec.get("prev_name_2_date"),
-            rec.get("prev_name_2"),
-            rec.get("prev_name_3_date"),
-            rec.get("prev_name_3"),
-            rec.get("prev_name_4_date"),
-            rec.get("prev_name_4"),
-            rec.get("prev_name_5_date"),
-            rec.get("prev_name_5"),
-            rec.get("prev_name_6_date"),
-            rec.get("prev_name_6"),
-            rec.get("prev_name_7_date"),
-            rec.get("prev_name_7"),
-            rec.get("prev_name_8_date"),
-            rec.get("prev_name_8"),
-            rec.get("prev_name_9_date"),
-            rec.get("prev_name_9"),
-            rec.get("prev_name_10_date"),
-            rec.get("prev_name_10"),
-            rec.get("conf_stmt_next_due_date"),
-            rec.get("conf_stmt_last_made_up_date"),
-            rec.get("address_fingerprint"),
-            rec.get("name_fingerprint"),
-            source_id,
-            now,
-            now,
-        ),
+        _UPSERT_COMPANY_SQL,
+        [*(values.get(c) for c in _COMPANY_REGISTRY_COLUMNS), now, now],
     )
 
     if rec.get("name_fingerprint"):

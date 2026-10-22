@@ -17,6 +17,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **Wrong cities on the map**: the postcode-area fallback kept every letter of the outward code, so `W1A`, `W1N` and `W1R` (London) were placed in Warrington, Wigan and Worcester; `SE10` was truncated to `SE1`. The area is now the leading letters only, and only a trailing sub-district letter is dropped (`EC1V` → `EC1`).
 - **Invented positions**: the built-in fallback no longer adds a random offset around the area centre; existing approximate centroids are cleared on first start and re-resolved with their precision.
 - **ONSPD overwritten**: syncing company postcodes replaced exact ONSPD centroids with approximate ones; approximate rows now never overwrite a `postcode`-precision row.
+- **Re-imports wiped analysis results**: companies were written with `INSERT OR REPLACE`, which deletes the row, so updating a company lost its risk score, FT3 techniques, flag and officer-fetch date. Companies are now upserted on registry fields only, and the per-address company count no longer grows on every re-import.
 - **Map tiles blocked**: the UI sent no `Referer` (`<meta name="referrer" content="no-referrer">`), so OpenStreetMap served its "Access blocked" tile for every request. The page now uses `strict-origin-when-cross-origin` and the Leaflet tile layer sets the same `referrerPolicy`.
 
 ---
