@@ -16,6 +16,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Fixed (link chart)
+- **Overlapping entities** in every layout: company cards are 138×46 px but the force layout kept centres only 135 px apart, positions were clamped to the window, forces had no cooling, and ring/row sizes ignored the number of nodes. New `graph-layout.js`: d3-force (many-body, links, collision on each node's real size including its label) computed before drawing, a final rectangle overlap-removal pass, rings and rows sized from the nodes, free layout then fit-to-view (**Fit** re-fits), seeded and reproducible (also **Untangle**), link labels hidden by default above 12 links, and hubs with more than 6 plain company leaves collapsed into an expandable "+N companies" node. Measured on real charts: 0 overlapping nodes in all layouts.
+
 ### Fixed (concurrent use)
 - **"database is locked" during imports**: the web server and a bulk import write to the same SQLite file; connections waited only sqlite3's default 5 s for the lock. They now wait up to 60 s.
 - Starting the server marked every running import as interrupted, including one still working in another process; a run is now considered interrupted only when it has not checkpointed for 10 minutes (`ingest_runs.heartbeat_at`).

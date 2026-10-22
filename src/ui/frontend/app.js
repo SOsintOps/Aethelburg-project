@@ -28,6 +28,9 @@ let currentGraphLayout = "organic"; // 'organic' | 'hierarchical' | 'concentric'
 let showGraphEdgeLabels = true;
 let showChartKeyPanel = true;
 let graphZoomState = { scale: 1, tx: 0, ty: 0 };
+let graphLayoutGuides = null; // rings / tiers drawn behind the chart, in graph coordinates
+let expandedGraphHubs = new Set(); // hubs whose "+N companies" group the analyst opened
+let edgeLabelsChosenByUser = false;
 let draggedNode = null;
 let dragStartMouse = { x: 0, y: 0 };
 let dragMovedPx = 0;
@@ -558,16 +561,26 @@ async function loadOverviewGraph() {
   }
 }
 
-function initGraphData(payload) {
+function initGraphData(payload, keepExpanded = false) {
+  if (!keepExpanded) expandedGraphHubs = new Set();
   currentGraphPayload = payload;
-  graphNodes = (payload.elements?.nodes || []).map((n, idx) => ({
+  const rawNodes = (payload.elements?.nodes || []).map((n, idx) => ({
     ...n.data,
     idx,
-    x: 400,
-    y: 300,
+    x: 0,
+    y: 0,
     pinned: false,
   }));
-  graphEdges = (payload.elements?.edges || []).map((e) => ({ ...e.data }));
+  const rawEdges = (payload.elements?.edges || []).map((e) => ({ ...e.data }));
+  const grouped = GraphLayout.collapseCrowdedHubs(rawNodes, rawEdges, payload.root_id, expandedGraphHubs);
+  graphNodes = grouped.nodes;
+  graphEdges = grouped.edges;
+  if (!edgeLabelsChosenByUser) {
+    // many link labels hide the chart: show them on hover instead
+    showGraphEdgeLabels = graphEdges.length <= 12;
+    const btn = document.getElementById("btn-toggle-labels");
+    if (btn) btn.textContent = `Labels: ${showGraphEdgeLabels ? "ON" : "OFF"}`;
+  }
   graphNodeMap = new Map();
   graphNodes.forEach((n) => graphNodeMap.set(n.id, n));
 
@@ -618,219 +631,19 @@ function setGraphLayout(layoutName) {
   renderGraphFromState();
 }
 
-function applyGraphLayout(layoutName) {
-  const svg = document.getElementById("graph-svg");
-  const rect = svg ? svg.getBoundingClientRect() : { width: 860, height: 600 };
-  const width = Math.max(rect.width || 860, 720);
-  const height = Math.max(rect.height || 600, 500);
-  const cx = width / 2;
-  const cy = height / 2;
-  const rootId = currentGraphPayload?.root_id;
-
+function applyGraphLayout(layoutName, salt = 0) {
   if (!graphNodes.length) return;
-
-  if (layoutName === "hierarchical") {
-    // UNODC p. 44 / i2 Analyst's Notebook Tiered Hierarchy (Top-Down Company Tree)
-    // Tier 0: Sanctions, UBO Persons, SuperSecurePSC, ICIJ Leaks
-    // Tier 1: Parent / Offshore Legal Entities
-    // Tier 2: Root / Subject UK Company
-    // Tier 3: Subsidiary / Co-located UK Companies
-    // Tier 4: Registered Address Hubs
-    const tiers = new Map([
-      [0, []],
-      [1, []],
-      [2, []],
-      [3, []],
-      [4, []],
-    ]);
-
-    graphNodes.forEach((n) => {
-      let lvl = n.hierarchy_level;
-      if (lvl === undefined || lvl === null) {
-        if (n.node_type === "Sanction" || n.node_type === "Person" || n.node_type === "SuperSecurePSC") lvl = 0;
-        else if (n.node_type === "OffshoreEntity" || n.node_type === "LegalEntity") lvl = 1;
-        else if (n.is_root) lvl = 2;
-        else if (n.node_type === "Company") lvl = 3;
-        else lvl = 4;
-      }
-      if (!tiers.has(lvl)) tiers.set(lvl, []);
-      tiers.get(lvl).push(n);
-    });
-
-    const activeLevels = [0, 1, 2, 3, 4].filter((l) => (tiers.get(l) || []).length > 0);
-    const topPad = 85;
-    const bottomPad = 80;
-    const usableH = Math.max(320, height - topPad - bottomPad);
-    const rowStep = activeLevels.length > 1 ? usableH / (activeLevels.length - 1) : 0;
-
-    activeLevels.forEach((lvl, rowIdx) => {
-      const rowNodes = tiers.get(lvl);
-      // Sort nodes within tier by degree descending so central connectors sit near the center
-      rowNodes.sort((a, b) => (b.degree || 0) - (a.degree || 0));
-      const y = activeLevels.length === 1 ? cy : topPad + rowIdx * rowStep;
-      const leftPad = 110;
-      const usableW = Math.max(480, width - leftPad * 2);
-      rowNodes.forEach((n, i) => {
-        if (n.pinned) return;
-        const x =
-          rowNodes.length === 1
-            ? cx
-            : leftPad + ((i + 0.5) / rowNodes.length) * usableW;
-        n.x = x;
-        n.y = y;
-      });
-    });
-  } else if (layoutName === "concentric") {
-    // Malcolm Sparrow (1991) Ego-Centric Radial Centrality Layout
-    // Ring 0 (Center): Root target or highest-betweenness broker
-    // Ring 1 (Inner): Direct 1-hop controllers, PSCs, sanctions, address
-    // Ring 2 (Outer): 2-hop / co-located / extended network
-    let centerNode = graphNodes.find((n) => n.id === rootId || n.is_root);
-    if (!centerNode) {
-      centerNode = [...graphNodes].sort(
-        (a, b) => (b.betweenness_centrality || b.degree || 0) - (a.betweenness_centrality || a.degree || 0)
-      )[0];
-    }
-
-    const ring1 = [];
-    const ring2 = [];
-    const directIds = new Set();
-    if (centerNode) {
-      graphEdges.forEach((e) => {
-        if (e.source === centerNode.id) directIds.add(e.target);
-        if (e.target === centerNode.id) directIds.add(e.source);
-      });
-    }
-
-    graphNodes.forEach((n) => {
-      if (centerNode && n.id === centerNode.id) return;
-      if (directIds.has(n.id) || n.hop_distance === 1) ring1.push(n);
-      else ring2.push(n);
-    });
-
-    if (centerNode && !centerNode.pinned) {
-      centerNode.x = cx;
-      centerNode.y = cy;
-    }
-
-    const r1Radius = Math.min(width, height) * 0.24;
-    const r2Radius = Math.min(width, height) * 0.41;
-
-    ring1.forEach((n, i) => {
-      if (n.pinned) return;
-      const angle = (2 * Math.PI * i) / Math.max(ring1.length, 1) - Math.PI / 2;
-      n.x = cx + r1Radius * Math.cos(angle);
-      n.y = cy + r1Radius * Math.sin(angle);
-    });
-
-    ring2.forEach((n, i) => {
-      if (n.pinned) return;
-      const angle = (2 * Math.PI * i) / Math.max(ring2.length, 1) - Math.PI / 4;
-      n.x = cx + r2Radius * Math.cos(angle);
-      n.y = cy + r2Radius * Math.sin(angle);
-    });
-  } else if (layoutName === "circular") {
-    // Structural POLE Category Ring (Grouped by Entity Type)
-    const order = { Sanction: 1, Person: 2, SuperSecurePSC: 3, OffshoreEntity: 4, LegalEntity: 5, Company: 6, Address: 7 };
-    const sorted = [...graphNodes].sort(
-      (a, b) => (order[a.node_type] || 9) - (order[b.node_type] || 9) || (b.risk_score || 0) - (a.risk_score || 0)
-    );
-    const radius = Math.min(width, height) * 0.37;
-    sorted.forEach((n, i) => {
-      if (n.pinned) return;
-      const angle = (2 * Math.PI * i) / Math.max(sorted.length, 1) - Math.PI / 2;
-      n.x = cx + radius * Math.cos(angle);
-      n.y = cy + radius * Math.sin(angle);
-    });
-  } else {
-    // 'organic' — Force-Directed SNA Layout with collision separation
-    runForceSimulation(width, height, 110, false);
-  }
+  graphLayoutGuides = GraphLayout.apply(layoutName, graphNodes, graphEdges, currentGraphPayload?.root_id, salt);
+  fitGraphToView();
 }
 
-function runForceSimulation(width, height, iterations = 110, randomize = false) {
-  const cx = width / 2;
-  const cy = height / 2;
-  const rootId = currentGraphPayload?.root_id;
-
-  graphNodes.forEach((n, idx) => {
-    if (n.pinned) return;
-    if (n.id === rootId && !randomize) {
-      n.x = cx;
-      n.y = cy;
-    } else if (randomize) {
-      const angle = (2 * Math.PI * idx) / Math.max(graphNodes.length, 1) + (Math.random() - 0.5) * 0.8;
-      const rad = (0.18 + Math.random() * 0.25) * Math.min(width, height);
-      n.x = cx + rad * Math.cos(angle);
-      n.y = cy + rad * Math.sin(angle);
-    } else {
-      const ring = n.hop_distance === 1 ? 1 : 2;
-      const angle = (2 * Math.PI * idx) / Math.max(graphNodes.length - 1, 1);
-      const radius = ring === 1 ? Math.min(width, height) * 0.24 : Math.min(width, height) * 0.38;
-      n.x = cx + radius * Math.cos(angle);
-      n.y = cy + radius * Math.sin(angle);
-    }
-  });
-
-  for (let iter = 0; iter < iterations; iter++) {
-    // Node-node Coulomb repulsion + minimum box separation
-    for (let i = 0; i < graphNodes.length; i++) {
-      for (let j = i + 1; j < graphNodes.length; j++) {
-        const a = graphNodes[i];
-        const b = graphNodes[j];
-        let dx = b.x - a.x;
-        let dy = b.y - a.y;
-        let distSq = dx * dx + dy * dy + 0.1;
-        let dist = Math.sqrt(distSq);
-        const minSep = 135;
-        let repulse = 7500 / distSq;
-        if (dist < minSep) {
-          repulse += (minSep - dist) * 0.35;
-        }
-        const fx = (dx / dist) * repulse;
-        const fy = (dy / dist) * repulse;
-        if (!a.pinned && a.id !== rootId) {
-          a.x -= fx;
-          a.y -= fy;
-        }
-        if (!b.pinned && b.id !== rootId) {
-          b.x += fx;
-          b.y += fy;
-        }
-      }
-    }
-
-    // Hooke spring attraction along links
-    graphEdges.forEach((e) => {
-      const s = graphNodeMap.get(e.source);
-      const t = graphNodeMap.get(e.target);
-      if (!s || !t) return;
-      const dx = t.x - s.x;
-      const dy = t.y - s.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const targetLen = 165;
-      const force = (dist - targetLen) * 0.05;
-      const fx = (dx / dist) * force;
-      const fy = (dy / dist) * force;
-      if (!s.pinned && s.id !== rootId) {
-        s.x += fx;
-        s.y += fy;
-      }
-      if (!t.pinned && t.id !== rootId) {
-        t.x -= fx;
-        t.y -= fy;
-      }
-    });
-
-    // Gentle centering gravity so components don't drift off-canvas
-    graphNodes.forEach((n) => {
-      if (n.pinned || n.id === rootId) return;
-      n.x += (cx - n.x) * 0.012;
-      n.y += (cy - n.y) * 0.012;
-      n.x = Math.max(85, Math.min(width - 85, n.x));
-      n.y = Math.max(55, Math.min(height - 55, n.y));
-    });
-  }
+/** Zoom and pan so the whole chart is visible (see GraphLayout.fitTransform). */
+function fitGraphToView() {
+  const svg = document.getElementById("graph-svg");
+  const rect = svg ? svg.getBoundingClientRect() : { width: 860, height: 600 };
+  graphZoomState = GraphLayout.fitTransform(graphNodes, Math.max(rect.width || 860, 320), Math.max(rect.height || 600, 300));
+  const vp = document.getElementById("graph-viewport");
+  if (vp) vp.setAttribute("transform", `translate(${graphZoomState.tx},${graphZoomState.ty}) scale(${graphZoomState.scale})`);
 }
 
 /* ============================================================================
@@ -865,17 +678,13 @@ function countEdgeCrossings() {
 
 function untangleGraph() {
   if (graphNodes.length < 3) return;
-  const svg = document.getElementById("graph-svg");
-  const rect = svg ? svg.getBoundingClientRect() : { width: 860, height: 600 };
-  const width = Math.max(rect.width || 860, 720);
-  const height = Math.max(rect.height || 600, 500);
-
+  const rootId = currentGraphPayload?.root_id;
   let bestPositions = graphNodes.map((n) => ({ id: n.id, x: n.x, y: n.y }));
   let bestCrossings = countEdgeCrossings();
 
-  for (let attempt = 0; attempt < 12; attempt++) {
-    if (bestCrossings === 0) break;
-    runForceSimulation(width, height, 95, true);
+  // reproducible seeds: the same network always untangles to the same picture
+  for (let salt = 1; salt <= 12 && bestCrossings > 0; salt++) {
+    GraphLayout.organic(graphNodes, graphEdges, rootId, salt);
     const c = countEdgeCrossings();
     if (c < bestCrossings) {
       bestCrossings = c;
@@ -890,6 +699,8 @@ function untangleGraph() {
       n.y = p.y;
     }
   });
+  graphLayoutGuides = null;
+  fitGraphToView();
 
   currentGraphLayout = "organic";
   document.querySelectorAll(".layout-btn").forEach((b) => {
@@ -909,6 +720,7 @@ function unpinAllGraphNodes() {
 }
 
 function toggleGraphEdgeLabels() {
+  edgeLabelsChosenByUser = true;
   showGraphEdgeLabels = !showGraphEdgeLabels;
   const btn = document.getElementById("btn-toggle-labels");
   if (btn) btn.textContent = `Labels: ${showGraphEdgeLabels ? "ON" : "OFF"}`;
@@ -985,12 +797,16 @@ function nodeColor(n) {
   return "#64748b";
 }
 
-function renderBackgroundGuides(width, height) {
-  const cx = width / 2;
-  const cy = height / 2;
+function renderBackgroundGuides() {
+  // Guides follow the geometry computed by GraphLayout (graph coordinates, inside the zoomed viewport)
+  const g = graphLayoutGuides;
   const pal = getGraphThemePalette();
+  if (!g || !graphNodes.length) return "";
+  const xs = graphNodes.map((n) => n.x);
+  const left = Math.min(...xs) - 120;
+  const right = Math.max(...xs) + 120;
 
-  if (currentGraphLayout === "hierarchical") {
+  if (g.type === "tiers") {
     const tierNames = [
       "TIER 1: BENEFICIAL OWNERS (PSC / PEP) & SANCTIONS",
       "TIER 2: CORPORATE PARENTS & OFFSHORE ENTITIES",
@@ -998,49 +814,33 @@ function renderBackgroundGuides(width, height) {
       "TIER 4: SUBSIDIARIES & CO-LOCATED ENTITIES",
       "TIER 5: REGISTERED OFFICE HUBS (LOCATIONS)",
     ];
-    const activeLevels = [];
-    const seen = new Set(graphNodes.map((n) => n.hierarchy_level ?? 2));
-    [0, 1, 2, 3, 4].forEach((l) => {
-      if (seen.has(l)) activeLevels.push(l);
-    });
-    const topPad = 85;
-    const bottomPad = 80;
-    const usableH = Math.max(320, height - topPad - bottomPad);
-    const rowStep = activeLevels.length > 1 ? usableH / (activeLevels.length - 1) : 0;
-
-    return activeLevels
-      .map((lvl, idx) => {
-        const y = activeLevels.length === 1 ? cy : topPad + idx * rowStep;
-        return `
+    return g.rows
+      .map(
+        (row) => `
           <g class="layout-guide">
-            <line x1="30" y1="${y.toFixed(1)}" x2="${(width - 30).toFixed(1)}" y2="${y.toFixed(1)}"
+            <line x1="${left.toFixed(1)}" y1="${(row.y - 52).toFixed(1)}" x2="${right.toFixed(1)}" y2="${(row.y - 52).toFixed(1)}"
                   stroke="${pal.guideStroke}" stroke-width="1" stroke-dasharray="4,6" stroke-opacity="0.7" />
-            <text x="36" y="${(y - 28).toFixed(1)}" fill="${pal.guideText}" font-size="9.5" font-weight="700" letter-spacing="0.06em">
-              ${tierNames[lvl] || `TIER ${lvl + 1}`}
+            <text x="${(left + 6).toFixed(1)}" y="${(row.y - 58).toFixed(1)}" fill="${pal.guideText}" font-size="9.5" font-weight="700" letter-spacing="0.06em">
+              ${tierNames[row.level] || `TIER ${row.level + 1}`}
             </text>
-          </g>
-        `;
-      })
+          </g>`
+      )
       .join("");
   }
 
-  if (currentGraphLayout === "concentric") {
-    const r1 = Math.min(width, height) * 0.24;
-    const r2 = Math.min(width, height) * 0.41;
-    return `
-      <g class="layout-guide">
-        <circle cx="${cx}" cy="${cy}" r="${r1.toFixed(1)}" fill="none" stroke="${pal.guideStroke}" stroke-width="1" stroke-dasharray="5,5" stroke-opacity="0.7" />
-        <circle cx="${cx}" cy="${cy}" r="${r2.toFixed(1)}" fill="none" stroke="${pal.guideStroke}" stroke-width="1" stroke-dasharray="5,5" stroke-opacity="0.55" />
-        <text x="${cx}" y="${(cy - r1 - 6).toFixed(1)}" text-anchor="middle" fill="${pal.guideText}" font-size="9.5" font-weight="700">
-          RING 1: DIRECT CONTROLLERS &amp; STATUTORY LINKS (1 HOP)
-        </text>
-        <text x="${cx}" y="${(cy - r2 - 6).toFixed(1)}" text-anchor="middle" fill="${pal.guideText}" font-size="9.5" font-weight="700">
-          RING 2: EXTENDED SHELL RING &amp; OFFSHORE LEAKS (2 HOPS)
-        </text>
-      </g>
-    `;
+  if (g.type === "rings") {
+    const labels = ["RING 1: DIRECT CONTROLLERS &amp; STATUTORY LINKS (1 HOP)", "RING 2: EXTENDED NETWORK (2 HOPS)"];
+    return g.radii
+      .map((r, i) =>
+        r
+          ? `<g class="layout-guide">
+               <circle cx="0" cy="0" r="${r.toFixed(1)}" fill="none" stroke="${pal.guideStroke}" stroke-width="1" stroke-dasharray="5,5" stroke-opacity="${i ? 0.55 : 0.7}" />
+               <text x="0" y="${(-r - 50).toFixed(1)}" text-anchor="middle" fill="${pal.guideText}" font-size="9.5" font-weight="700">${labels[i]}</text>
+             </g>`
+          : ""
+      )
+      .join("");
   }
-
   return "";
 }
 
@@ -1064,6 +864,14 @@ function renderNodeShapeAndGlyph(n) {
   else if (n.node_type === "Address") roleTag = `HUB (${n.colocated_count || 1})`;
 
   // 1. UNODC Organization / Company -> RECTANGLE (UNODC Manual p. 39 & 44)
+  if (n.node_type === "Group") {
+    return `
+      <rect x="-64" y="-17" width="138" height="46" rx="3" fill="${pal.nodeFill}" stroke="${pal.guideStroke}" stroke-width="1.2" />
+      <rect x="-69" y="-23" width="138" height="46" rx="3" fill="${pal.nodeFill}" stroke="${color}" stroke-width="2" stroke-dasharray="5,3" />
+      <text x="0" y="-3" text-anchor="middle" fill="${pal.nodeText}" font-size="11" font-weight="800">${escapeHtml(n.label)}</text>
+      <text x="0" y="12" text-anchor="middle" fill="${pal.nodeSub}" font-size="8.8">click to expand</text>
+    `;
+  }
   if (n.node_type === "Company" || n.node_type === "LegalEntity" || n.node_type === "OffshoreEntity") {
     const w = 138;
     const h = 46;
@@ -1191,7 +999,7 @@ function renderGraphFromState() {
     return;
   }
 
-  const guidesSvg = renderBackgroundGuides(width, height);
+  const guidesSvg = renderBackgroundGuides();
   const pal = getGraphThemePalette();
 
   const edgesSvg = graphEdges
@@ -1377,7 +1185,9 @@ function bindGraphInteractions(svgEl) {
       draggedNode = null;
       svgEl.querySelectorAll(".graph-node.dragging").forEach((el) => el.classList.remove("dragging"));
 
-      if (moved < 6 && clickedNode.company_number) {
+      if (moved < 6 && clickedNode.node_type === "Group") {
+        expandGraphGroup(clickedNode);
+      } else if (moved < 6 && clickedNode.company_number) {
         selectCompany(clickedNode.company_number);
       }
     }
@@ -1525,9 +1335,12 @@ function zoomGraphBy(factor) {
 }
 
 function resetGraphZoom() {
-  graphZoomState = { scale: 1, tx: 0, ty: 0 };
-  const vp = document.getElementById("graph-viewport");
-  if (vp) vp.setAttribute("transform", "translate(0,0) scale(1)");
+  fitGraphToView();
+}
+
+function expandGraphGroup(groupNode) {
+  expandedGraphHubs.add(groupNode.group_hub);
+  initGraphData(currentGraphPayload, true);
 }
 
 function enableSvgPanZoom(svgEl, viewportId, stateObj) {
