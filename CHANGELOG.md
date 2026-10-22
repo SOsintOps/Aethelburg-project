@@ -17,6 +17,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - README: quick start and "Keeping data up to date".
 
 ### Added (search)
+- **Officer search on the whole register**: from the people results, *Search officers on Companies House* queries the Companies House officer search (results filtered to names containing every word typed) and lists each officer's appointments, current and past, with **Fetch** for each company.
 - **People search**: the search box also finds people (PSC controllers and officers) by any order of their names (`ROSSI, Mario` = `Mario Rossi`), with nationality, birth month and the companies they are linked to, each with its role.
 
 ### Added (backups)

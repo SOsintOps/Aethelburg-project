@@ -146,6 +146,20 @@ def build_data_router(db: DatabaseService) -> APIRouter:
         """People (PSC controllers and officers) whose name contains every word typed, with their companies."""
         return {"items": await asyncio.to_thread(_person_search, db, q, min(max(limit, 1), 50))}
 
+    @router.get("/api/ch/officers/search")
+    async def ch_officer_search(q: str) -> dict[str, Any]:
+        try:
+            return {"items": await ch_api.search_officers(q)}
+        except CompaniesHouseApiError as exc:
+            raise HTTPException(status_code=exc.status if exc.status in (400, 401, 429) else 502, detail=exc.message) from exc
+
+    @router.get("/api/ch/officers/{officer_id}/appointments")
+    async def ch_officer_appointments(officer_id: str) -> dict[str, Any]:
+        try:
+            return await ch_api.officer_appointments(officer_id)
+        except CompaniesHouseApiError as exc:
+            raise HTTPException(status_code=exc.status if exc.status in (400, 401, 404, 429) else 502, detail=exc.message) from exc
+
     @router.get("/api/index/search")
     async def index_search(q: str, limit: int = 20) -> dict[str, Any]:
         """Companies in the light register index that are not fully imported (fetchable on demand)."""

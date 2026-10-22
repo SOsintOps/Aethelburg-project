@@ -56,6 +56,54 @@ async function fetchFromCompaniesHouse(companyNumber) {
   }
 }
 
+/* ---------- Companies House officer search (whole register, via the REST API) ---------- */
+
+async function searchChOfficers(q) {
+  const box = document.getElementById("ch-officer-results");
+  if (!box) return;
+  box.innerHTML = `<div style="padding:8px 10px; font-size:11.5px;">Searching Companies House for “${escapeHtml(q)}”…</div>`;
+  let items = [];
+  try {
+    items = (await apiJson(`/api/ch/officers/search?q=${encodeURIComponent(q)}`)).items || [];
+  } catch (err) {
+    box.innerHTML = `<div style="padding:8px 10px; color:var(--risk-critical); font-size:11.5px;">${escapeHtml(err.message)}</div>`;
+    return;
+  }
+  const dob = (d) => (d && d.year ? ` • born ${d.month ? String(d.month).padStart(2, "0") + "/" : ""}${d.year}` : "");
+  box.innerHTML = items.length
+    ? items
+        .map(
+          (o) => `<div class="entity-item" style="cursor:default;">
+            <div class="entity-item-top"><div class="entity-name">${escapeHtml(o.name)}</div>
+              <button class="btn btn-sm" onclick="showOfficerAppointments('${escapeHtml(o.officer_id)}', this)">${o.appointment_count || "?"} appointments</button></div>
+            <div class="entity-meta"><span>${escapeHtml((o.address || "").slice(0, 70))}${escapeHtml(dob(o.date_of_birth))}</span></div>
+            <div class="officer-appointments"></div>
+          </div>`
+        )
+        .join("")
+    : `<div style="padding:8px 10px; font-size:11.5px;">No officer on the UK register has every word of “${escapeHtml(q)}” in the name.</div>`;
+}
+
+async function showOfficerAppointments(officerId, btn) {
+  const target = btn.closest(".entity-item").querySelector(".officer-appointments");
+  target.innerHTML = `<div style="font-size:11px;">Loading…</div>`;
+  try {
+    const res = await apiJson(`/api/ch/officers/${encodeURIComponent(officerId)}/appointments`);
+    target.innerHTML = res.appointments
+      .map(
+        (a) => `<div style="font-size:11px; padding:3px 0; border-top:1px dashed var(--border-subtle);">
+          <strong>${escapeHtml(a.company_name || "")}</strong> <code>${escapeHtml(a.company_number || "")}</code> — ${escapeHtml(a.role || "")}
+          ${escapeHtml(a.appointed_on || "?")} → ${escapeHtml(a.resigned_on || "today")} • ${escapeHtml(a.company_status || "")}
+          ${a.nationality ? " • " + escapeHtml(a.nationality) : ""}
+          <button class="btn btn-sm" onclick="fetchFromCompaniesHouse('${escapeHtml(a.company_number)}')">Fetch</button>
+        </div>`
+      )
+      .join("");
+  } catch (err) {
+    target.innerHTML = `<div style="color:var(--risk-critical); font-size:11px;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
 /* ---------- Search: people (PSC controllers and officers) ---------- */
 
 async function appendPersonMatches(q) {
@@ -67,6 +115,14 @@ async function appendPersonMatches(q) {
   } catch (err) {
     return;
   }
+  container.insertAdjacentHTML(
+    "afterbegin",
+    `<div style="padding:6px 10px; border-bottom:1px solid var(--border-subtle);">
+       <button class="btn btn-sm" onclick="searchChOfficers(${JSON.stringify(q).replace(/"/g, "&quot;")})"
+               title="Search every officer on the UK register (Companies House API, REST key needed)">Search officers on Companies House</button>
+       <div id="ch-officer-results"></div>
+     </div>`
+  );
   if (!people.length) return;
   if (container.textContent.includes("No matching companies found")) container.innerHTML = "";
   const dob = (p) => (p.dob_year ? ` • born ${p.dob_month ? String(p.dob_month).padStart(2, "0") + "/" : ""}${p.dob_year}` : "");

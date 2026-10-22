@@ -176,6 +176,57 @@ class CompaniesHouseApiService:
             "fetched_at": _now(),
         }
 
+    async def search_officers(self, name: str, max_results: int = 300) -> list[dict[str, Any]]:
+        """Officers anywhere on the register whose name contains every word of `name`.
+
+        Companies House ranks by relevance and returns loose matches, so results are filtered here.
+        """
+        words = set(normalize_name(name).split())
+        if not words:
+            raise CompaniesHouseApiError(400, "Type at least one name")
+        found: list[dict[str, Any]] = []
+        start = 0
+        while start < max_results:
+            page = await self._get("/search/officers", {"q": name, "items_per_page": _PAGE_SIZE, "start_index": start})
+            items = page.get("items") or []
+            for item in items:
+                if words <= set(normalize_name(item.get("title") or "").split()):
+                    link = (item.get("links") or {}).get("self") or ""
+                    found.append({
+                        "officer_id": link.strip("/").split("/")[1] if link.count("/") >= 2 else None,
+                        "name": item.get("title"),
+                        "date_of_birth": item.get("date_of_birth"),
+                        "address": item.get("address_snippet"),
+                        "appointment_count": item.get("appointment_count"),
+                    })
+            start += len(items)
+            if not items or start >= int(page.get("total_results") or 0):
+                break
+        return found
+
+    async def officer_appointments(self, officer_id: str) -> dict[str, Any]:
+        """Every appointment (current and past) of one officer across the register."""
+        if not officer_id.replace("-", "").replace("_", "").isalnum():
+            raise CompaniesHouseApiError(400, f"Invalid officer id: {officer_id!r}")
+        items = await self._get_all_items(f"/officers/{officer_id}/appointments")
+        return {
+            "officer_id": officer_id,
+            "appointments": [
+                {
+                    "company_number": (it.get("appointed_to") or {}).get("company_number"),
+                    "company_name": (it.get("appointed_to") or {}).get("company_name"),
+                    "company_status": (it.get("appointed_to") or {}).get("company_status"),
+                    "role": it.get("officer_role"),
+                    "appointed_on": it.get("appointed_on"),
+                    "resigned_on": it.get("resigned_on"),
+                    "name": it.get("name"),
+                    "nationality": it.get("nationality"),
+                    "country_of_residence": it.get("country_of_residence"),
+                }
+                for it in items
+            ],
+        }
+
     # ------------------------------------------------------------------ #
     # PERSISTENCE                                                        #
     # ------------------------------------------------------------------ #

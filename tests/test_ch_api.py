@@ -131,3 +131,22 @@ async def test_rate_limit_waits_and_retries(tmp_path, monkeypatch):
 
     await _service(tmp_path, handler=handler).fetch_company_profile(NUMBER)
     assert waits == [7.0]
+
+
+async def test_officer_search_keeps_only_full_name_matches(tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/search/officers":
+            return httpx.Response(200, json={"total_results": 3, "items": [
+                {"title": "Mario ROSSI", "links": {"self": "/officers/abc/appointments"}, "appointment_count": 2},
+                {"title": "Mario BIANCHI", "links": {"self": "/officers/def/appointments"}},
+                {"title": "ROSSI MARIO LIMITED", "links": {"self": "/officers/ghi/appointments"}},
+            ]})
+        return httpx.Response(200, json={"total_results": 1, "items": [
+            {"officer_role": "director", "appointed_on": "2020-01-01",
+             "appointed_to": {"company_number": "12345678", "company_name": "X LTD", "company_status": "active"}}]})
+
+    svc = _service(tmp_path, handler=handler)
+    found = await svc.search_officers("rossi mario")
+    assert [f["officer_id"] for f in found] == ["abc", "ghi"]
+    appointments = (await svc.officer_appointments("abc"))["appointments"]
+    assert appointments[0]["company_number"] == "12345678"
