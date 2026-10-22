@@ -47,6 +47,7 @@
         <option value="kml">Google Earth (.kml)</option>
       </select>
       <button class="btn text-active" onclick="rescoreDatabase()" title="Re-run all 11 FT3 detection rules">Re-Score FT3</button>
+      <button class="btn" onclick="openHelp(currentHelpChapter())" title="User guide (F1)">? Help</button>
       <select id="theme-select" style="width:165px;" onchange="setTheme(this.value)" title="Select Exploratores Theme (or use Konami Code ↑↑↓↓←→←→BA)">
         <option value="light" selected>Theme: Exploratores</option>
         <option value="classical">Theme: Classical (Cinzel)</option>
@@ -90,6 +91,7 @@
           <button class="tab-btn" data-tab="timeline" onclick="switchTab('timeline')">3. Timeline &amp; FT3 Matrix</button>
           <button class="tab-btn" data-tab="ftm" onclick="switchTab('ftm')">4. FollowTheMoney (FtM)</button>
           <button class="tab-btn" data-tab="casework" onclick="switchTab('casework')">5. Casework &amp; Reports</button>
+          <button class="tab-btn" data-tab="data" onclick="switchTab('data')">6. Data &amp; Updates</button>
         </div>
         <div id="center-status" style="font-size:11px; color:var(--text-secondary); align-self:center;">Select an entity to inspect</div>
       </div>
@@ -248,6 +250,11 @@
       <div class="center-view" id="view-casework">
         <div class="scrollable-content" id="casework-container"></div>
       </div>
+
+      <!-- TAB 6: Data folder, bulk sources, subset filters, streaming -->
+      <div class="center-view" id="view-data">
+        <div class="scrollable-content" id="data-container"></div>
+      </div>
     </section>
 
     <!-- RIGHT PANEL: Selected Entity Intelligence Dossier -->
@@ -256,6 +263,7 @@
         <div class="panel-title-row">
           <span class="panel-title">Intelligence Dossier</span>
           <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm" id="ch-refresh-btn" onclick="refreshCurrentCompany()" title="Download the latest profile, officers and PSC from Companies House">Update from CH</button>
             <button class="btn btn-sm btn-primary" onclick="openPrintableReport()">10-Sec Report</button>
             <button class="btn btn-sm" onclick="enrollCurrentInCase()">+ Add to Case</button>
           </div>
@@ -278,5 +286,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="/static/app.js"></script>
+  <script src="/static/data.js"></script>
+  <script src="/static/help.js"></script>
 </body>
 </html>

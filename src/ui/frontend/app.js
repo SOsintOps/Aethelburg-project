@@ -127,6 +127,7 @@ const EXPLORATORES_TAB_MOTTOES = {
   timeline: "Omnia tempus revelat",
   ftm: "Numero, pondere et mensura",
   casework: "Littera gesta docet",
+  data: "Tempora mutantur",
 };
 
 function initTheme() {
@@ -220,6 +221,8 @@ function switchTab(tabName) {
     setTimeout(() => {
       if (graphNodes.length) renderGraphFromState();
     }, 40);
+  } else if (tabName === "data" && typeof loadDataPanel === "function") {
+    loadDataPanel();
   }
 }
 
@@ -295,6 +298,7 @@ async function loadCompanies() {
       if (lbl) lbl.innerHTML = `<strong>${totalCount}</strong> entity(s)`;
     }
     renderEntityList(items);
+    if (typeof appendIndexMatches === "function") appendIndexMatches(q);
 
     if (!currentCompanyNumber && items.length > 0) {
       selectCompany(items[0].company_number);

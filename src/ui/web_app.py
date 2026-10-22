@@ -34,6 +34,7 @@ from src.reports.pdf_generator import ReportGenerator
 from src.services.db_service import DatabaseService
 from src.services.geo_service import GeoService
 from src.services.vector_service import VectorService
+from src.ui.data_api import build_data_router
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 FRONTEND_DIR = Path(__file__).parent / "frontend"
@@ -83,6 +84,8 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
             "ontology, Stripe FT3 taxonomy, and UNODC 4x4 / ICD 203 analytic standards."
         ),
     )
+
+    app.include_router(build_data_router(db))
 
     if ASSETS_DIR.exists():
         app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
