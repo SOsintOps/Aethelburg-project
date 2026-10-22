@@ -404,7 +404,7 @@ def _controller_key(data: dict[str, Any]) -> str | None:
         dob = data.get("date_of_birth") or {}
         if not dob.get("year"):
             return None  # a bare name would merge unrelated people
-        return f"p|{normalize_name(name)}|{dob.get('year')}-{dob.get('month')}"
+        return f"p|{normalize_name(name, is_company=False)}|{dob.get('year')}-{dob.get('month')}"
     ident = data.get("identification") or {}
     return f"e|{normalize_name(name, is_company=True)}|{(ident.get('registration_number') or '').strip().upper()}"
 

@@ -404,9 +404,9 @@ function renderDossierPanel(d) {
   const c = d.company;
   const score = Number(c.risk_score || 0);
   const flags = d.risk_flags || [];
-  const pscs = d.pscs || [];
+  const pscs = d.psc_ownerships || d.pscs || [];
   const coloc = d.colocated_companies || [];
-  const sancs = d.sanctions_matches || [];
+  const sancs = d.sanction_matches || d.sanctions_matches || [];
   const icij = d.icij_matches || [];
 
   const flagsHtml = flags.length
@@ -437,8 +437,8 @@ function renderDossierPanel(d) {
             : p.person_name || p.legal_entity_name || "Unknown PSC";
           const sub = p.person_nationality
             ? `Nationality: ${p.person_nationality}${p.is_pep ? " • [PEP]" : ""}`
-            : p.jurisdiction
-            ? `Jurisdiction: ${p.jurisdiction}${p.is_offshore ? " • [OFFSHORE]" : ""}`
+            : p.legal_entity_jurisdiction || p.jurisdiction
+            ? `Jurisdiction: ${p.legal_entity_jurisdiction || p.jurisdiction}${p.is_offshore ? " • [OFFSHORE]" : ""}`
             : p.psc_kind;
           return `
           <div style="padding:7px 0; border-bottom:1px solid var(--border-subtle); font-size:12px;">

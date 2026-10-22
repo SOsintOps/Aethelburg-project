@@ -304,7 +304,7 @@ def _guide_chapters() -> list[tuple[str, str, Path]]:
 
 
 def _person_search(db: DatabaseService, q: str, limit: int) -> list[dict[str, Any]]:
-    words = [w for w in normalize_name(q or "").split() if len(w) >= 2]
+    words = [w for w in normalize_name(q or "", is_company=False).split() if len(w) >= 2]
     if not words:
         return []
     conn = db.connect()

@@ -181,7 +181,7 @@ class CompaniesHouseApiService:
 
         Companies House ranks by relevance and returns loose matches, so results are filtered here.
         """
-        words = set(normalize_name(name).split())
+        words = set(normalize_name(name, is_company=False).split())
         if not words:
             raise CompaniesHouseApiError(400, "Type at least one name")
         found: list[dict[str, Any]] = []
@@ -190,7 +190,7 @@ class CompaniesHouseApiService:
             page = await self._get("/search/officers", {"q": name, "items_per_page": _PAGE_SIZE, "start_index": start})
             items = page.get("items") or []
             for item in items:
-                if words <= set(normalize_name(item.get("title") or "").split()):
+                if words <= set(normalize_name(item.get("title") or "", is_company=False).split()):
                     link = (item.get("links") or {}).get("self") or ""
                     found.append({
                         "officer_id": link.strip("/").split("/")[1] if link.count("/") >= 2 else None,
@@ -256,7 +256,7 @@ class CompaniesHouseApiService:
             source_id = self._source_id(conn)
             for item in items:
                 raw_name = item.get("name") or "Unknown Officer"
-                fp = normalize_name(raw_name)
+                fp = normalize_name(raw_name, is_company=False)
                 dob = item.get("date_of_birth") or {}
                 role = item.get("officer_role") or "director"
                 appointed_on = item.get("appointed_on")

@@ -224,7 +224,7 @@ def ingest_psc_record(
             or " ".join(x for x in [title, forename, surname] if x)
             or f"Individual PSC ({comp_num})"
         ).strip()
-        fp = normalize_name(raw_name)
+        fp = normalize_name(raw_name, is_company=False)
         dob = data.get("date_of_birth") or {}
         dob_month = dob.get("month")
         dob_year = dob.get("year")
