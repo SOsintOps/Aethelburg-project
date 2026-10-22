@@ -44,6 +44,29 @@ def get_logger(name: str = "aethelburg") -> Any:
         return _KeyValueLoggerAdapter(logging.getLogger(name))
 
 
+LOG_FILENAME = "aethelburg.log"
+
+
+def _add_file_handler(log_dir: Any, level: int) -> None:
+    """Also write to `<data folder>/logs/aethelburg.log` (5 files x 5 MB), once per process."""
+    from logging.handlers import RotatingFileHandler
+    from pathlib import Path
+
+    root = logging.getLogger()
+    if log_dir is None or any(isinstance(h, RotatingFileHandler) for h in root.handlers):
+        return
+    try:
+        Path(log_dir).mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(Path(log_dir) / LOG_FILENAME, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
+    except OSError:
+        return  # read-only or missing data folder: console logging still works
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    handler.setLevel(level)
+    root.addHandler(handler)
+    if root.level > level:
+        root.setLevel(level)
+
+
 def setup_logging(log_level: str | None = None) -> None:
     """Configure structlog (if installed) and stdlib logging."""
     from config.settings import get_settings
@@ -58,6 +81,7 @@ def setup_logging(log_level: str | None = None) -> None:
         stream=sys.stderr,
         level=level,
     )
+    _add_file_handler(settings.paths.log_dir, level)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 

@@ -10,6 +10,7 @@ import fnmatch
 import hashlib
 import json
 import shutil
+import time
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -104,7 +105,27 @@ def download_source(
     return {**manifest, "status": "downloaded"}
 
 
+_ATTEMPTS = 3
+
+
 def _download(url: str, dest: Path, progress: ProgressCallback | None) -> str:
+    """Download with up to 3 attempts on network errors and 5xx, resuming from the .part file."""
+    for attempt in range(1, _ATTEMPTS + 1):
+        try:
+            return _download_once(url, dest, progress)
+        except (httpx.TransportError, _RetryableHTTPError) as exc:
+            if attempt == _ATTEMPTS:
+                raise RuntimeError(f"Download failed after {_ATTEMPTS} attempts: {exc}") from exc
+            log.warning("download_retry", url=url, attempt=attempt, error=str(exc))
+            time.sleep(5 * attempt)
+    raise AssertionError("unreachable")
+
+
+class _RetryableHTTPError(RuntimeError):
+    pass
+
+
+def _download_once(url: str, dest: Path, progress: ProgressCallback | None) -> str:
     part = dest.with_name(dest.name + ".part")
     done = part.stat().st_size if part.exists() else 0
     headers = {"User-Agent": USER_AGENT}
@@ -115,6 +136,8 @@ def _download(url: str, dest: Path, progress: ProgressCallback | None) -> str:
         with client.stream("GET", url, headers=headers) as resp:
             if done and resp.status_code == 200:
                 done = 0  # server ignored Range: start again
+            elif resp.status_code >= 500:
+                raise _RetryableHTTPError(f"HTTP {resp.status_code} for {url}")
             elif resp.status_code not in (200, 206):
                 raise RuntimeError(f"Download failed: HTTP {resp.status_code} for {url}")
             length = resp.headers.get("Content-Length")

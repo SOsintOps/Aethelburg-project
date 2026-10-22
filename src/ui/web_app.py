@@ -9,6 +9,8 @@ Exposes:
 """
 from __future__ import annotations
 
+import logging
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +86,21 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
             "ontology, Stripe FT3 taxonomy, and UNODC 4x4 / ICD 203 analytic standards."
         ),
     )
+
+    @app.exception_handler(Exception)
+    async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
+        # One id ties the message shown in the UI to the traceback in the log file
+        error_id = uuid.uuid4().hex[:8]
+        logging.getLogger("aethelburg.web").error(
+            "unhandled error %s on %s %s", error_id, request.method, request.url.path, exc_info=exc
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": f"Unexpected error ({type(exc).__name__}: {exc}). Error id {error_id}: see logs/aethelburg.log",
+                "error_id": error_id,
+            },
+        )
 
     app.include_router(build_data_router(db))
 

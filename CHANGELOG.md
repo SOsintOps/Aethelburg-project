@@ -16,6 +16,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Added (error handling)
+- Log file `<data folder>/logs/aethelburg.log` (rotating, 5 × 5 MB) next to the console.
+- Unexpected server errors return a JSON message with an **error id** that matches the traceback in the log file; failed background tasks are logged too.
+- Downloads retry up to 3 times on network errors and HTTP 5xx, resuming the partial file.
+
 ### Fixed (link chart)
 - **Overlapping entities** in every layout: company cards are 138×46 px but the force layout kept centres only 135 px apart, positions were clamped to the window, forces had no cooling, and ring/row sizes ignored the number of nodes. New `graph-layout.js`: d3-force (many-body, links, collision on each node's real size including its label) computed before drawing, a final rectangle overlap-removal pass, rings and rows sized from the nodes, free layout then fit-to-view (**Fit** re-fits), seeded and reproducible (also **Untangle**), link labels hidden by default above 12 links, and hubs with more than 6 plain company leaves collapsed into an expandable "+N companies" node. Measured on real charts: 0 overlapping nodes in all layouts.
 

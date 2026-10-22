@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import time
 import uuid
@@ -69,8 +70,9 @@ class _Jobs:
             try:
                 job["result"] = fn(progress)
                 job["status"] = "completed"
-            except Exception as exc:  # reported to the UI
+            except Exception as exc:  # reported to the UI and to the log file
                 job["status"], job["error"] = "failed", f"{type(exc).__name__}: {exc}"
+                logging.getLogger("aethelburg.jobs").error("task %s failed", kind, exc_info=exc)
             job["finished_at"] = _now()
             self.history.insert(0, job)
             del self.history[20:]
