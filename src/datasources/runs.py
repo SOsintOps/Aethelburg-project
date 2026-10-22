@@ -8,7 +8,7 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 
 @dataclass
@@ -36,13 +36,16 @@ def start_run(
         (task, source_version, file),
     ).fetchone()
     if row:
-        conn.execute("UPDATE ingest_runs SET status = 'running', message = NULL WHERE id = ?", (row["id"],))
+        conn.execute(
+            "UPDATE ingest_runs SET status = 'running', message = NULL, heartbeat_at = ? WHERE id = ?",
+            (datetime.now(UTC).isoformat(), row["id"]),
+        )
         conn.commit()
         return Run(row["id"], task, int(row["last_row"]), int(row["last_row"]), int(row["rows_written"]))
     run = Run(str(uuid.uuid4()), task, 0)
     conn.execute(
-        "INSERT INTO ingest_runs (id, task, source, source_version, file) VALUES (?, ?, ?, ?, ?)",
-        (run.id, task, source, source_version, file),
+        "INSERT INTO ingest_runs (id, task, source, source_version, file, heartbeat_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (run.id, task, source, source_version, file, datetime.now(UTC).isoformat()),
     )
     conn.commit()
     return run
@@ -51,8 +54,8 @@ def start_run(
 def checkpoint(conn: sqlite3.Connection, run: Run) -> None:
     """Persist progress and commit the work done so far in the same transaction."""
     conn.execute(
-        "UPDATE ingest_runs SET rows_read = ?, rows_written = ?, last_row = ? WHERE id = ?",
-        (run.rows_read, run.rows_written, run.rows_read, run.id),
+        "UPDATE ingest_runs SET rows_read = ?, rows_written = ?, last_row = ?, heartbeat_at = ? WHERE id = ?",
+        (run.rows_read, run.rows_written, run.rows_read, datetime.now(UTC).isoformat(), run.id),
     )
     conn.commit()
 
@@ -69,8 +72,22 @@ def finish_run(conn: sqlite3.Connection, run: Run, status: str = "completed", me
     conn.commit()
 
 
+STALE_AFTER = timedelta(minutes=10)
+
+
 def mark_interrupted(conn: sqlite3.Connection) -> int:
-    """Flag runs left 'running' by a previous process (called at startup)."""
-    cur = conn.execute("UPDATE ingest_runs SET status = 'interrupted' WHERE status = 'running'")
+    """Flag runs left 'running' by a process that stopped (no checkpoint for 10 minutes).
+
+    A run still checkpointing in another process (e.g. `data import` while the server starts)
+    is left alone.
+    """
+    cutoff = (datetime.now(UTC) - STALE_AFTER).isoformat()
+    cur = conn.execute(
+        """
+        UPDATE ingest_runs SET status = 'interrupted'
+        WHERE status = 'running' AND (heartbeat_at IS NULL OR heartbeat_at < ?)
+        """,
+        (cutoff,),
+    )
     conn.commit()
     return cur.rowcount

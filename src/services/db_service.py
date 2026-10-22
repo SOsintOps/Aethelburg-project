@@ -333,7 +333,8 @@ CREATE TABLE IF NOT EXISTS ingest_runs (
     rows_read       INTEGER NOT NULL DEFAULT 0,
     rows_written    INTEGER NOT NULL DEFAULT 0,
     last_row        INTEGER NOT NULL DEFAULT 0,
-    message         TEXT
+    message         TEXT,
+    heartbeat_at    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ingest_runs_task ON ingest_runs(task, source_version, status);
 
@@ -673,6 +674,9 @@ class DatabaseService:
     @staticmethod
     def _migrate_sqlite(conn: sqlite3.Connection) -> None:
         """Bring databases created by older versions up to the current schema (idempotent)."""
+        run_cols = {r["name"] for r in conn.execute("PRAGMA table_info(ingest_runs)")}
+        if run_cols and "heartbeat_at" not in run_cols:
+            conn.execute("ALTER TABLE ingest_runs ADD COLUMN heartbeat_at TEXT")
         geo_cols = {r["name"] for r in conn.execute("PRAGMA table_info(geo_postcode_centroids)")}
         if "precision" not in geo_cols:
             conn.execute("ALTER TABLE geo_postcode_centroids ADD COLUMN precision TEXT")

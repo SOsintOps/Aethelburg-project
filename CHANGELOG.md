@@ -16,6 +16,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Fixed (concurrent use)
+- **"database is locked" during imports**: the web server and a bulk import write to the same SQLite file; connections waited only sqlite3's default 5 s for the lock. They now wait up to 60 s.
+- Starting the server marked every running import as interrupted, including one still working in another process; a run is now considered interrupted only when it has not checkpointed for 10 minutes (`ingest_runs.heartbeat_at`).
+- Resuming an interrupted import no longer re-runs the 15-minute subset selection.
+
 ### Fixed (Data & Updates tab)
 - Bulk-source buttons looked dead: downloading a release already on disk finished in under a second and only said "completed". Each source now shows **Up to date ✓** (disabled), **Download <new release>** or **Download latest**; the task result says per source "already up to date (release …), nothing to download" or "downloaded release … (size)"; downloads show MB and percentage; **Check for new releases** shows that it is working; publishers are checked automatically when the tab is first opened and the answer is cached for 10 minutes; buttons are disabled while a task runs.
 - The tab re-read every subset member (a million rows) on each refresh; counts per criterion are now stored when the subset is selected.

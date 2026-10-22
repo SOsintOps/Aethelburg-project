@@ -59,12 +59,17 @@ class LocalSQLiteAsyncSession:
         self.conn.close()
 
 
+BUSY_TIMEOUT_SECONDS = 60.0
+
+
 def get_sqlite_connection(db_path: Path | None = None) -> sqlite3.Connection:
     """Restituisce una connessione sqlite3 configurata con WAL e foreign_keys=ON."""
     settings = get_settings()
     target = Path(db_path or settings.db.sqlite_path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(target), check_same_thread=False)
+    # Long bulk imports and the web server write to the same file: wait for the lock instead of
+    # failing after sqlite3's default 5 s
+    conn = sqlite3.connect(str(target), check_same_thread=False, timeout=BUSY_TIMEOUT_SECONDS)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = NORMAL")

@@ -67,7 +67,10 @@ def refresh_all(
         version = companies_csv.parent.name
         if not _done(conn, "company_index", version):
             summary["index_rows"] = build_company_index(conn, companies_csv, version, progress)
-        summary["subset"] = select_subset(conn, cfg, psc_file, sanctions_file, icij_dir(), progress)
+        if _unfinished(conn, "subset_companies", version) or _unfinished(conn, "subset_psc", psc_file and psc_file.parent.name):
+            summary["subset"] = "kept: resuming an unfinished import of the same selection"
+        else:
+            summary["subset"] = select_subset(conn, cfg, psc_file, sanctions_file, icij_dir(), progress)
         summary["companies"] = import_subset_companies(conn, db, companies_csv, progress)
         if psc_file:
             summary["psc"] = import_subset_psc(conn, db, psc_file, progress)
@@ -156,6 +159,13 @@ def import_subset_psc(conn: Any, db: DatabaseService, psc_path: Path, progress: 
                     progress("subset_psc", run.rows_written)
     finish_run(conn, run)
     return run.rows_written
+
+
+def _unfinished(conn: Any, task: str, version: str | None) -> bool:
+    return version is not None and conn.execute(
+        "SELECT 1 FROM ingest_runs WHERE task = ? AND source_version = ? AND status IN ('running', 'interrupted')",
+        (task, version),
+    ).fetchone() is not None
 
 
 def _done(conn: Any, task: str, version: str) -> bool:

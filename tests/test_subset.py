@@ -138,3 +138,22 @@ def test_nationality_spellings():
         assert nationality_match(text, italian) == "italian", text
     for text in ("Italo-American", "British", "", None):
         assert nationality_match(text, italian) is None, text
+
+
+def test_running_import_in_another_process_is_not_marked_interrupted(tmp_path):
+    from src.datasources.runs import checkpoint, mark_interrupted, start_run
+
+    db = DatabaseService(tmp_path / "runs.sqlite")
+    conn = db.connect()
+    try:
+        live = start_run(conn, "subset_companies", "ch_companies", "v1", "f")
+        checkpoint(conn, live)
+        conn.execute(
+            "INSERT INTO ingest_runs (id, task, status, heartbeat_at) VALUES ('old', 'x', 'running', '2026-01-01T00:00:00+00:00')"
+        )
+        conn.commit()
+        assert mark_interrupted(conn) == 1
+        status = dict(conn.execute("SELECT id, status FROM ingest_runs"))
+        assert status[live.id] == "running" and status["old"] == "interrupted"
+    finally:
+        conn.close()
