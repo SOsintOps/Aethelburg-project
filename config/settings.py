@@ -17,6 +17,8 @@ from urllib.parse import quote_plus
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
+from config.user_config import DB_FILENAME, resolve_data_dir
+
 PROJECT_ROOT = Path(__file__).parent.parent
 
 try:
@@ -72,10 +74,8 @@ class DatabaseSettings(BaseSettings):
     user: str = Field(default="aethelburg", alias="POSTGRES_USER")
     password: str = Field(default="", alias="POSTGRES_PASSWORD")
     ssl_mode: str = Field(default="prefer", alias="POSTGRES_SSLMODE")
-    sqlite_path: Path = Field(
-        default=PROJECT_ROOT / "dati" / "aethelburg.sqlite",
-        alias="SQLITE_PATH",
-    )
+    # None = `<data_dir>/aethelburg.sqlite`, filled in by `Settings`
+    sqlite_path: Path | None = Field(default=None, alias="SQLITE_PATH")
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -143,12 +143,19 @@ class CompaniesHouseSettings(BaseSettings):
 
 
 class PathSettings(BaseSettings):
-    data_dir: Path = Field(default=PROJECT_ROOT / "dati", alias="DATA_DIR")
-    onspd_path: Path = Field(
-        default=PROJECT_ROOT / "dati" / "onspd" / "ONSPD_latest.csv",
-        alias="ONSPD_PATH",
-    )
-    log_dir: Path = PROJECT_ROOT / "logs"
+    # DATA_DIR (env/.env) > user config.toml > legacy <project>/dati with a database > C:\AethelburgData
+    data_dir: Path = Field(default_factory=resolve_data_dir, alias="DATA_DIR")
+    # None = derived from data_dir by `Settings`
+    onspd_path: Path | None = Field(default=None, alias="ONSPD_PATH")
+    log_dir: Path | None = None
+
+    @property
+    def downloads_dir(self) -> Path:
+        return self.data_dir / "downloads"
+
+    @property
+    def exports_dir(self) -> Path:
+        return self.data_dir / "exports"
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -205,6 +212,18 @@ class Settings(BaseSettings):
     @property
     def ch_api(self) -> CompaniesHouseSettings:
         return self.ch
+
+    @model_validator(mode="after")
+    def _derive_data_paths(self) -> "Settings":
+        """Database, logs and ONSPD live under the data folder unless set explicitly."""
+        data_dir = self.paths.data_dir
+        if self.db.sqlite_path is None:
+            self.db.sqlite_path = data_dir / DB_FILENAME
+        if self.paths.log_dir is None:
+            self.paths.log_dir = data_dir / "logs"
+        if self.paths.onspd_path is None:
+            self.paths.onspd_path = data_dir / "onspd" / "ONSPD_latest.csv"
+        return self
 
     @model_validator(mode="after")
     def _load_keyring_and_validate(self) -> "Settings":

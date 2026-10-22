@@ -9,6 +9,7 @@ Commands:
   - `export-ftm`: Export FollowTheMoney v3.x (`.ftm.json`) JSONL stream
   - `import-ftm`: Import a FollowTheMoney v3.x (`.ftm.json`) JSONL file
   - `report`: Generate a 10-section HTML/PDF intelligence dossier for a UK company
+  - `data location [PATH] [--move]`: Show or change the data folder (downloads, database, exports)
   - `stats`: Print database & FollowTheMoney ontology statistics
 """
 from __future__ import annotations
@@ -22,6 +23,7 @@ from rich.table import Table
 
 from config.settings import get_settings
 from src.core.logging import setup_logging
+from src.datasources.storage import describe_location, set_location
 from src.etl.bootstrap_beta import bootstrap_beta_database
 from src.etl.import_onspd import import_onspd
 from src.intelligence.risk_scorer import RiskScorer
@@ -115,13 +117,17 @@ def cmd_score() -> None:
 
 @app.command("export-ftm")
 def cmd_export_ftm(
-    output: Path = typer.Option(Path("dati/exports/aethelburg.ftm.json"), "--output", "-o", help="Output .ftm.json path"),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Output .ftm.json path (default: <data folder>/exports/aethelburg.ftm.json)"
+    ),
     schema: str | None = typer.Option(None, "--schema", help="Filter by FtM schema (e.g. Company, Ownership)"),
     target_only: bool = typer.Option(False, "--target-only", help="Export only flagged target entities"),
     limit: int | None = typer.Option(None, "--limit", help="Max entities to export"),
 ) -> None:
     """Export entities in canonical FollowTheMoney v3.x JSONL format (`.ftm.json`)."""
     db = DatabaseService()
+    output = output or get_settings().paths.exports_dir / "aethelburg.ftm.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
     count = db.export_ftm_jsonl(output, schema=schema, target_only=target_only, limit=limit)
     console.print(f"[bold green]Exported {count} FollowTheMoney entities to {output}[/bold green]")
 
@@ -159,6 +165,28 @@ def cmd_stats() -> None:
     for k, v in st["counts"].items():
         table.add_row(k, f"{v:,}")
     console.print(table)
+
+
+data_app = typer.Typer(help="Data folder, bulk downloads and updates.")
+app.add_typer(data_app, name="data")
+
+
+@data_app.command("location")
+def cmd_data_location(
+    path: Path | None = typer.Argument(None, help="New data folder (omit to show the current one)"),
+    move: bool = typer.Option(False, "--move", help="Copy the database and data sub-folders to the new folder"),
+) -> None:
+    """Show or change where downloads, the database and exports are kept."""
+    if path is None:
+        console.print_json(data=describe_location())
+        return
+    try:
+        report = set_location(path, move=move)
+    except (ValueError, OSError) as exc:
+        console.print(f"[bold red]{exc}[/bold red]")
+        raise typer.Exit(code=1) from exc
+    console.print_json(data=report)
+    console.print("[bold amber1]Restart Aethelburg to use the new data folder.[/bold amber1]")
 
 
 if __name__ == "__main__":

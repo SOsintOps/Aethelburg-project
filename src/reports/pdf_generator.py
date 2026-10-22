@@ -16,6 +16,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from config.settings import get_settings
 from src.intelligence.ft3_mapper import CONFIDENCE_LEVELS
 from src.services.db_service import DatabaseService
 
@@ -96,7 +97,7 @@ class ReportGenerator:
         html_bytes = html_str.encode("utf-8")
         sha256_hash = hashlib.sha256(html_bytes).hexdigest()
 
-        out_folder = Path(output_dir) if output_dir else Path("dati/exports")
+        out_folder = Path(output_dir) if output_dir else get_settings().paths.exports_dir
         out_folder.mkdir(parents=True, exist_ok=True)
         out_file = out_folder / f"dossier_{comp['company_number']}_{report_id[:8]}.html"
         out_file.write_bytes(html_bytes)

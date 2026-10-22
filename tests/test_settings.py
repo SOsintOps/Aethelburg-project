@@ -29,10 +29,15 @@ def test_database_async_url_format():
         assert "asyncpg" in url
 
 
-def test_data_dir_default():
-    with patch.dict(os.environ, {"POSTGRES_PASSWORD": "test", "APP_ENV": "development"}):
+def test_data_paths_derive_from_data_dir(tmp_path):
+    env = {"POSTGRES_PASSWORD": "test", "APP_ENV": "development", "DATA_DIR": str(tmp_path)}
+    with patch.dict(os.environ, env):
+        os.environ.pop("SQLITE_PATH", None)
         s = Settings()
-        assert "dati" in str(s.paths.data_dir)
+        assert s.paths.data_dir == tmp_path
+        assert s.db.sqlite_path == tmp_path / "aethelburg.sqlite"
+        assert s.paths.exports_dir == tmp_path / "exports"
+        assert s.paths.log_dir == tmp_path / "logs"
 
 
 def test_singleton_pattern():

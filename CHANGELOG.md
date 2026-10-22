@@ -10,6 +10,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Configurable data folder** for downloads, the database, exports and logs: `python -m src.main data location [PATH] [--move]`. The choice is stored in a per-user `config.toml` (`%APPDATA%\Aethelburg` on Windows); `DATA_DIR` still overrides it. Default `C:\AethelburgData`; an existing database in the old `dati/` project folder keeps being used until a folder is chosen. `--move` copies the database (SQLite backup API) and the data sub-folders and never deletes the source.
 - Companies House REST client `refresh_company()`: profile, every officer appointment and every PSC statement for one company, written through the same code paths as the bulk importers. Companies that are not in the local database are created from their profile; API values are translated to the bulk wording the FT3 rules expect (`src/services/ch_mapping.py`).
 - `python -m src.main import-onspd PATH` imports exact postcode centroids from an ONS Postcode Directory CSV.
 - Map markers carry a `location_precision` (`postcode`, `district`, `area`); approximate positions are drawn as dashed rings with an explanation in the popup and in the legend.
