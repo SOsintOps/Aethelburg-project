@@ -171,7 +171,7 @@ class AppSettings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     ui_host: str = Field(default="127.0.0.1", alias="AETHELBURG_HOST")
     ui_port: int = Field(default=8050, alias="AETHELBURG_PORT")
-    version: str = "0.2.0-beta.1"
+    version: str = "0.3.0-beta.1"
     ontology_version: str = "3.x-ftm"
 
     model_config = SettingsConfigDict(

@@ -4,6 +4,17 @@
 
 let dataPanelTimer = null;
 
+// Version shown in the top bar and footer comes from the server settings (single source)
+fetch("/api/health")
+  .then((r) => r.json())
+  .then((h) => {
+    const badge = document.getElementById("app-version-badge");
+    const footer = document.getElementById("app-version-footer");
+    if (badge && h.version) badge.textContent = `v${h.version}`;
+    if (footer && h.version) footer.textContent = h.version;
+  })
+  .catch(() => {});
+
 async function apiJson(url, options = {}) {
   const res = await fetch(url, options);
   const body = await res.json().catch(() => ({}));

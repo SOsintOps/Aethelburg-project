@@ -7,7 +7,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.3.0-beta.1] — 2026-10-22
+
+### Changed
+- One version everywhere (`0.3.0-beta.1`); the UI reads it from `/api/health`.
+- `pyproject.toml` declares the web/CLI dependencies that were missing (FastAPI, Uvicorn, Jinja2, Typer, Rich, aiosqlite). `followthemoney` and `fingerprints` moved to the optional `[ftm]` extra (they need PyICU, which has no Windows wheel for Python 3.13; pure-Python fallbacks exist), PySide6 to `[desktop]`, WeasyPrint (unused) to `[pdf]`: `pip install -e .` now works on Windows.
+- `start.ps1` uses the project virtual environment and points first-time users to the Data & Updates tab.
+- `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
+- README: quick start and "Keeping data up to date".
 
 ### Added
 - **In-app user guide**: **? Help** (or F1) opens a guide with a chapter for every tab and function — getting started, interface, the six tabs, Companies House API, exports, risk scoring, command line, troubleshooting, data licences — with search; chapters live in `docs/guide/` and are served by `/api/help`.

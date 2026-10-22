@@ -1,5 +1,5 @@
 /**
- * Aethelburg v0.2.0-beta.2 — Frontend Application Controller
+ * Aethelburg v0.3.0-beta.1 — Frontend Application Controller
  *
  * Implements:
  *   1. OpenStreetMap Geospatial Intelligence (100% Free, ZERO API Key) +

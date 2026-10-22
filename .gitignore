@@ -1,7 +1,3 @@
-.claude/
-*.claude-session
-CLAUDE.local.md
-
 # Environment e segreti
 .env
 .env.*

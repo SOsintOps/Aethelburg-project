@@ -26,6 +26,7 @@ from src.core.logging import setup_logging
 from src.datasources.catalog import SOURCES, latest_release
 from src.datasources.downloader import download_source, local_releases
 from src.datasources.pipeline import refresh_all
+from src.datasources.runs import mark_interrupted
 from src.datasources.storage import describe_location, set_location
 from src.datasources.streaming import StreamWorker
 from src.etl.bootstrap_beta import bootstrap_beta_database
@@ -44,19 +45,35 @@ app = typer.Typer(
 console = Console()
 
 
+def _prepare_database(auto_bootstrap: bool) -> None:
+    """Flag imports interrupted by a previous run; explain how to load data into an empty database."""
+    db = DatabaseService()
+    conn = db.connect()
+    try:
+        interrupted = mark_interrupted(conn)
+    finally:
+        conn.close()
+    if interrupted:
+        console.print(f"[bold amber1]{interrupted} import step(s) were interrupted; Run import resumes them.[/bold amber1]")
+    if db.get_dashboard_stats()["counts"]["companies"] == 0:
+        if auto_bootstrap:
+            console.print("[bold amber1]Database is empty — building the demo database from the data folder...[/bold amber1]")
+            bootstrap_beta_database()
+        else:
+            console.print("[bold amber1]Database is empty: open the '6. Data & Updates' tab to download and import data.[/bold amber1]")
+
+
 @app.command("serve")
 def cmd_serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind host"),
     port: int = typer.Option(8050, "--port", help="Bind port"),
-    auto_bootstrap: bool = typer.Option(True, "--auto-bootstrap/--no-auto-bootstrap", help="Bootstrap DB if empty"),
+    auto_bootstrap: bool = typer.Option(
+        False, "--auto-bootstrap/--no-auto-bootstrap", help="Build the small demo database if empty"
+    ),
 ) -> None:
     """Start the Aethelburg web & API server."""
     setup_logging()
-    db = DatabaseService()
-    stats = db.get_dashboard_stats()
-    if auto_bootstrap and stats["counts"]["companies"] == 0:
-        console.print("[bold amber1]Database is empty — running initial Beta bootstrap from dati/...[/bold amber1]")
-        bootstrap_beta_database()
+    _prepare_database(auto_bootstrap)
 
     console.print(f"[bold green]Aethelburg v{get_settings().version}[/bold green] listening on [bold cyan]http://{host}:{port}[/bold cyan]")
     uvicorn.run(create_app(), host=host, port=port, log_level="info")
@@ -69,10 +86,7 @@ def cmd_desktop(
 ) -> None:
     """Launch Aethelburg in a desktop application window."""
     setup_logging()
-    db = DatabaseService()
-    if db.get_dashboard_stats()["counts"]["companies"] == 0:
-        console.print("[bold amber1]Bootstrapping database from dati/...[/bold amber1]")
-        bootstrap_beta_database()
+    _prepare_database(auto_bootstrap=False)
     launch_desktop(host=host, port=port, open_window=True)
 
 

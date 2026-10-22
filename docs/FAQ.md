@@ -139,7 +139,7 @@ Yes:
 - [Elementary CTI](https://github.com/SOsintOps/elementary-CTI): ransomware threat intelligence, for when a company under review turns up as a victim.
 - [Acta Diurna](https://github.com/SOsintOps/acta-diurna): an OSINT dashboard (in Italian) for news on law-enforcement operations in Italy, with source checks and structured reports, for when a company turns up in an Italian investigation.
 - [Claudii Exploratores](https://github.com/SOsintOps/claudii-exploratores): the Exploratores catalogue as an agent skill and MCP server for Claude, which builds company-register search links from an indicator (alpha).
-- [Il Conclave](https://github.com/SOsintOps/il-conclave): a Claude Code skill (in Italian) that runs ACH, a premortem and other analytic procedures on a question, useful to test the "shell company or innocent explanation?" judgement.
+- [Il Conclave](https://github.com/SOsintOps/il-conclave): an LLM assistant skill (in Italian) that runs ACH, a premortem and other analytic procedures on a question, useful to test the "shell company or innocent explanation?" judgement.
 - [Codex Machinae](https://github.com/SOsintOps/codex-machinae): the modular playbook for building software with LLM collaborators; its classification module covers the FT3 taxonomy Aethelburg uses for risk flags.
 - [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes): the method all of them share.
 

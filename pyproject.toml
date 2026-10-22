@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aethelburg"
-version = "0.2.0b1"
+version = "0.3.0b1"
 description = "Piattaforma desktop per analisi shell company — Companies House UK (FollowTheMoney v3.x)"
 readme = "README.md"
 license = { text = "MIT" }
@@ -12,6 +12,7 @@ requires-python = ">=3.12"
 dependencies = [
     # Database
     "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",        # SQLite async driver (local backend)
     "alembic>=1.13",
     "asyncpg>=0.29",          # PostgreSQL async driver
     "psycopg2-binary>=2.9",   # PostgreSQL sync driver (per Alembic)
@@ -29,11 +30,8 @@ dependencies = [
     "ijson>=3.2",              # Streaming JSON parser per PSC snapshot
 
     # Normalizzazione nomi multi-script (ADR-017)
-    "fingerprints>=0.5",       # CJK, Cirillico, Arabo → canonical ASCII
     "jellyfish>=1.0",          # Phonetic keys (Beider-Morse fallback)
-
-    # Entity model
-    "followthemoney>=3.5",     # FtM schema + make_id()
+    # fingerprints / followthemoney: optional [ftm] extra (PyICU), fallbacks in src/core
 
     # Fuzzy matching
     "rapidfuzz>=3.6",
@@ -45,21 +43,33 @@ dependencies = [
     # Scheduling
     "apscheduler>=3.10",
 
-    # PDF
-    "weasyprint>=62.0",        # Fallback: QWebEngineView (zero dep aggiuntive)
-
     # Export
     "openpyxl>=3.1",           # XLSX
     "networkx>=3.2",           # GEXF, GraphML, centrality metrics
 
-    # UI (LGPL)
-    "PySide6>=6.7",
+    # Web UI & CLI
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "jinja2>=3.1",             # report templates
+    "typer>=0.12",
+    "rich>=13.7",
 
     # Logging
     "structlog>=24.0",
 ]
 
 [project.optional-dependencies]
+# Both need PyICU (no Windows wheel for Python 3.13); src/core has pure-Python fallbacks
+ftm = [
+    "followthemoney>=3.5",
+    "fingerprints>=0.5",       # CJK, Cyrillic, Arabic -> canonical ASCII
+]
+pdf = [
+    "weasyprint>=62.0",        # not used yet: reports are printed to PDF from the browser
+]
+desktop = [
+    "PySide6>=6.7",            # optional native window (LGPL); Edge/Chrome app window otherwise
+]
 ml = [
     "sentence-transformers>=2.7",  # all-MiniLM-L6-v2, 384-dim, Apache 2.0
 ]

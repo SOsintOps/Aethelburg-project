@@ -2,7 +2,7 @@
   <img src="assets/logo.png" alt="Aethelburg" width="260"/>
 </p>
 
-# Aethelburg (`v0.2.0-beta.1`)
+# Aethelburg (`v0.3.0-beta.1`)
 
 Local investigative corporate intelligence platform for analysing UK company register data (Companies House), UK FCDO/OFSI Sanctions, and the ICIJ Offshore Leaks Database to identify shell companies and anomalous corporate structures.
 
@@ -29,21 +29,35 @@ The system applies **11 detection patterns** mapped to [FT3](https://github.com/
 
 ---
 
-## Quick Start (Zero-Docker Local Beta or Full Docker Stack)
+## Quick Start (Windows, no Docker)
 
 ```powershell
-# 1. One-command Windows Quick Start (auto-bootstraps dati/aethelburg.sqlite if needed and opens UI)
-.\start.ps1
-
-# Or via CLI commands:
-python -m src.main bootstrap     # Import real datasets from dati/ & run FT3 scoring
-python -m src.main serve         # Start Web & API server on http://127.0.0.1:8050
-python -m src.main desktop       # Launch native desktop app window
-python -m src.main stats         # Show DB & FollowTheMoney entity counts
-python -m src.main score         # Re-run Entity Resolution & all 11 FT3 detection rules
-python -m src.main export-ftm -o dati/exports/aethelburg.ftm.json --target-only
-python -m src.main report 14900101
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -e .        # add [ftm] where PyICU is available
+.\start.ps1                                          # opens http://127.0.0.1:8050
 ```
+
+Then open **6. Data & Updates** → **Download all** → **Run import**. The **? Help** button (or F1) opens the full user guide; the chapters are also in [`docs/guide/`](docs/guide/).
+
+Companies House keys (free, from the developer hub) are stored in the Windows Credential Manager:
+
+```powershell
+.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key        # REST: Update from CH / Fetch
+.venv\Scripts\python.exe -m keyring set aethelburg ch_streaming_key  # live updates
+```
+
+## Keeping data up to date
+
+| What | How |
+|---|---|
+| Data folder (downloads, database, exports) | default `C:\AethelburgData`; change it in the Data tab or with `data location PATH --move` |
+| Bulk sources (Companies House companies and PSC, UK Sanctions List, ONS Postcode Directory) | `data status` shows local vs latest release; `data download` gets new releases (resumable, never twice) |
+| What gets imported | every UK company goes into a light search index; a subset chosen in [`config/subset.toml`](config/subset.toml) (risk links, mass addresses, recent incorporations) is imported in full with PSC and FT3 scoring — `data import`, resumable |
+| Live changes | `data watch` (or **Start** in the Data tab) follows the Companies House Streaming API and resumes from its last timepoint |
+| Monthly catch-up | `data download` + `data import` after each monthly Companies House release, or whenever the stream reports a gap |
+| One company now | **Update from CH** in the dossier |
+
+Other commands: `stats`, `score`, `report CRN`, `export-ftm`, `import-ftm FILE`, `import-onspd FILE` — see the [command line chapter](docs/guide/12-cli-reference.md).
 
 ---
 
@@ -66,5 +80,5 @@ Every entity and relationship in Aethelburg is stored both in high-speed relatio
 
 ## Documentation and Related Projects
 
-- [FAQ](docs/FAQ.md) · [Report writing](docs/REPORT_WRITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Design: intelligence](docs/DESIGN_INTELLIGENCE.md) · [Ontology](docs/ONTOLOGY.md) · [Data sources](docs/DATA_SOURCES.md) · [Setup](docs/SETUP.md) · [Legal](docs/LEGAL.md)
+- [User guide](docs/guide/01-getting-started.md) · [FAQ](docs/FAQ.md) · [Report writing](docs/REPORT_WRITING.md) · [Architecture](docs/ARCHITECTURE.md) · [Design: intelligence](docs/DESIGN_INTELLIGENCE.md) · [Ontology](docs/ONTOLOGY.md) · [Data sources](docs/DATA_SOURCES.md) · [Setup](docs/SETUP.md) · [Legal](docs/LEGAL.md)
 - Related SOsintOps projects: [Quaesitor](https://github.com/SOsintOps/quaesitor) · [Wukong](https://github.com/SOsintOps/Wukong) · [Argos](https://github.com/SOsintOps/Argos) · [Speculator](https://github.com/SOsintOps/Speculator-Project) · [Exploratores](https://github.com/SOsintOps/Exploratores) · [Claudii Exploratores](https://github.com/SOsintOps/claudii-exploratores) · [Acta Diurna](https://github.com/SOsintOps/acta-diurna) · [Il Conclave](https://github.com/SOsintOps/il-conclave) · [Codex Machinae](https://github.com/SOsintOps/codex-machinae) · [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes)
