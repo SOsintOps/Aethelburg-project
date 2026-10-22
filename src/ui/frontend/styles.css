@@ -290,8 +290,6 @@ h3 {
 .brand-logo {
   width: 34px;
   height: 34px;
-  border-radius: 4px;
-  border: 1px solid var(--border-subtle);
 }
 
 .brand-title {

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Aethelburg" width="260"/>
+  <img src="assets/logo.png" alt="Aethelburg — Chartae Regni" width="460"/>
 </p>
 
 # Aethelburg (`v0.3.0-beta.1`)
