@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from config.settings import get_settings
-from config.user_config import DB_FILENAME, check_data_dir, load_user_config, save_user_config, user_config_path
+from config.user_config import (
+    DB_FILENAME,
+    check_data_dir,
+    load_user_config,
+    save_user_config,
+    user_config_path,
+)
 
 _COPIED_DIRS = ("downloads", "exports", "onspd")
 
