@@ -1679,6 +1679,8 @@ function updateLeafletThemeTiles() {
 
   ukTileLayer = L.tileLayer(tileUrl, {
     maxZoom: 19,
+    // OSM tile usage policy rejects requests without a Referer (serves an "Access blocked" tile)
+    referrerPolicy: "strict-origin-when-cross-origin",
     className: tileClass,
     attribution,
   }).addTo(ukLeafletMap);

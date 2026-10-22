@@ -7,6 +7,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Map tiles blocked**: the UI sent no `Referer` (`<meta name="referrer" content="no-referrer">`), so OpenStreetMap served its "Access blocked" tile for every request. The page now uses `strict-origin-when-cross-origin` and the Leaflet tile layer sets the same `referrerPolicy`.
+
+---
+
 ## [0.2.0-beta.1] — 2026-10-22
 
 ### Added
