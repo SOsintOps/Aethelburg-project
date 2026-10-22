@@ -199,7 +199,7 @@ def _seed_reference_typology_clusters(db: DatabaseService) -> dict[str, int]:
                     "notified_on": "2023-01-15",
                 },
                 owner_ftm_id=le_ftm["id"],
-                company_ftm_id=make_ftm_id("company", "gb", target_num),
+                company_ftm_id=make_ftm_id("Company", "gb", target_num),
             )
             conn.execute(
                 """
@@ -279,7 +279,7 @@ def _seed_reference_typology_clusters(db: DatabaseService) -> dict[str, int]:
                 "notified_on": "2022-04-12",
             },
             owner_ftm_id=bvi_le_ftm["id"],
-            company_ftm_id=make_ftm_id("company", "gb", "14900101"),
+            company_ftm_id=make_ftm_id("Company", "gb", "14900101"),
         )
         conn.execute(
             """
@@ -355,7 +355,7 @@ def _seed_reference_typology_clusters(db: DatabaseService) -> dict[str, int]:
                     "ceased_on": ceased_date,
                 },
                 owner_ftm_id=pep_ftm["id"],
-                company_ftm_id=make_ftm_id("company", "gb", cnum),
+                company_ftm_id=make_ftm_id("Company", "gb", cnum),
             )
             conn.execute(
                 """
@@ -388,7 +388,7 @@ def _seed_reference_typology_clusters(db: DatabaseService) -> dict[str, int]:
                     "resigned_on": ceased_date,
                 },
                 director_ftm_id=pep_ftm["id"],
-                company_ftm_id=make_ftm_id("company", "gb", cnum),
+                company_ftm_id=make_ftm_id("Company", "gb", cnum),
             )
             conn.execute(
                 """
@@ -423,7 +423,7 @@ def _seed_reference_typology_clusters(db: DatabaseService) -> dict[str, int]:
                 "is_super_secure": True,
             },
             owner_ftm_id=None,
-            company_ftm_id=make_ftm_id("company", "gb", "14900103"),
+            company_ftm_id=make_ftm_id("Company", "gb", "14900103"),
         )
         conn.execute(
             """
