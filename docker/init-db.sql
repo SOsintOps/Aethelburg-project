@@ -1,5 +1,5 @@
--- Eseguito automaticamente al primo avvio del container PostgreSQL
--- Crea le estensioni necessarie nel database aethelburg
+-- Runs automatically on the first start of the PostgreSQL container
+-- Creates the extensions the aethelburg database needs
 
 \c aethelburg;
 
@@ -11,12 +11,12 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Carica il search path per AGE (richiesto per Cypher queries)
+-- Search path for AGE (needed by Cypher queries)
 LOAD 'age';
 SET search_path = ag_catalog, "$user", public;
 
--- Crea il grafo AGE
+-- Create the AGE graph
 SELECT create_graph('aethelburg');
 
--- Crea schema casework separato
+-- Separate casework schema
 CREATE SCHEMA IF NOT EXISTS casework;

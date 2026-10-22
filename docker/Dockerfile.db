@@ -1,0 +1,32 @@
+# PostgreSQL 16 + PostGIS 3.4 + pgvector + Apache AGE
+# Used by docker-compose.yml for the db service
+FROM postgis/postgis:16-3.4
+
+# pgvector, from the postgresql apt repository
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       postgresql-16-pgvector \
+    && rm -rf /var/lib/apt/lists/*
+
+# Apache AGE 1.5.0 for PostgreSQL 16
+# Built from source (the only reliable cross-platform method)
+ARG AGE_VERSION=PG16/v1.5.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       build-essential \
+       postgresql-server-dev-16 \
+       libreadline-dev \
+       zlib1g-dev \
+       git \
+    && git clone --branch ${AGE_VERSION} --depth 1 \
+       https://github.com/apache/age.git /tmp/age \
+    && cd /tmp/age \
+    && make PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config \
+    && make PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config install \
+    && rm -rf /tmp/age \
+    && apt-get remove -y build-essential postgresql-server-dev-16 git libreadline-dev zlib1g-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Init script: creates the extensions on first start
+COPY docker/init-db.sql /docker-entrypoint-initdb.d/01-init-extensions.sql

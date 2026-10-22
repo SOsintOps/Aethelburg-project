@@ -1,4 +1,4 @@
-"""Alembic env.py — configurazione runtime migrazioni."""
+"""Alembic env.py: runtime configuration of the migrations."""
 from __future__ import annotations
 
 import sys
@@ -8,7 +8,7 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Aggiunge la root del progetto al path
+# Put the project root on the import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config.settings import get_settings
@@ -18,7 +18,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Imposta URL dal settings
+# Database URL from the settings
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.db.sync_url)
 

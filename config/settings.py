@@ -1,11 +1,11 @@
 """
-Configurazione applicazione via Pydantic v2 (+ pydantic-settings o python-dotenv fallback).
+Application settings through Pydantic v2 (pydantic-settings, or a python-dotenv fallback).
 
-Ordine di precedenza (dal basso = maggiore priorità):
-  1. Valori default in questo file
-  2. File .env nella root del progetto
-  3. Variabili d'ambiente del sistema
-  4. python-keyring per secrets sensibili (password DB, API key)
+Precedence (later entries win):
+  1. Defaults in this file
+  2. `.env` in the project root
+  3. Environment variables
+  4. python-keyring for secrets (database password, API keys)
 """
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ class DatabaseSettings(BaseSettings):
     @computed_field
     @property
     def async_url(self) -> str:
-        """URL asincrono per SQLAlchemy + asyncpg (senza sslmode, parametro libpq non valido in asyncpg)."""
+        """Async URL for SQLAlchemy + asyncpg (without sslmode, a libpq parameter asyncpg rejects)."""
         if self.backend == "sqlite":
             return f"sqlite+aiosqlite:///{self.sqlite_path.as_posix()}"
         return (
@@ -98,7 +98,7 @@ class DatabaseSettings(BaseSettings):
     @computed_field
     @property
     def sync_url(self) -> str:
-        """URL sincrono per Alembic migrations e operazioni batch."""
+        """Sync URL for Alembic migrations and batch jobs."""
         if self.backend == "sqlite":
             return f"sqlite:///{self.sqlite_path.as_posix()}"
         return (
@@ -183,7 +183,7 @@ class AppSettings(BaseSettings):
 
 
 class Settings(BaseSettings):
-    """Configurazione principale Aethelburg."""
+    """Main Aethelburg settings."""
 
     app: AppSettings = Field(default_factory=AppSettings)
     db: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -228,8 +228,8 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _load_keyring_and_validate(self) -> "Settings":
         """
-        1. Carica secrets sensibili da python-keyring se non già impostati via env.
-        2. Valida la password DB in ambienti non-development quando il backend non è sqlite.
+        1. Load secrets from python-keyring when the environment does not set them.
+        2. Require a database password outside development when the backend is not SQLite.
         """
         try:
             import keyring
@@ -262,5 +262,5 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Singleton settings — cached dopo il primo accesso."""
+    """Settings singleton, cached after the first call."""
     return Settings()

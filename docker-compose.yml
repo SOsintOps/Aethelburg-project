@@ -36,24 +36,10 @@ services:
       - aethelburg_nominatim:/nominatim/data
     profiles:
       - geocoding
-    # Avvio opzionale: docker-compose --profile geocoding up nominatim
-
-  # RuVector — opzionale, attivare solo con >10M vettori (ADR-001)
-  # ruvector:
-  #   image: ruvnet/ruvector:latest
-  #   container_name: aethelburg_ruvector
-  #   restart: unless-stopped
-  #   ports:
-  #     - "127.0.0.1:7070:7070"
-  #   volumes:
-  #     - aethelburg_ruvector:/data
-  #   profiles:
-  #     - ruvector
+    # Optional: docker compose --profile geocoding up nominatim
 
 volumes:
   aethelburg_pgdata:
     driver: local
   aethelburg_nominatim:
     driver: local
-  # aethelburg_ruvector:
-  #   driver: local

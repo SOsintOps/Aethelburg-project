@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aethelburg"
 version = "0.3.0b1"
-description = "Piattaforma desktop per analisi shell company — Companies House UK (FollowTheMoney v3.x)"
+description = "Local workbench for investigating UK shell companies on Companies House data (FollowTheMoney v3.x)"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
@@ -15,21 +15,21 @@ dependencies = [
     "aiosqlite>=0.20",        # SQLite async driver (local backend)
     "alembic>=1.13",
     "asyncpg>=0.29",          # PostgreSQL async driver
-    "psycopg2-binary>=2.9",   # PostgreSQL sync driver (per Alembic)
+    "psycopg2-binary>=2.9",   # PostgreSQL sync driver (for Alembic)
 
-    # Configurazione
+    # Configuration
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
     "python-dotenv>=1.0",
-    "keyring>=24.0",           # Credential store OS (Windows Credential Manager)
+    "keyring>=24.0",           # OS credential store (Windows Credential Manager)
 
     # ETL / Data
-    "httpx[http2]>=0.27",      # Download asincrono con streaming
+    "httpx[http2]>=0.27",      # async streaming downloads
     "aiofiles>=23.0",
-    "orjson>=3.9",             # JSON veloce per JSONL parsing
-    "ijson>=3.2",              # Streaming JSON parser per PSC snapshot
+    "orjson>=3.9",             # fast JSON for JSONL parsing
+    "ijson>=3.2",              # streaming JSON parser for the PSC snapshot
 
-    # Normalizzazione nomi multi-script (ADR-017)
+    # Multi-script name normalisation (ADR-017)
     "jellyfish>=1.0",          # Phonetic keys (Beider-Morse fallback)
     # fingerprints / followthemoney: optional [ftm] extra (PyICU), fallbacks in src/core
 
@@ -38,7 +38,7 @@ dependencies = [
 
     # Geo
     "shapely>=2.0",
-    "geoalchemy2>=0.14",       # PostGIS types per SQLAlchemy
+    "geoalchemy2>=0.14",       # PostGIS types for SQLAlchemy
 
     # Scheduling
     "apscheduler>=3.10",

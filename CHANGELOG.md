@@ -9,16 +9,9 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 
 ---
 
-## [0.3.0-beta.1] — 2026-10-22
+## [Unreleased]
 
-### Changed
-- One version everywhere (`0.3.0-beta.1`); the UI reads it from `/api/health`.
-- `pyproject.toml` declares the web/CLI dependencies that were missing (FastAPI, Uvicorn, Jinja2, Typer, Rich, aiosqlite). `followthemoney` and `fingerprints` moved to the optional `[ftm]` extra (they need PyICU, which has no Windows wheel for Python 3.13; pure-Python fallbacks exist), PySide6 to `[desktop]`, WeasyPrint (unused) to `[pdf]`: `pip install -e .` now works on Windows.
-- `start.ps1` uses the project virtual environment and points first-time users to the Data & Updates tab.
-- `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
-- README: quick start and "Keeping data up to date".
-
-### Fixed (people)
+### Fixed
 - `data fix-person-names`: people imported before names were normalised without titles kept fingerprints such as `mr john smith`, and an import with the fixed rule created them again. The command (backup first) recomputes every fingerprint and FtM id, merges each duplicate into one person (PSC statements, appointments and case references moved, repeated PSC-derived appointments removed) and rewrites the old id inside Ownership and Directorship entities. Safe to run twice.
 
 ### Added (Companies House documents)
@@ -32,6 +25,22 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - Not counted as changes: the first load of a company, a stub company taking its real details, a value the earlier source did not have, and the same value written differently by the bulk file and the API (case, punctuation; addresses compared by fingerprint).
 - The changes appear in the company timeline and in a **Recent changes** card in the Data tab (filter by type, subset only, CSV export); API `GET /api/data/changes`.
 - PSC statements keep the time they were first seen (`created_at`) when they are updated.
+
+### Changed (repository)
+- Every comment, docstring, script message and example file is in English (`config/`, `migrations/`, `docker/`, `scripts/setup_db.sh`, `.env.example`, `.gitignore`, `pyproject.toml`).
+- `docker/Dockerfile.db` is now in the repository: the `*.db` ignore rule had kept it out, so `docker compose up db` failed on a fresh clone.
+- `.env.example` no longer sets `DATA_DIR=./dati`, which overrode the data folder chosen in the app; the commented-out RuVector service is gone from `docker-compose.yml`.
+
+---
+
+## [0.3.0-beta.1] — 2026-10-22
+
+### Changed
+- One version everywhere (`0.3.0-beta.1`); the UI reads it from `/api/health`.
+- `pyproject.toml` declares the web/CLI dependencies that were missing (FastAPI, Uvicorn, Jinja2, Typer, Rich, aiosqlite). `followthemoney` and `fingerprints` moved to the optional `[ftm]` extra (they need PyICU, which has no Windows wheel for Python 3.13; pure-Python fallbacks exist), PySide6 to `[desktop]`, WeasyPrint (unused) to `[pdf]`: `pip install -e .` now works on Windows.
+- `start.ps1` uses the project virtual environment and points first-time users to the Data & Updates tab.
+- `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
+- README: quick start and "Keeping data up to date".
 
 ### Added (documentation)
 - **FAQ rewritten** to match the program (it described Docker, PostgreSQL, automatic APScheduler updates and features that do not exist) and answering: where the data is, how to update, how to download PSC and officers, company changes, documents, backups, logs, versions; available in the app (**? Help → FAQ**).

@@ -1,4 +1,4 @@
-# Environment e segreti
+# Environment and secrets
 .env
 .env.*
 !.env.example
@@ -11,7 +11,7 @@
 *.pfx
 *.bak
 
-# Dati — file di grandi dimensioni, non versionare
+# Data: large files, never versioned
 dati/
 data/
 *.csv
@@ -36,8 +36,9 @@ dist/
 build/
 *.egg
 
-# Database locale
+# Local database
 *.db
+!docker/Dockerfile.db
 *.sqlite
 *.sqlite3
 

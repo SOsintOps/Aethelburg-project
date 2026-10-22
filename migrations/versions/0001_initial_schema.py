@@ -1,15 +1,15 @@
-"""Schema iniziale Aethelburg — ontologia v2.0.0 (FollowTheMoney v3.x compatible)
+"""Initial Aethelburg schema: ontology v2.0.0 (FollowTheMoney v3.x compatible)
 
 Revision ID: 0001
 Revises:
 Create Date: 2026-03-26
 
-Crea:
-  - Tabella canonica ftm_entities (FollowTheMoney v3.x JSONB + indice GIN)
-  - Schema public: tabelle dati sorgente (Addresses, Companies House, PSC, ICIJ, Sanctions, PEP, Geo)
-  - Schema casework: tabelle investigative allineate con Intelligence Field Notes (UNODC 4x4, confidence)
-  - Estensioni: postgis, vector, age, pg_trgm, unaccent, uuid-ossp
-  - Indici critici per performance
+Creates:
+  - Canonical ftm_entities table (FollowTheMoney v3.x JSONB + GIN index)
+  - Schema public: source data tables (Addresses, Companies House, PSC, ICIJ, Sanctions, PEP, Geo)
+  - Schema casework: investigation tables aligned with Intelligence Field Notes (UNODC 4x4, confidence)
+  - Extensions: postgis, vector, age, pg_trgm, unaccent, uuid-ossp
+  - Indexes needed for performance
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # ------------------------------------------------------------------ #
-    # ESTENSIONI                                                           #
+    # EXTENSIONS                                                           #
     # ------------------------------------------------------------------ #
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis_topology")
@@ -35,11 +35,11 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
     op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
 
-    # Schema casework separato (ADR-012)
+    # Separate casework schema (ADR-012)
     op.execute("CREATE SCHEMA IF NOT EXISTS casework")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: data_sources — provenance di ogni dato (Layer 5 ontologia) #
+    # TABELLA: data_sources — provenance of every record (ontology L5) #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE data_sources (
@@ -102,7 +102,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_geo_postcode_geom ON geo_postcode_centroids USING gist(geom)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: addresses — Indirizzi normalizzati (FtM: Address)          #
+    # TABELLA: addresses — normalised addresses (FtM: Address)          #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE addresses (
@@ -137,7 +137,7 @@ def upgrade() -> None:
         ftm_id                  VARCHAR(128),
         ftm_schema              VARCHAR(64)  NOT NULL DEFAULT 'Company',
 
-        -- Indirizzo registrato
+        -- Registered address
         reg_address_care_of     VARCHAR(200),
         reg_address_po_box      VARCHAR(50),
         reg_address_line1       VARCHAR(300),
@@ -147,7 +147,7 @@ def upgrade() -> None:
         reg_address_country     VARCHAR(100),
         reg_address_postcode    VARCHAR(10),
 
-        -- Tipo e stato
+        -- Type and status
         company_category        VARCHAR(100),
         company_status          VARCHAR(50),
         country_of_origin       VARCHAR(100),
@@ -156,7 +156,7 @@ def upgrade() -> None:
         dissolution_date        DATE,
         incorporation_date      DATE,
 
-        -- Conti
+        -- Accounts
         accounts_account_ref_day    SMALLINT,
         accounts_account_ref_month  SMALLINT,
         accounts_account_category   VARCHAR(50),
@@ -168,13 +168,13 @@ def upgrade() -> None:
         returns_next_due_date       DATE,
         returns_last_made_up_date   DATE,
 
-        -- Ipoteche
+        -- Mortgages
         mortgages_num_charges           SMALLINT DEFAULT 0,
         mortgages_num_outstanding       SMALLINT DEFAULT 0,
         mortgages_num_part_satisfied    SMALLINT DEFAULT 0,
         mortgages_num_satisfied         SMALLINT DEFAULT 0,
 
-        -- Codici SIC
+        -- SIC codes
         sic_text_1  VARCHAR(200),
         sic_text_2  VARCHAR(200),
         sic_text_3  VARCHAR(200),
@@ -191,7 +191,7 @@ def upgrade() -> None:
         -- URI
         ch_uri          VARCHAR(200),
 
-        -- Nomi precedenti (fino a 10)
+        -- Previous names (up to 10)
         prev_name_1_date    DATE,
         prev_name_1         VARCHAR(500),
         prev_name_2_date    DATE,
@@ -243,7 +243,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_companies_ftm_id ON companies(ftm_id)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: persons — persone fisiche (FtM: Person)                    #
+    # TABELLA: persons — natural persons (FtM: Person)                    #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE persons (
@@ -272,7 +272,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_persons_ftm_id ON persons(ftm_id)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: legal_entities — PSC corporate, entità straniere           #
+    # TABELLA: legal_entities — corporate PSC, foreign entities           #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE legal_entities (
@@ -325,7 +325,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_psc_active ON psc_ownerships(company_number) WHERE is_ceased = false")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: directorships — incarichi direttoriali (FtM: Directorship)  #
+    # TABELLA: directorships — officer appointments (FtM: Directorship)   #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE directorships (
@@ -353,7 +353,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_dir_active ON directorships(company_number) WHERE is_active = true")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: officers_fetch_queue — coda on-demand fetch directors       #
+    # TABELLA: officers_fetch_queue — on-demand officer fetch queue        #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE officers_fetch_queue (
@@ -371,7 +371,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_queue_priority ON officers_fetch_queue(priority, enqueued_at) WHERE status = 'pending'")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: streaming_checkpoints — posizione streaming CH API          #
+    # TABELLA: streaming_checkpoints — CH streaming API position           #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE streaming_checkpoints (
@@ -388,7 +388,7 @@ def upgrade() -> None:
     """)
 
     # ------------------------------------------------------------------ #
-    # TABELLA: sanctions — entità sanzionate (FtM: Sanction + Entity)     #
+    # TABELLA: sanctions — sanctioned entities (FtM: Sanction + Entity)   #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE sanctions (
@@ -444,7 +444,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_pep_country ON pep_persons(country)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: name_variants — normalizzazione multi-script (ADR-017)      #
+    # TABELLA: name_variants — multi-script normalisation (ADR-017)       #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE name_variants (
@@ -605,7 +605,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_icij_rel_end ON icij_relationships(node_id_end)")
 
     # ------------------------------------------------------------------ #
-    # TABELLA: risk_flags — pattern FT3 rilevati (ADR-016)                #
+    # TABELLA: risk_flags — detected FT3 patterns (ADR-016)               #
     # ------------------------------------------------------------------ #
     op.execute("""
     CREATE TABLE risk_flags (
@@ -645,7 +645,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX idx_events_date ON entity_events(detected_at DESC)")
 
     # ------------------------------------------------------------------ #
-    # SCHEMA CASEWORK — investigazioni (ADR-012 + Intelligence Notes)      #
+    # CASEWORK SCHEMA — investigations (ADR-012 + Intelligence Notes)      #
     # ------------------------------------------------------------------ #
 
     op.execute("""

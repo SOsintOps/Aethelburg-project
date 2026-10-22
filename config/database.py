@@ -1,9 +1,9 @@
 """
-Setup SQLAlchemy 2.0 async engine / session factory con fallback nativo SQLite.
+SQLAlchemy 2.0 async engine / session factory with a native SQLite fallback.
 
-Supporta:
-  1. PostgreSQL via SQLAlchemy 2.0 + asyncpg (quando installato e configurato)
-  2. SQLite locale compatibile con FollowTheMoney (dati/aethelburg.sqlite)
+Supports:
+  1. PostgreSQL through SQLAlchemy 2.0 + asyncpg (when installed and configured)
+  2. Local FollowTheMoney-compatible SQLite (`<data folder>/aethelburg.sqlite`)
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ _session_factory: Any = None
 
 
 class LocalSQLiteAsyncSession:
-    """Sessione asincrona leggera su sqlite3 quando SQLAlchemy non è installato o DB_BACKEND=sqlite."""
+    """Lightweight async session over sqlite3 when SQLAlchemy is not installed or DB_BACKEND=sqlite."""
 
     def __init__(self, db_path: Path) -> None:
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -63,7 +63,7 @@ BUSY_TIMEOUT_SECONDS = 60.0
 
 
 def get_sqlite_connection(db_path: Path | None = None) -> sqlite3.Connection:
-    """Restituisce una connessione sqlite3 configurata con WAL e foreign_keys=ON."""
+    """Return a sqlite3 connection configured with WAL and foreign_keys=ON."""
     settings = get_settings()
     target = Path(db_path or settings.db.sqlite_path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -111,7 +111,7 @@ def _get_session_factory() -> Any:
 
 @asynccontextmanager
 async def get_session() -> AsyncGenerator[Any, None]:
-    """Context manager asincrono per una sessione database."""
+    """Async context manager for a database session."""
     session = _get_session_factory()()
     try:
         yield session
@@ -137,7 +137,7 @@ class _DisposeResult:
 
 
 def dispose_engine() -> _DisposeResult:
-    """Chiude il connection pool e resetta lo stato. Supporta chiamata sia sincrona che `await`."""
+    """Close the connection pool and reset the state. Works both called directly and with `await`."""
     global _engine, _session_factory
     old_engine = _engine
     _engine = None
