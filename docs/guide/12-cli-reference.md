@@ -27,6 +27,7 @@ Add `--help` to any command for its options.
 | `data watch` | follows the Companies House Streaming API until Ctrl+C |
 | `data daily` | daily update: new releases, import if needed, officers of new flagged companies |
 | `data officers [--scope flagged\|case\|subset] [--limit N]` | officers for many companies through the API (resumable) |
+| `data fix-person-names` | once, after upgrading from a version before 0.3.0-beta.1: recompute person fingerprints without titles and merge the duplicates (backup first) |
 | `data backup` / `data backups` / `data restore NAME` | back up, list and restore the database |
 | `import-onspd FILE` | imports postcode positions from an ONS Postcode Directory CSV |
 | `bootstrap` | small demonstration database from the files in the old `dati` folder |

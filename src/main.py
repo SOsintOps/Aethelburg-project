@@ -291,6 +291,16 @@ def cmd_data_officers(
     console.print_json(data=fetch_officers_batch(scope, limit, max_age_days))
 
 
+@data_app.command("fix-person-names")
+def cmd_data_fix_person_names() -> None:
+    """Recompute person fingerprints written before titles were dropped (Mr, Mrs, ...); merges duplicates."""
+    from src.etl.migrate_person_fingerprints import migrate_person_fingerprints
+
+    setup_logging()
+    create_backup("before-fix-person-names")
+    console.print_json(data=migrate_person_fingerprints())
+
+
 @data_app.command("daily")
 def cmd_data_daily() -> None:
     """Daily update: download new releases, import if anything changed, fetch officers of new flagged companies."""

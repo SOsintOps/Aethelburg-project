@@ -18,6 +18,9 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - `serve`/`desktop` no longer build the demo database on their own (`serve --auto-bootstrap` still can); on start they flag imports a previous run left unfinished.
 - README: quick start and "Keeping data up to date".
 
+### Fixed (people)
+- `data fix-person-names`: people imported before names were normalised without titles kept fingerprints such as `mr john smith`, and an import with the fixed rule created them again. The command (backup first) recomputes every fingerprint and FtM id, merges each duplicate into one person (PSC statements, appointments and case references moved, repeated PSC-derived appointments removed) and rewrites the old id inside Ownership and Directorship entities. Safe to run twice.
+
 ### Added (Companies House documents)
 - **Filing history**: **Update from CH** also downloads every filing of the company (`filings` table: date, form type, category, description, pages); filings appear as `FILING` events in the timeline and in a **Documents** card in the dossier. List pagination now also follows `total_count`, which the filing history uses instead of `total_results`.
 - **Documents on request** through the Companies House Document API (metadata, then `/content` as PDF, whose signed download address is fetched without the key): **PDF** for one filing, **Download all accounts**, **Open** for documents already on disk. Files go to `<data folder>/documents/<company number>/<date>-<form>-<transaction>.pdf` and are never downloaded twice; only `document-api.company-information.service.gov.uk` addresses are followed and file names are checked before serving.
