@@ -282,13 +282,15 @@ function debounceSearch() {
 async function loadCompanies() {
   const q = document.getElementById("search-input")?.value || "";
   const ft3 = document.getElementById("ft3-filter")?.value || "";
-  const minRisk = document.getElementById("risk-filter")?.value || "0";
+  const riskChoice = document.getElementById("risk-filter")?.value || "0";
 
   const params = new URLSearchParams({
     q,
-    min_risk: minRisk,
+    // "flagged" = at least one finding that counts (a shared address alone scores but does not flag)
+    min_risk: riskChoice === "flagged" ? "0" : riskChoice,
     limit: "80",
   });
+  if (riskChoice === "flagged") params.set("flagged_only", "true");
   if (ft3) params.set("ft3", ft3);
 
   try {
