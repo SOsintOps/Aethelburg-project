@@ -892,6 +892,34 @@ function renderBackgroundGuides() {
   return "";
 }
 
+let labelMeasureCtx = null;
+
+/**
+ * Cut `text` so that it fits `maxWidth` pixels in `font` (a CSS font shorthand), ending with
+ * an ellipsis when something was cut. Measured on a canvas, so wide upper-case names and
+ * narrow lower-case ones get the room they really take.
+ */
+function fitLabel(text, maxWidth, font) {
+  const value = String(text || "");
+  if (!labelMeasureCtx) labelMeasureCtx = document.createElement("canvas").getContext("2d");
+  const ctx = labelMeasureCtx;
+  ctx.font = font;
+  if (ctx.measureText(value).width <= maxWidth) return value;
+  let lo = 0;
+  let hi = value.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(`${value.slice(0, mid).trimEnd()}…`).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return `${value.slice(0, lo).trimEnd()}…`;
+}
+
+function graphLabelFont(size, weight = 400, family = null) {
+  const base = family || getComputedStyle(document.body).fontFamily || "sans-serif";
+  return `${weight} ${size}px ${base}`;
+}
+
 function renderNodeShapeAndGlyph(n) {
   const pal = getGraphThemePalette();
   const color = nodeColor(n);
@@ -925,11 +953,13 @@ function renderNodeShapeAndGlyph(n) {
     const h = 46;
     const hw = w / 2;
     const hh = h / 2;
-    const subLine = n.company_number
-      ? `CRN: ${n.company_number}`
-      : n.jurisdiction
-      ? n.jurisdiction.slice(0, 18)
-      : "Corporate Entity";
+    const textWidth = w - 31 - 6; // right of the building glyph, with a margin before the border
+    const nameLine = fitLabel(pinBadge + (n.short_label || n.label || ""), textWidth, graphLabelFont(10, 700));
+    const subLine = fitLabel(
+      n.company_number ? `CRN: ${n.company_number}` : n.jurisdiction || "Corporate Entity",
+      textWidth,
+      graphLabelFont(8.8, 400, "Consolas, monospace")
+    );
 
     return `
       <!-- Organization Rectangle (UNODC Ch. 6) -->
@@ -941,7 +971,7 @@ function renderNodeShapeAndGlyph(n) {
             fill="${color}" />
       <!-- Legal Name & Registration Number inside box (UNODC p. 44) -->
       <text x="${-hw + 31}" y="-4" text-anchor="start" fill="${pal.nodeText}" font-size="10" font-weight="700">
-        ${escapeHtml(pinBadge + (n.short_label || n.label || "").slice(0, 16))}
+        ${escapeHtml(nameLine)}
       </text>
       <text x="${-hw + 31}" y="10" text-anchor="start" fill="${pal.nodeSub}" font-size="8.8" font-family="Consolas, monospace">
         ${escapeHtml(subLine)}
