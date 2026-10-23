@@ -14,6 +14,9 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 ### Added (screenshots)
 - Screenshots of every tab in the user guide (`docs/guide/images/`, 1920×1080), one in the README. The in-app help renders them too (`/guide/images/` is served from `docs/guide/images`; an image on its own line in a chapter is shown). The GeoINT one shows London.
 
+### Changed (narrow windows)
+- **Nothing overlaps when the window is narrow.** The supported minimum width is 1280 px: narrower, the page scrolls sideways instead of squeezing the three columns. Above that, bars wrap and labels shorten rather than overflow: the tab bar and the dossier buttons go to a second line when needed; below 1500 px the tabs show short names ("1. Graph", "2. GeoInt", …), the subtitle of the top bar is hidden and the two selects are narrower; below 1380 px the ICIJ and FtM counters are hidden. The status line next to the tabs is cut with an ellipsis instead of wrapping.
+
 ### Changed (network graph)
 - **Fewer crossing links.** The organic layout now computes several seeded placements, keeps the one with the fewest link crossings and links running across nodes, then swaps pairs of nodes while that removes more (UNODC step 7, "clarify and re-plot"); **Untangle** does the same with more seeds. A chart such as a company with its controllers, bridge companies and address hubs now draws without crossings. Big charts keep the layout quick (fewer seeds and passes above 60 nodes).
 - **Link labels no longer cover each other or the nodes**: a label that would sit on another label or on a card slides along its own link.

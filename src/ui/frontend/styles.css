@@ -1238,3 +1238,112 @@ textarea:focus,
 body.matrix-mode .exploratores-footer a {
   color: #D4AF37;
 }
+
+/* ============================================================================
+   NARROW WINDOWS
+   Nothing may overlap or spill out of its box: bars wrap, labels shorten,
+   and below the supported minimum width the page scrolls sideways.
+   ============================================================================ */
+body {
+  min-width: 1280px;
+  overflow-x: auto;
+}
+
+.workspace-grid {
+  min-width: 1280px;
+}
+
+.brand {
+  min-width: 0;
+}
+
+.brand-subtitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-strip,
+.topbar-actions {
+  flex-shrink: 0;
+}
+
+.center-tabs {
+  height: auto;
+  min-height: 46px;
+  flex-shrink: 0; /* the view below must not squeeze the bar: wrapped rows would be cut off */
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+.tab-group {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 46px;
+}
+
+.panel-header {
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#center-status {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 4px 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-title-row {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.toolbar-seg {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1500px) {
+  .brand-subtitle {
+    display: none;
+  }
+
+  .tab-btn {
+    padding: 0 10px;
+  }
+
+  .tab-btn .tab-label {
+    display: none;
+  }
+
+  .tab-btn::after {
+    content: attr(data-short);
+  }
+
+  #export-select {
+    width: 130px !important;
+  }
+
+  #theme-select {
+    width: 118px !important;
+  }
+}
+
+@media (max-width: 1380px) {
+  .kpi-chip-optional {
+    display: none;
+  }
+}

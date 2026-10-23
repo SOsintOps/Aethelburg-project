@@ -1,6 +1,6 @@
 # Interface tour
 
-The window has a top bar and three panels.
+The window has a top bar and three panels. It is designed for a width of 1280 px or more: narrower than that it scrolls sideways; between 1280 and 1500 px the tabs show short names, the subtitle and two counters are hidden, and buttons wrap onto a second line rather than overlap.
 
 ![The window: counters in the top bar, search and the list of flagged companies on the left, the network graph in the centre, the dossier on the right](images/overview-wide.png)
 

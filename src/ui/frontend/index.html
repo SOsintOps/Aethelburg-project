@@ -31,8 +31,8 @@
       <div class="kpi-chip"><span class="kpi-label">Companies</span><span class="kpi-val" id="kpi-companies">—</span></div>
       <div class="kpi-chip"><span class="kpi-label">Flagged FT3</span><span class="kpi-val" id="kpi-flagged" style="color:var(--counter-red);">—</span></div>
       <div class="kpi-chip"><span class="kpi-label">Sanctions</span><span class="kpi-val" id="kpi-sanctions">—</span></div>
-      <div class="kpi-chip"><span class="kpi-label">ICIJ Nodes</span><span class="kpi-val" id="kpi-icij">—</span></div>
-      <div class="kpi-chip"><span class="kpi-label">FtM Store</span><span class="kpi-val" id="kpi-ftm" style="color:var(--primary-color);">—</span></div>
+      <div class="kpi-chip kpi-chip-optional"><span class="kpi-label">ICIJ Nodes</span><span class="kpi-val" id="kpi-icij">—</span></div>
+      <div class="kpi-chip kpi-chip-optional"><span class="kpi-label">FtM Store</span><span class="kpi-val" id="kpi-ftm" style="color:var(--primary-color);">—</span></div>
     </div>
 
     <div class="topbar-actions">
@@ -87,13 +87,13 @@
     <section class="panel panel-center">
       <div class="center-tabs">
         <div class="tab-group">
-          <button class="tab-btn active" data-tab="graph" onclick="switchTab('graph')">1. Network Graph</button>
-          <button class="tab-btn" data-tab="map" onclick="switchTab('map')">2. GeoInt &amp; Hubs</button>
-          <button class="tab-btn" data-tab="timeline" onclick="switchTab('timeline')">3. Timeline &amp; FT3 Matrix</button>
-          <button class="tab-btn" data-tab="ftm" onclick="switchTab('ftm')">4. FollowTheMoney (FtM)</button>
-          <button class="tab-btn" data-tab="casework" onclick="switchTab('casework')">5. Casework &amp; Reports</button>
-          <button class="tab-btn" data-tab="data" onclick="switchTab('data')">6. Data &amp; Updates</button>
-          <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">7. Settings</button>
+          <button class="tab-btn active" data-tab="graph" data-short="1. Graph" onclick="switchTab('graph')"><span class="tab-label">1. Network Graph</span></button>
+          <button class="tab-btn" data-tab="map" data-short="2. GeoInt" onclick="switchTab('map')"><span class="tab-label">2. GeoInt &amp; Hubs</span></button>
+          <button class="tab-btn" data-tab="timeline" data-short="3. Timeline" onclick="switchTab('timeline')"><span class="tab-label">3. Timeline &amp; FT3 Matrix</span></button>
+          <button class="tab-btn" data-tab="ftm" data-short="4. FtM" onclick="switchTab('ftm')"><span class="tab-label">4. FollowTheMoney (FtM)</span></button>
+          <button class="tab-btn" data-tab="casework" data-short="5. Casework" onclick="switchTab('casework')"><span class="tab-label">5. Casework &amp; Reports</span></button>
+          <button class="tab-btn" data-tab="data" data-short="6. Data" onclick="switchTab('data')"><span class="tab-label">6. Data &amp; Updates</span></button>
+          <button class="tab-btn" data-tab="settings" data-short="7. Settings" onclick="switchTab('settings')"><span class="tab-label">7. Settings</span></button>
         </div>
         <div id="center-status" style="font-size:11px; color:var(--text-secondary); align-self:center;">Select an entity to inspect</div>
       </div>
@@ -269,7 +269,7 @@
       <div class="panel-header">
         <div class="panel-title-row">
           <span class="panel-title">Intelligence Dossier</span>
-          <div style="display:flex; gap:6px;">
+          <div class="panel-actions">
             <button class="btn btn-sm" id="ch-refresh-btn" onclick="refreshCurrentCompany()" title="Download the latest profile, officers and PSC from Companies House">Update from CH</button>
             <button class="btn btn-sm btn-primary" onclick="openPrintableReport()">10-Sec Report</button>
             <button class="btn btn-sm" onclick="enrollCurrentInCase()">+ Add to Case</button>
