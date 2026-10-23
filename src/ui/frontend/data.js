@@ -210,30 +210,69 @@ async function appendPersonMatches(q) {
   );
   if (!people.length) return;
   if (container.textContent.includes("No matching companies found")) container.innerHTML = "";
-  const dob = (p) => (p.dob_year ? ` • born ${p.dob_month ? String(p.dob_month).padStart(2, "0") + "/" : ""}${p.dob_year}` : "");
   container.insertAdjacentHTML(
     "afterbegin",
     `<div style="padding:8px 10px; font-size:11px; color:var(--text-secondary); border-bottom:1px solid var(--border-subtle);">
        People matching “${escapeHtml(q)}” — PSC controllers and officers, with their companies
-     </div>` +
-      people
-        .map(
-          (p) => `
-        <div class="entity-item" style="cursor:default;">
-          <div class="entity-item-top"><div class="entity-name">${escapeHtml(p.name)}</div></div>
-          <div class="entity-meta"><span>${escapeHtml(p.nationality || "nationality n/a")}${escapeHtml(dob(p))}${p.country_of_residence ? " • lives in " + escapeHtml(p.country_of_residence) : ""}</span></div>
-          <div style="margin-top:5px; display:flex; gap:4px; flex-wrap:wrap;">
-            ${(p.companies || [])
-              .map(
-                (c) => `<span class="tech-tag" style="cursor:pointer;" title="${escapeHtml(c.role)} • ${escapeHtml(c.company_status || "")}"
-                   onclick="selectCompany('${escapeHtml(c.company_number)}')">${escapeHtml(c.company_name)}</span>`
-              )
-              .join("") || "<em>no imported company</em>"}
-          </div>
-        </div>`
-        )
-        .join("")
+     </div>` + people.map(renderPersonCard).join("")
   );
+}
+
+/** One person with their companies as clickable tags (used by the search and by the dossier links). */
+function renderPersonCard(p) {
+  const dob = p.dob_year ? ` • born ${p.dob_month ? String(p.dob_month).padStart(2, "0") + "/" : ""}${p.dob_year}` : "";
+  return `
+    <div class="entity-item" style="cursor:default;">
+      <div class="entity-item-top"><div class="entity-name">${escapeHtml(p.name)}</div>${p.is_pep ? '<span class="tech-tag">PEP</span>' : ""}</div>
+      <div class="entity-meta"><span>${escapeHtml(p.nationality || "nationality n/a")}${escapeHtml(dob)}${p.country_of_residence ? " • lives in " + escapeHtml(p.country_of_residence) : ""}</span></div>
+      <div style="margin-top:5px; display:flex; gap:4px; flex-wrap:wrap;">
+        ${(p.companies || [])
+          .map(
+            (c) => `<span class="tech-tag" style="cursor:pointer;" title="${escapeHtml(c.role)} • ${escapeHtml(c.company_status || "")}"
+               onclick="selectCompany('${escapeHtml(c.company_number)}')">${escapeHtml(c.company_name)}</span>`
+          )
+          .join("") || "<em>no imported company</em>"}
+      </div>
+    </div>`;
+}
+
+/**
+ * A beneficial owner clicked in the dossier: their card (every company they control or run)
+ * goes to the top of the left list and their node is picked out in the chart.
+ */
+async function showPerson(personId) {
+  const container = document.getElementById("entity-list");
+  let person = null;
+  try {
+    person = await apiJson(`/api/persons/${encodeURIComponent(personId)}`);
+  } catch (err) {
+    const status = document.getElementById("center-status");
+    if (status) status.textContent = `Person: ${err.message}`;
+    return;
+  }
+  if (container) {
+    container.querySelectorAll(".person-focus").forEach((el) => el.remove());
+    container.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="person-focus" style="border-bottom:2px solid var(--primary-color);">
+         <div style="padding:8px 10px 0; font-size:11px; color:var(--text-secondary); display:flex; justify-content:space-between; align-items:center;">
+           <span>Person — ${person.companies.length} compan${person.companies.length === 1 ? "y" : "ies"} where they are or were PSC or officer</span>
+           <button class="btn btn-sm" onclick="this.closest('.person-focus').remove()" title="Close">✕</button>
+         </div>
+         ${renderPersonCard(person)}
+       </div>`
+    );
+    container.scrollTop = 0;
+  }
+  if (typeof focusGraphNode === "function") focusGraphNode(`person:${personId}`);
+}
+
+/** Put a name in the search box and run the search (corporate controllers, addresses). */
+function searchEntities(text) {
+  const input = document.getElementById("search-input");
+  if (!input) return;
+  input.value = text;
+  loadCompanies();
 }
 
 /* ---------- Search: companies only in the register index ---------- */

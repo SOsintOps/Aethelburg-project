@@ -14,6 +14,9 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 ### Added (screenshots)
 - Screenshots of every tab in the user guide (`docs/guide/images/`, 1920×1080), one in the README. The in-app help renders them too (`/guide/images/` is served from `docs/guide/images`; an image on its own line in a chapter is shown). The GeoINT one shows London.
 
+### Added (dossier)
+- **The beneficial owners in the dossier are links.** Clicking a person puts their card at the top of the left list, with every company where they are or were a PSC controller or an officer (new `GET /api/persons/{id}`), and picks out their node in the network graph, centred. Clicking a corporate controller searches it by name.
+
 ### Changed (narrow windows)
 - **Nothing overlaps when the window is narrow.** The supported minimum width is 1280 px: narrower, the page scrolls sideways instead of squeezing the three columns. Above that, bars wrap and labels shorten rather than overflow: the tab bar and the dossier buttons go to a second line when needed; below 1500 px the tabs show short names ("1. Graph", "2. GeoInt", …), the subtitle of the top bar is hidden and the two selects are narrower; below 1380 px the ICIJ and FtM counters are hidden. The status line next to the tabs is cut with an ellipsis instead of wrapping.
 

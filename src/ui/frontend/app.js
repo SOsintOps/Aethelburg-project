@@ -446,9 +446,17 @@ function renderDossierPanel(d) {
             : p.legal_entity_jurisdiction || p.jurisdiction
             ? `Jurisdiction: ${p.legal_entity_jurisdiction || p.jurisdiction}${p.is_offshore ? " • [OFFSHORE]" : ""}`
             : p.psc_kind;
+          // a person opens their card (every company they control or run) and is picked out in the chart;
+          // a corporate controller is searched by name
+          let holderHtml = escapeHtml(holder);
+          if (!p.is_super_secure && p.person_id) {
+            holderHtml = `<a href="#" class="person-link" data-person-id="${escapeHtml(p.person_id)}" onclick="showPerson('${escapeHtml(p.person_id)}'); return false;" title="Every company of this person, and their node in the chart">${escapeHtml(holder)}</a>`;
+          } else if (!p.is_super_secure && p.legal_entity_name) {
+            holderHtml = `<a href="#" class="person-link" onclick="searchEntities(${JSON.stringify(p.legal_entity_name).replace(/"/g, "&quot;")}); return false;" title="Search this entity">${escapeHtml(holder)}</a>`;
+          }
           return `
           <div style="padding:7px 0; border-bottom:1px solid var(--border-subtle); font-size:12px;">
-            <div style="font-weight:700;">${escapeHtml(holder)}</div>
+            <div style="font-weight:700;">${holderHtml}</div>
             <div style="color:var(--text-secondary); font-size:11px;">${escapeHtml(sub)}</div>
             <div style="color:var(--accent-blue); font-size:11px; margin-top:2px;">
               Control: ${(p.nature_of_control || []).map(escapeHtml).join(", ")}
@@ -1385,6 +1393,19 @@ function bindGraphInteractions(svgEl) {
   svgEl.onmouseup = finishInteraction;
   svgEl.onmouseleave = finishInteraction;
   bindGraphSelectionKeys();
+}
+
+/** Select one node of the chart and bring it to the centre of the canvas (used by the dossier links). */
+function focusGraphNode(nodeId) {
+  const n = graphNodeMap.get(nodeId);
+  if (!n) return false;
+  switchTab("graph");
+  selectedGraphNodeIds = new Set([nodeId]);
+  const { width, height } = graphViewSize();
+  const scale = Math.max(graphZoomState.scale, 1);
+  graphZoomState = { scale, tx: width / 2 - n.x * scale, ty: height / 2 - n.y * scale };
+  renderGraphFromState();
+  return true;
 }
 
 let graphSelectionKeysBound = false;

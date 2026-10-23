@@ -34,6 +34,8 @@ The window has a top bar and three panels. It is designed for a width of 1280 px
 
 Profile of the selected company: registry details, cross-dataset hits (sanctions, ICIJ), FT3 flags with UNODC grade and innocent explanations, PSC controllers, officers, co-located companies.
 
+The names of the beneficial owners are links: a person opens their card at the top of the left list, with every company where they are or were a PSC controller or an officer, and is picked out in the network graph; a corporate controller is searched by name.
+
 - **Update from CH**: downloads the current profile, every officer appointment and every PSC statement from Companies House, then starts a re-score of the whole register in the background. See [Companies House API](companies-house-api).
 - **10-Sec Report**: opens the intelligence report of the company in a new tab (see [Casework & Reports](casework-and-reports)).
 - **+ Add to Case**: adds the company to the active investigation.

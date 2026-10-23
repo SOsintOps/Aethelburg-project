@@ -185,6 +185,14 @@ def build_data_router(db: DatabaseService) -> APIRouter:
         """People (PSC controllers and officers) whose name contains every word typed, with their companies."""
         return {"items": await asyncio.to_thread(_person_search, db, q, min(max(limit, 1), 50))}
 
+    @router.get("/api/persons/{person_id}")
+    async def person_detail(person_id: str) -> dict[str, Any]:
+        """One person (a PSC controller or officer) with every company they control or run."""
+        person = await asyncio.to_thread(_person_detail, db, person_id.strip())
+        if not person:
+            raise HTTPException(status_code=404, detail="Person not found")
+        return person
+
     @router.get("/api/ch/officers/search")
     async def ch_officer_search(q: str) -> dict[str, Any]:
         try:
@@ -425,25 +433,42 @@ def _person_search(db: DatabaseService, q: str, limit: int) -> list[dict[str, An
             """,
             [*(f"%{w}%" for w in words), limit],
         ).fetchall()
-        result = []
-        for p in people:
-            companies = conn.execute(
-                """
-                SELECT c.company_number, c.company_name, c.company_status, c.risk_score,
-                       GROUP_CONCAT(DISTINCT link.role) AS role
-                FROM (
-                    SELECT company_number, 'PSC' AS role FROM psc_ownerships WHERE person_id = ?
-                    UNION
-                    SELECT company_number, COALESCE(officer_role, 'officer') AS role FROM directorships WHERE person_id = ?
-                ) link
-                JOIN companies c ON c.company_number = link.company_number
-                GROUP BY c.company_number
-                ORDER BY c.risk_score DESC LIMIT 12
-                """,
-                (p["id"], p["id"]),
-            ).fetchall()
-            result.append({**dict(p), "companies": [dict(c) for c in companies]})
-        return result
+        return [{**dict(p), "companies": _person_companies(conn, p["id"], 12)} for p in people]
+    finally:
+        conn.close()
+
+
+def _person_companies(conn: Any, person_id: str, limit: int) -> list[dict[str, Any]]:
+    """Companies where the person is or was a PSC controller or an officer, riskiest first."""
+    rows = conn.execute(
+        """
+        SELECT c.company_number, c.company_name, c.company_status, c.risk_score,
+               GROUP_CONCAT(DISTINCT link.role) AS role
+        FROM (
+            SELECT company_number, 'PSC' AS role FROM psc_ownerships WHERE person_id = ?
+            UNION
+            SELECT company_number, COALESCE(officer_role, 'officer') AS role FROM directorships WHERE person_id = ?
+        ) link
+        JOIN companies c ON c.company_number = link.company_number
+        GROUP BY c.company_number
+        ORDER BY c.risk_score DESC LIMIT ?
+        """,
+        (person_id, person_id, limit),
+    ).fetchall()
+    return [dict(c) for c in rows]
+
+
+def _person_detail(db: DatabaseService, person_id: str) -> dict[str, Any] | None:
+    """One person with every company they control or run; None when the id is unknown."""
+    conn = db.connect()
+    try:
+        row = conn.execute(
+            "SELECT id, name, nationality, country_of_residence, dob_month, dob_year, is_pep FROM persons WHERE id = ?",
+            (person_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return {**dict(row), "companies": _person_companies(conn, person_id, 200)}
     finally:
         conn.close()
 
