@@ -147,7 +147,9 @@ Every entity and relationship in Aethelburg is stored both in high-speed relatio
 - [Setup](docs/SETUP.md)
 - [Legal](docs/LEGAL.md)
 
-Related SOsintOps projects: [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) (method notes on sourcing, grading and reporting) · [Exploratores](https://github.com/SOsintOps/Exploratores) (browser OSINT toolkit; its Public Company Records page searches OpenSanctions and SanctionsKit for officers and companies)
+Related SOsintOps projects: 
+- [Intelligence Field Notes](https://github.com/SOsintOps/intelligence-field-notes) (method notes on sourcing, grading and reporting) 
+- [Exploratores](https://github.com/SOsintOps/Exploratores) (browser OSINT toolkit; its Public Company Records page searches OpenSanctions and SanctionsKit for officers and companies)
 
 ## Contributing and licence
 
