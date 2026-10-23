@@ -1,5 +1,7 @@
 # Companies House API
 
+![Settings tab: the Companies House keys with where each comes from, the daily update, backups to keep, the hub threshold and where the files are](images/settings.png)
+
 ## Update from CH
 
 The **Update from CH** button in the dossier downloads, for the selected company:

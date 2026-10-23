@@ -2,6 +2,8 @@
 
 The window has a top bar and three panels.
 
+![The window: counters in the top bar, search and the list of flagged companies on the left, the network graph in the centre, the dossier on the right](images/overview.png)
+
 ## Top bar
 
 - **Counters**: companies fully imported, companies flagged by FT3 rules, sanctions records, ICIJ Offshore Leaks nodes, entities in the FollowTheMoney store.
@@ -14,7 +16,7 @@ The window has a top bar and three panels.
 
 - **Search box**: company name, company number (CRN), postcode or address line.
 - **FT3 technique filter**: only companies flagged by one technique.
-- **Risk filter**: all companies, flagged only (score above 0), high (35 or more) or critical (65 or more). The default shows flagged companies only: choose **All Risk Scores** to see everything.
+- **Risk filter**: all companies, flagged only, high (score 35 or more) or critical (65 or more). The default shows flagged companies only: choose **All Risk Scores** to see everything, including the companies whose only finding is a shared address (they have a small score but are not flagged; see [Risk scoring](risk-scoring)).
 - Each result shows name, risk score, CRN, status, postcode and up to three FT3 technique codes. Click it to open the company in every tab.
 - Below the results, companies that are only in the **register index** (not imported in full) have a **Fetch** button that downloads them from Companies House (needs the REST key).
 

@@ -1,5 +1,7 @@
 # 1. Network Graph
 
+![Network graph of a company: the target in the centre, its controllers, a bridge company that shares a controller, address hubs as diamonds, the chart key on the right](images/network-graph-dossier.png)
+
 Link chart of the selected company: companies, PSC controllers (people and legal entities), officers, offshore entities from ICIJ and shared registration addresses.
 
 ## Scope

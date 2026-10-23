@@ -173,6 +173,15 @@ function renderMarkdown(md) {
       i++;
       continue;
     }
+    // an image on its own line: paths are relative to docs/guide, served under /guide
+    const image = line.match(/^!\[([^\]]*)\]\(([A-Za-z0-9_\-./]+\.(?:png|jpg|jpeg|gif|svg|webp))\)\s*$/);
+    if (image && !image[2].includes("..")) {
+      out.push(
+        `<p><img src="/guide/${image[2]}" alt="${escapeHtml(image[1])}" loading="lazy" style="max-width:100%; border:1px solid var(--border-strong); border-radius:4px; margin:6px 0;"></p>`
+      );
+      i++;
+      continue;
+    }
     const para = [];
     while (i < lines.length && lines[i].trim() && !/^(#|\||```|\s*(-|\d+\.)\s)/.test(lines[i])) para.push(lines[i++]);
     out.push(`<p>${renderInline(para.join(" "))}</p>`);

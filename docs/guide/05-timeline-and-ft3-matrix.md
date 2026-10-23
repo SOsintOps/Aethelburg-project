@@ -1,5 +1,7 @@
 # 3. Timeline & FT3 Matrix
 
+![Timeline of a company: dissolution, PSC notified and ceased, officers appointed and resigned, each with its source and grade](images/timeline.png)
+
 ## Timeline
 
 Dated events of the selected company: incorporation, dissolution, name changes, PSC notifications and cessations, officer appointments and resignations, sanctions designations. Each line shows the date, the event type, a description and the source dataset.

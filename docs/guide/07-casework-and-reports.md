@@ -1,5 +1,7 @@
 # 5. Casework & Reports
 
+![Casework tab: the active investigation with its working hypothesis and enrolled entities on the left, the analyst findings with UNODC grade and confidence on the right](images/casework.png)
+
 ## Investigations
 
 The tab shows the active investigation: title, classification, working hypothesis, the companies enrolled and the analyst findings.

@@ -19,6 +19,10 @@ Local investigative corporate intelligence platform for analysing UK company reg
 
 > **Personal use only.** Data is neither distributed nor shared. See [LEGAL.md](docs/LEGAL.md) for licence and compliance details.
 
+![Aethelburg: search and filters on the left, the network graph of the selected company in the centre, the intelligence dossier with FT3 flags, UNODC grades and controllers on the right](docs/guide/images/network-graph-dossier.png)
+
+*Search and filters, network graph and intelligence dossier of a company from the register, with its FT3 flag, UNODC grade, innocent explanations and controllers. Every tab is shown in the [user guide](docs/guide/02-interface-tour.md).*
+
 ---
 
 ## What it does

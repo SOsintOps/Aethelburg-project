@@ -42,6 +42,7 @@ from src.ui.settings_api import build_settings_router
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 ASSETS_DIR = PROJECT_ROOT / "assets"
+GUIDE_IMAGES_DIR = PROJECT_ROOT / "docs" / "guide" / "images"
 
 
 class CreateInvestigationRequest(BaseModel):
@@ -110,6 +111,9 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
         app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
     if FRONTEND_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+    if GUIDE_IMAGES_DIR.exists():
+        # screenshots of the user guide, referenced as images/<file> from docs/guide/*.md
+        app.mount("/guide/images", StaticFiles(directory=str(GUIDE_IMAGES_DIR)), name="guide-images")
 
     @app.get("/", response_class=HTMLResponse)
     async def index() -> HTMLResponse:
