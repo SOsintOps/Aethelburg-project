@@ -22,6 +22,8 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - **Entities sit further apart.** Links are longer and nodes repel each other more, a chart smaller than the canvas is spread over it (nodes keep their size, they just move apart), and a chart that does not fit is shown at 60 % at least and panned, instead of being shrunk until unreadable.
 - **Link labels no longer cover each other or the nodes**: a label that would sit on another label or on a card slides along its own link.
 - The **UNODC chart cover and key** no longer opens by itself over the chart: **Chart Key** opens it, and the chart then fits the space left beside it.
+- **Several nodes at once.** Shift+click adds a node to the selection, Shift+drag on the background draws a lasso around several, Ctrl+A selects them all, Esc or a click on the background empties the selection; dragging a selected node moves the whole selection. Selected nodes show a dashed ring.
+- Choosing a view (Organic, Hierarchical, Concentric, Circular) now arranges every node again, releasing the ones placed by hand; before, a chart with hand-placed nodes did not change when the view changed.
 - **Nodes you drag stay where you put them.** The arrangement of a chart is kept in the browser for that subject, so reopening the company shows the nodes where the analyst left them; **Unpin Nodes** forgets it and lays the chart out again.
 
 ### Changed (installation)

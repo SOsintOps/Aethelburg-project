@@ -34,6 +34,7 @@ let edgeLabelsChosenByUser = false;
 let draggedNode = null;
 let dragStartMouse = { x: 0, y: 0 };
 let dragMovedPx = 0;
+let selectedGraphNodeIds = new Set(); // Shift+click or Shift+drag (lasso); dragging one moves them all
 
 // Map state (Leaflet + OpenStreetMap Free No-Key + Acta Diurna regional GeoJSON)
 let ukLeafletMap = null;
@@ -592,6 +593,7 @@ function initGraphData(payload, keepExpanded = false) {
   }
   graphNodeMap = new Map();
   graphNodes.forEach((n) => graphNodeMap.set(n.id, n));
+  selectedGraphNodeIds = new Set();
 
   graphZoomState = { scale: 1, tx: 0, ty: 0 };
   updateChartKeyCover(payload);
@@ -696,6 +698,11 @@ function setGraphLayout(layoutName) {
     if (svg) svg.style.display = "block";
   }
 
+  // choosing a view means "arrange everything again": hand-placed nodes are released
+  graphNodes.forEach((n) => {
+    n.pinned = false;
+  });
+  forgetChartArrangement();
   applyGraphLayout(layoutName);
   renderGraphFromState();
 }
@@ -1130,14 +1137,20 @@ function renderGraphFromState() {
 
   const nodesSvg = graphNodes
     .map((n) => {
+      const selected = selectedGraphNodeIds.has(n.id);
+      const box = GraphLayout.nodeBox(n);
+      const ring = selected
+        ? `<rect class="selection-ring" x="${(-box.w / 2 - 6).toFixed(1)}" y="${(-box.h / 2 - 6).toFixed(1)}" width="${(box.w + 12).toFixed(1)}" height="${(box.h + 12).toFixed(1)}" rx="6" />`
+        : "";
       return `
-        <g class="graph-node" data-node-id="${escapeHtml(n.id)}"
+        <g class="graph-node${selected ? " selected" : ""}" data-node-id="${escapeHtml(n.id)}"
            transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})">
+          ${ring}
           ${renderNodeShapeAndGlyph(n)}
           <title>${escapeHtml(n.label || n.id)}
 FtM Schema: ${escapeHtml(n.ftm_schema || "")} (${escapeHtml(n.ftm_id || "")})
 UNODC Grade: ${escapeHtml(n.unodc_grade || "A2")} | Links (Step 5): ${n.degree || 0} | Centrality: ${n.betweenness_centrality || 0}
-[Drag to move &amp; pin • Click to inspect • Double-click to pivot]</title>
+[Drag to move &amp; pin • Shift+click to select several • Click to inspect • Double-click to pivot]</title>
         </g>
       `;
     })
@@ -1180,6 +1193,14 @@ function bindGraphInteractions(svgEl) {
   let isCanvasPanning = false;
   let panStartX = 0;
   let panStartY = 0;
+  let panMovedPx = 0;
+  let lasso = null; // Shift+drag on the background: { x0, y0, el } in canvas pixels
+  let dragGroup = []; // the nodes that move together with draggedNode
+
+  const canvasPoint = (ev) => {
+    const r = svgEl.getBoundingClientRect();
+    return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  };
 
   // Attach node mousedown & dblclick listeners
   svgEl.querySelectorAll(".graph-node").forEach((nodeEl) => {
@@ -1190,7 +1211,17 @@ function bindGraphInteractions(svgEl) {
       const nodeObj = graphNodeMap.get(nodeId);
       if (!nodeObj) return;
 
+      if (ev.shiftKey) {
+        // Shift+click adds the node to the selection, or takes it out again
+        if (selectedGraphNodeIds.has(nodeObj.id)) selectedGraphNodeIds.delete(nodeObj.id);
+        else selectedGraphNodeIds.add(nodeObj.id);
+        renderGraphFromState();
+        return;
+      }
+
       draggedNode = nodeObj;
+      // a selected node drags the whole selection with it
+      dragGroup = selectedGraphNodeIds.has(nodeObj.id) ? graphNodes.filter((n) => selectedGraphNodeIds.has(n.id)) : [nodeObj];
       dragStartMouse = { x: ev.clientX, y: ev.clientY };
       dragMovedPx = 0;
       nodeEl.classList.add("dragging");
@@ -1225,7 +1256,21 @@ function bindGraphInteractions(svgEl) {
 
   svgEl.onmousedown = (ev) => {
     if (ev.button !== 0 || draggedNode) return;
+    if (ev.shiftKey) {
+      // Shift+drag on the background draws a lasso
+      const p = canvasPoint(ev);
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      el.setAttribute("class", "graph-lasso");
+      el.setAttribute("x", p.x);
+      el.setAttribute("y", p.y);
+      el.setAttribute("width", 0);
+      el.setAttribute("height", 0);
+      svgEl.appendChild(el);
+      lasso = { x0: p.x, y0: p.y, el };
+      return;
+    }
     isCanvasPanning = true;
+    panMovedPx = 0;
     panStartX = ev.clientX - graphZoomState.tx;
     panStartY = ev.clientY - graphZoomState.ty;
   };
@@ -1238,17 +1283,30 @@ function bindGraphInteractions(svgEl) {
       dragStartMouse = { x: ev.clientX, y: ev.clientY };
 
       // Convert screen delta to SVG viewport delta using current zoom scale
-      draggedNode.x += dxScreen / graphZoomState.scale;
-      draggedNode.y += dyScreen / graphZoomState.scale;
-      draggedNode.pinned = true;
+      dragGroup.forEach((n) => {
+        n.x += dxScreen / graphZoomState.scale;
+        n.y += dyScreen / graphZoomState.scale;
+        n.pinned = true;
+        updateDraggedNodeDom(svgEl, n);
+      });
+      return;
+    }
 
-      updateDraggedNodeDom(svgEl, draggedNode);
+    if (lasso) {
+      const p = canvasPoint(ev);
+      lasso.el.setAttribute("x", Math.min(lasso.x0, p.x));
+      lasso.el.setAttribute("y", Math.min(lasso.y0, p.y));
+      lasso.el.setAttribute("width", Math.abs(p.x - lasso.x0));
+      lasso.el.setAttribute("height", Math.abs(p.y - lasso.y0));
       return;
     }
 
     if (isCanvasPanning) {
-      graphZoomState.tx = ev.clientX - panStartX;
-      graphZoomState.ty = ev.clientY - panStartY;
+      const tx = ev.clientX - panStartX;
+      const ty = ev.clientY - panStartY;
+      panMovedPx += Math.abs(tx - graphZoomState.tx) + Math.abs(ty - graphZoomState.ty);
+      graphZoomState.tx = tx;
+      graphZoomState.ty = ty;
       const vp = document.getElementById("graph-viewport");
       if (vp) {
         vp.setAttribute("transform", `translate(${graphZoomState.tx},${graphZoomState.ty}) scale(${graphZoomState.scale})`);
@@ -1257,10 +1315,27 @@ function bindGraphInteractions(svgEl) {
   };
 
   const finishInteraction = () => {
+    if (lasso) {
+      // every node whose centre lies inside the rectangle joins the selection
+      const x = Number(lasso.el.getAttribute("x"));
+      const y = Number(lasso.el.getAttribute("y"));
+      const w = Number(lasso.el.getAttribute("width"));
+      const h = Number(lasso.el.getAttribute("height"));
+      lasso.el.remove();
+      lasso = null;
+      graphNodes.forEach((n) => {
+        const sx = graphZoomState.tx + n.x * graphZoomState.scale;
+        const sy = graphZoomState.ty + n.y * graphZoomState.scale;
+        if (sx >= x && sx <= x + w && sy >= y && sy <= y + h) selectedGraphNodeIds.add(n.id);
+      });
+      renderGraphFromState();
+      return;
+    }
     if (draggedNode) {
       const clickedNode = draggedNode;
       const moved = dragMovedPx;
       draggedNode = null;
+      dragGroup = [];
       svgEl.querySelectorAll(".graph-node.dragging").forEach((el) => el.classList.remove("dragging"));
 
       if (moved >= 6) saveChartArrangement();
@@ -1269,12 +1344,39 @@ function bindGraphInteractions(svgEl) {
       } else if (moved < 6 && clickedNode.company_number) {
         selectCompany(clickedNode.company_number);
       }
+    } else if (isCanvasPanning && panMovedPx < 6 && selectedGraphNodeIds.size) {
+      // a plain click on the background empties the selection
+      selectedGraphNodeIds.clear();
+      renderGraphFromState();
     }
     isCanvasPanning = false;
   };
 
   svgEl.onmouseup = finishInteraction;
   svgEl.onmouseleave = finishInteraction;
+  bindGraphSelectionKeys();
+}
+
+let graphSelectionKeysBound = false;
+
+/** Esc empties the selection; Ctrl+A selects every node while the graph tab is shown. */
+function bindGraphSelectionKeys() {
+  if (graphSelectionKeysBound) return;
+  graphSelectionKeysBound = true;
+  document.addEventListener("keydown", (ev) => {
+    const tag = (ev.target && ev.target.tagName) || "";
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+    const graphShown = document.getElementById("view-graph")?.classList.contains("active");
+    if (!graphShown || !graphNodes.length) return;
+    if (ev.key === "Escape" && selectedGraphNodeIds.size) {
+      selectedGraphNodeIds.clear();
+      renderGraphFromState();
+    } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "a") {
+      ev.preventDefault();
+      graphNodes.forEach((n) => selectedGraphNodeIds.add(n.id));
+      renderGraphFromState();
+    }
+  });
 }
 
 function updateDraggedNodeDom(svgEl, nodeObj) {

@@ -1347,3 +1347,19 @@ body {
     display: none;
   }
 }
+
+/* Several nodes selected (Shift+click or Shift+drag): ring around each, lasso while dragging */
+.graph-node.selected .selection-ring {
+  fill: rgba(0, 102, 255, 0.08);
+  stroke: var(--primary-color);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.graph-lasso {
+  fill: rgba(0, 102, 255, 0.08);
+  stroke: var(--primary-color);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
