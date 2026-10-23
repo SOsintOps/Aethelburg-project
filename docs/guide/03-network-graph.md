@@ -26,4 +26,4 @@ Shapes follow UNODC / i2 conventions; **Chart Key** opens the chart cover (case,
 - Diamonds: address hubs; octagons: UK sanctions designations.
 - Solid line: confirmed link (graded A1 to B2); dashed line: suspected link (C3).
 
-Drag nodes to move them, use the mouse wheel or **+ / −** to zoom, **Fit** to fit the screen and **Labels** to show or hide link labels. Click a company node to open it.
+Drag nodes to move them, use the mouse wheel or **+ / −** to zoom, **Fit** to fit the screen and **Labels** to show or hide link labels. Click a company node to open it. A big chart is never shrunk below 60 %, so that names stay readable: pan it (drag the background) or zoom out by hand to see all of it.

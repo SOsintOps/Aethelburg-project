@@ -703,17 +703,25 @@ function setGraphLayout(layoutName) {
 function applyGraphLayout(layoutName, salt = 0) {
   if (!graphNodes.length) return;
   graphLayoutGuides = GraphLayout.apply(layoutName, graphNodes, graphEdges, currentGraphPayload?.root_id, salt);
+  // a small chart is spread over the canvas (nodes keep their size, they just move apart)
+  const { width, height } = graphViewSize();
+  if (GraphLayout.spreadToView(graphNodes, width, height) > 1 && graphLayoutGuides) graphLayoutGuides = null;
   fitGraphToView();
+}
+
+/** Size of the canvas available to the chart, without the chart key panel when it is open. */
+function graphViewSize() {
+  const svg = document.getElementById("graph-svg");
+  const rect = svg ? svg.getBoundingClientRect() : { width: 860, height: 600 };
+  const keyPanel = document.getElementById("graph-chart-key");
+  const inset = showChartKeyPanel && keyPanel ? keyPanel.offsetWidth + 24 : 0;
+  return { width: Math.max((rect.width || 860) - inset, 320), height: Math.max(rect.height || 600, 300) };
 }
 
 /** Zoom and pan so the whole chart is visible (see GraphLayout.fitTransform). */
 function fitGraphToView() {
-  const svg = document.getElementById("graph-svg");
-  const rect = svg ? svg.getBoundingClientRect() : { width: 860, height: 600 };
-  // the chart key panel, when open, covers the right side of the canvas
-  const keyPanel = document.getElementById("graph-chart-key");
-  const inset = showChartKeyPanel && keyPanel ? keyPanel.offsetWidth + 24 : 0;
-  graphZoomState = GraphLayout.fitTransform(graphNodes, Math.max((rect.width || 860) - inset, 320), Math.max(rect.height || 600, 300));
+  const { width, height } = graphViewSize();
+  graphZoomState = GraphLayout.fitTransform(graphNodes, width, height);
   const vp = document.getElementById("graph-viewport");
   if (vp) vp.setAttribute("transform", `translate(${graphZoomState.tx},${graphZoomState.ty}) scale(${graphZoomState.scale})`);
 }

@@ -17,7 +17,7 @@
    ============================================================================ */
 
 const GraphLayout = (() => {
-  const PAD = 18; // free space kept around every node
+  const PAD = 34; // free space kept around every node
   const GROUP_THRESHOLD = 6; // more leaves than this on one hub -> "+N" group
   const CARD_TYPES = new Set(["Company", "LegalEntity", "OffshoreEntity", "Group"]);
 
@@ -293,13 +293,13 @@ const GraphLayout = (() => {
           d3
             .forceLink(links)
             .id((d) => d.id)
-            .distance((l) => radius(l.source) + radius(l.target) + 40)
+            .distance((l) => radius(l.source) + radius(l.target) + 110)
             .strength(0.5)
         )
-        .force("charge", d3.forceManyBody().strength(-700).distanceMax(1400))
+        .force("charge", d3.forceManyBody().strength(-1600).distanceMax(2200))
         .force("collide", d3.forceCollide(radius).strength(1).iterations(3))
-        .force("x", d3.forceX(0).strength(0.04))
-        .force("y", d3.forceY(0).strength(0.04))
+        .force("x", d3.forceX(0).strength(0.025))
+        .force("y", d3.forceY(0).strength(0.025))
         .stop();
       for (let i = 0; i < 320; i++) sim.tick();
       nodes.forEach((n) => {
@@ -483,9 +483,8 @@ const GraphLayout = (() => {
     return count;
   }
 
-  /** Zoom/pan so the whole chart fits the SVG (never above 110 %, never below 30 %). */
-  function fitTransform(nodes, viewW, viewH, margin = 30) {
-    if (!nodes.length) return { scale: 1, tx: viewW / 2, ty: viewH / 2 };
+  /** Bounding box of the drawn chart in graph coordinates. */
+  function chartBounds(nodes) {
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -497,7 +496,36 @@ const GraphLayout = (() => {
       minY = Math.min(minY, n.y - b.h / 2);
       maxY = Math.max(maxY, n.y + b.h / 2);
     });
-    const scale = Math.max(0.3, Math.min(1.1, (viewW - 2 * margin) / (maxX - minX), (viewH - 2 * margin) / (maxY - minY)));
+    return { minX, minY, maxX, maxY };
+  }
+
+  /**
+   * A chart smaller than the view is stretched (positions only, not the nodes) until it
+   * uses the view at 100 %: entities keep their size and move apart. Never more than
+   * `maxFactor` times, so two nodes do not end up in opposite corners.
+   */
+  function spreadToView(nodes, viewW, viewH, margin = 40, maxFactor = 2.2) {
+    if (nodes.length < 2) return 1;
+    const b = chartBounds(nodes);
+    const w = Math.max(b.maxX - b.minX, 1);
+    const h = Math.max(b.maxY - b.minY, 1);
+    const k = Math.min((viewW - 2 * margin) / w, (viewH - 2 * margin) / h, maxFactor);
+    if (k <= 1.02) return 1;
+    const cx = (b.minX + b.maxX) / 2;
+    const cy = (b.minY + b.maxY) / 2;
+    nodes.forEach((n) => {
+      if (n.pinned) return;
+      n.x = cx + (n.x - cx) * k;
+      n.y = cy + (n.y - cy) * k;
+    });
+    return k;
+  }
+
+  /** Zoom/pan so the whole chart fits the SVG (never above 110 %, never below 60 %: a chart that does not fit is panned, not shrunk until unreadable). */
+  function fitTransform(nodes, viewW, viewH, margin = 30) {
+    if (!nodes.length) return { scale: 1, tx: viewW / 2, ty: viewH / 2 };
+    const { minX, minY, maxX, maxY } = chartBounds(nodes);
+    const scale = Math.max(0.6, Math.min(1.1, (viewW - 2 * margin) / (maxX - minX), (viewH - 2 * margin) / (maxY - minY)));
     return {
       scale,
       tx: viewW / 2 - scale * ((minX + maxX) / 2),
@@ -512,5 +540,5 @@ const GraphLayout = (() => {
     return organic(nodes, edges, rootId, salt);
   }
 
-  return { apply, organic, untangle, countCrossings, removeOverlaps, countOverlaps, fitTransform, collapseCrowdedHubs, nodeBox };
+  return { apply, organic, untangle, countCrossings, removeOverlaps, countOverlaps, spreadToView, fitTransform, collapseCrowdedHubs, nodeBox };
 })();
