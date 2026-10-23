@@ -191,15 +191,36 @@ async function showOfficerAppointments(officerId, btn) {
 
 /* ---------- Search: people (PSC controllers and officers) ---------- */
 
+let personSearchAbort = null;
+
+/** Drop a people search that is still running (a newer search replaced it). */
+function cancelPersonMatches() {
+  if (personSearchAbort) personSearchAbort.abort();
+  personSearchAbort = null;
+  document.querySelectorAll("#entity-list .people-pending").forEach((el) => el.remove());
+}
+
 async function appendPersonMatches(q) {
   const container = document.getElementById("entity-list");
   if (!container || !q || q.trim().length < 3) return;
+  cancelPersonMatches();
+  personSearchAbort = new AbortController();
+  const { signal } = personSearchAbort;
+  container.insertAdjacentHTML(
+    "afterbegin",
+    `<div class="people-pending" style="padding:6px 10px; font-size:11px; color:var(--text-secondary); border-bottom:1px solid var(--border-subtle);">
+       Searching people (PSC controllers and officers) for “${escapeHtml(q)}”… this takes a few seconds on a big database.
+     </div>`
+  );
   let people = [];
   try {
-    people = (await apiJson(`/api/persons/search?q=${encodeURIComponent(q)}&limit=10`)).items || [];
+    people = (await apiJson(`/api/persons/search?q=${encodeURIComponent(q)}&limit=10`, { signal })).items || [];
   } catch (err) {
+    if (!(err && err.name === "AbortError")) document.querySelectorAll("#entity-list .people-pending").forEach((el) => el.remove());
     return;
   }
+  if (signal.aborted) return;
+  document.querySelectorAll("#entity-list .people-pending, #entity-list .people-hint").forEach((el) => el.remove());
   container.insertAdjacentHTML(
     "afterbegin",
     `<div style="padding:6px 10px; border-bottom:1px solid var(--border-subtle);">

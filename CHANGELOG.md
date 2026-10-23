@@ -17,6 +17,9 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 ### Fixed (search freezes)
 - **Searching no longer freezes the program.** The company search scanned the whole table five times with `LIKE '%…%'` (14 seconds for "camilla" on a million companies) and ran inside the server's event loop, so every keystroke stopped every page; the counters (5 s) and the hub list (9 s) did the same on each load. Now company names have a full-text index (word starts: "fabri" finds CAMILLA FABRI LTD; kept in step by triggers and rebuilt after an import), company numbers and postcodes use their indexes, a typed search answers in a few milliseconds, every database read runs in a worker thread, the counters and hubs are kept for five minutes, and a search superseded by a new keystroke is dropped instead of queued. The first start after this update fills the index once (about a minute per million companies).
 
+### Changed (search)
+- Typing searches companies and the register index, which are indexed and answer at once; **Enter** also searches people (PSC controllers and officers), which takes a few seconds on a big database and used to run again at every keystroke, with an older, slower answer able to overwrite a newer one. A people search replaced by a newer one is dropped, and the list says when one is running.
+
 ### Added (activity indicator)
 - **The top bar says what the program is doing.** A pill appears after 0.4 s of waiting with what is being waited for (search, dossier, graph, map, Companies House…) and for how long; after 8 s it says the database is busy; a lost connection says the server is not responding. A background task (re-score, import, download, officers, backup) is shown with the time elapsed and the time left, estimated from its progress or from how long the same task took last time on this computer; clicking the pill opens Data & Updates.
 

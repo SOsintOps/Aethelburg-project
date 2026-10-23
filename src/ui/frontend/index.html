@@ -67,7 +67,7 @@
           <span class="panel-title">Entity Search &amp; FT3 Filters</span>
           <span class="search-counter-badge" id="search-count-label"><strong id="search-count-num">0</strong> entity(s)</span>
         </div>
-        <input type="search" id="search-input" class="input-field" placeholder="Company, person, CRN or postcode…" oninput="debounceSearch()">
+        <input type="search" id="search-input" class="input-field" placeholder="Company, CRN or postcode… Enter: people too" oninput="debounceSearch()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); searchNow(); }" title="Companies are found as you type; press Enter to search people (PSC controllers and officers) as well">
         <div class="filter-grid">
           <select id="ft3-filter" class="input-field" onchange="loadCompanies()">
             <option value="">All FT3 Techniques</option>

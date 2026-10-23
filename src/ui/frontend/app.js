@@ -276,12 +276,19 @@ async function loadFt3Metadata() {
    LEFT PANEL: ENTITY SEARCH & FILTERING
    ============================================================================ */
 
+/* Typing searches companies and the register index (indexed, instant); Enter searches people too,
+   which costs seconds on a big database. */
 function debounceSearch() {
   clearTimeout(searchDebounceTimer);
-  searchDebounceTimer = setTimeout(() => loadCompanies(), 220);
+  searchDebounceTimer = setTimeout(() => loadCompanies(false), 220);
 }
 
-async function loadCompanies() {
+function searchNow() {
+  clearTimeout(searchDebounceTimer);
+  loadCompanies(true);
+}
+
+async function loadCompanies(includePeople = false) {
   const q = document.getElementById("search-input")?.value || "";
   const ft3 = document.getElementById("ft3-filter")?.value || "";
   const riskChoice = document.getElementById("risk-filter")?.value || "0";
@@ -314,7 +321,22 @@ async function loadCompanies() {
     }
     renderEntityList(items);
     if (typeof appendIndexMatches === "function") appendIndexMatches(q);
-    if (typeof appendPersonMatches === "function") appendPersonMatches(q);
+    if (includePeople) {
+      if (typeof appendPersonMatches === "function") appendPersonMatches(q);
+    } else if (typeof cancelPersonMatches === "function") {
+      cancelPersonMatches();
+      if (q.trim().length >= 3) {
+        const container = document.getElementById("entity-list");
+        if (container) {
+          container.insertAdjacentHTML(
+            "afterbegin",
+            `<div class="people-hint" style="padding:6px 10px; font-size:11px; color:var(--text-secondary); border-bottom:1px solid var(--border-subtle);">
+               Companies only. Press <strong>Enter</strong> to search people (PSC controllers and officers) as well.
+             </div>`
+          );
+        }
+      }
+    }
 
     if (!currentCompanyNumber && items.length > 0) {
       selectCompany(items[0].company_number);

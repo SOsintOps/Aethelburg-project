@@ -15,7 +15,7 @@ The window has a top bar and three panels. It is designed for a width of 1280 px
 
 ## Left panel: search and filters
 
-- **Search box**: company name (the start of any word: "fabri" finds CAMILLA FABRI LTD), company number (CRN, with or without leading zeros) or postcode. Results appear as you type; a very common word ("limited") shows the first 10,000 matches.
+- **Search box**: company name (the start of any word: "fabri" finds CAMILLA FABRI LTD), company number (CRN, with or without leading zeros) or postcode. Companies and the register index are searched as you type; a very common word ("limited") shows the first 10,000 matches. **Enter** also searches people (PSC controllers and officers), which takes a few seconds on a big database: their cards appear at the top of the list with their companies.
 - **FT3 technique filter**: only companies flagged by one technique.
 - **Risk filter**: all companies, flagged only, high (score 35 or more) or critical (65 or more). The default shows flagged companies only: choose **All Risk Scores** to see everything, including the companies whose only finding is a shared address (they have a small score but are not flagged; see [Risk scoring](risk-scoring)).
 - Each result shows name, risk score, CRN, status, postcode and up to three FT3 technique codes. Click it to open the company in every tab.
