@@ -81,12 +81,27 @@ class RiskScorer:
             sanc_by_comp: dict[str, list[dict[str, Any]]] = {}
             for m in resolved["sanction_matches"]:
                 sanc_by_comp.setdefault(m["company_number"], []).append(m)
-            # best evidence first: registration number, name + date of birth, company name, name only
-            sanction_rank = {"A1": (0, 48.0), "A2": (1, 45.0), "B2": (2, 42.0), "B3": (3, 25.0)}
+            # best evidence first: registration number, name + date of birth, company name, year of birth, name only
+            sanction_rank = {
+                "exact_registration_number": (0, 48.0),
+                "psc_name_and_dob": (1, 45.0),
+                "company_name_fingerprint": (2, 42.0),
+                "psc_name_and_birth_year": (3, 35.0),
+                "psc_name_only": (4, 25.0),
+            }
+            basis_text = {
+                "psc_name_and_birth_year": "same year of birth, the list gives no month",
+                "psc_name_only": "name only, no date of birth to compare",
+            }
             for comp_num, matches in sanc_by_comp.items():
-                matches.sort(key=lambda m: sanction_rank.get(m.get("unodc_grade"), (9, 25.0))[0])
+                # a current controller outranks a former one with the same evidence
+                matches.sort(key=lambda m: (sanction_rank.get(m.get("match_type"), (9, 25.0))[0], bool(m.get("controller_ceased_on"))))
                 top = matches[0]
-                basis = "name only, no date of birth to compare" if top.get("match_type") == "psc_name_only" else top.get("match_type")
+                score = sanction_rank.get(top.get("match_type"), (9, 25.0))[1]
+                basis = basis_text.get(top.get("match_type"), top.get("match_type"))
+                if top.get("controller_ceased_on"):
+                    basis = f"{basis}; former controller, ceased on {top['controller_ceased_on']}"
+                    score = round(score * 0.6, 1)
                 _upsert_flag(
                     comp_num,
                     "FT3-SC-007",
@@ -97,7 +112,7 @@ class RiskScorer:
                         "sanctions": matches[:5],
                         "summary": f"Matched {len(matches)} UK FCDO/OFSI sanctions designation(s): {top['sanction_name']} ({top['opensanctions_id']}; {basis})",
                     },
-                    score_override=sanction_rank.get(top.get("unodc_grade"), (9, 25.0))[1],
+                    score_override=score,
                 )
 
             # ------------------------------------------------------------------ #

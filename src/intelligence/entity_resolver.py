@@ -2,8 +2,9 @@
 
 Links UK Companies House (`companies`, `persons`, `legal_entities`) with:
   - UK FCDO / OFSI `sanctions`: exact UK CRN (`A1`), exact company `name_fingerprint` (`B2`); people by
-    `name_fingerprint` checked against the published date of birth (`A2` when month/year agree, dropped
-    when they differ, `B3` low confidence when either side has no date)
+    `name_fingerprint` checked against the published date of birth (`A2` when month/year agree, `B2`
+    moderate when only the years can be compared, dropped when they differ, `B3` low confidence when
+    either side has no date); a former controller is kept, marked with `controller_ceased_on`
   - ICIJ Offshore Leaks (`icij_entities`, `icij_officers`; officers have no date of birth: `C3` low)
   - Updates `ftm_entities.referents` to preserve canonical FollowTheMoney cross-dataset links
 """
@@ -19,13 +20,31 @@ log = get_logger(__name__)
 
 
 def compare_birth_dates(birth_dates: list[dict[str, Any]], year: Any, month: Any) -> str:
-    """`match`, `conflict` or `unknown` for a CH month/year against the sanction's published dates."""
+    """Compare a Companies House month/year with the dates a sanctions list publishes.
+
+    `match` when month and year agree, `year_only` when the years agree but one side has no month,
+    `conflict` when the year or the month differs, `unknown` when either side has no date at all.
+    """
     if not year or not birth_dates:
         return "unknown"
+    outcome = "conflict"
     for d in birth_dates:
-        if d.get("year") == int(year) and (d.get("month") is None or not month or d["month"] == int(month)):
+        if d.get("year") != int(year):
+            continue
+        if d.get("month") is None or not month:
+            outcome = "year_only"
+        elif d["month"] == int(month):
             return "match"
-    return "conflict"
+    return outcome
+
+
+# grade, confidence and match type for each outcome of the date comparison
+_PSC_SANCTION_GRADES = {
+    "match": ("A2", "high", "psc_name_and_dob"),
+    "year_only": ("B2", "moderate", "psc_name_and_birth_year"),
+    "unknown": ("B3", "low", "psc_name_only"),
+}
+_OUTCOME_RANK = {"match": 0, "year_only": 1, "unknown": 2}
 
 
 class EntityResolver:
@@ -120,7 +139,7 @@ class EntityResolver:
             psc_sanc_rows = conn.execute(
                 """
                 SELECT po.company_number, c.company_name, p.name AS controller_name, p.ftm_id AS person_ftm_id,
-                       p.dob_year, p.dob_month,
+                       p.dob_year, p.dob_month, po.ceased_on,
                        s.id AS sanction_id, s.name AS sanction_name, s.opensanctions_id,
                        s.list_name, s.listed_on, s.subject_ftm_id, s.raw_properties
                 FROM psc_ownerships po
@@ -139,24 +158,31 @@ class EntityResolver:
                 outcome = compare_birth_dates(birth_dates, row["dob_year"], row["dob_month"])
                 if outcome == "conflict":
                     continue  # same name, different person
-                if outcome != "match" and pair in best:
+                ceased_on = row["ceased_on"] or None
+                # keep the best evidence for the pair: closest dates first, a current controller before a former one
+                rank = (_OUTCOME_RANK[outcome], ceased_on is not None)
+                if pair in best and best[pair]["_rank"] <= rank:
                     continue
+                grade, confidence, match_type = _PSC_SANCTION_GRADES[outcome]
                 best[pair] = {
                     "company_number": row["company_number"],
                     "company_name": row["company_name"],
                     "controller_name": row["controller_name"],
                     "controller_dob": f"{row['dob_month'] or '?'}/{row['dob_year']}" if row["dob_year"] else None,
+                    "controller_ceased_on": ceased_on,
                     "sanction_id": row["sanction_id"],
                     "sanction_name": row["sanction_name"],
                     "opensanctions_id": row["opensanctions_id"],
                     "list_name": row["list_name"],
                     "listed_on": row["listed_on"],
-                    "match_type": "psc_name_and_dob" if outcome == "match" else "psc_name_only",
-                    "unodc_grade": "A2" if outcome == "match" else "B3",
-                    "confidence": "high" if outcome == "match" else "low",
+                    "match_type": match_type,
+                    "unodc_grade": grade,
+                    "confidence": confidence,
                     "_ftm": (row["person_ftm_id"], row["subject_ftm_id"]),
+                    "_rank": rank,
                 }
             for match in best.values():
+                match.pop("_rank")
                 self._add_ftm_referent(conn, *match.pop("_ftm"))
                 sanction_matches.append(match)
 

@@ -29,9 +29,11 @@ And an **analytic confidence** (ICD 203): **high**, **moderate** or **low**.
 
 - **Companies** match a sanctions designation by UK company number (A1, score 48) or by the same name fingerprint (B2, 42). Only designations of entities count, never of individuals.
 - **People with significant control** must have the same name fingerprint as a sanctioned individual, and then the date of birth decides. Companies House publishes month and year; OFSI publishes a full or partial date (`dd/mm/1945` is the year only).
-  - Same year, and same month where both are known: **A2**, high confidence, score 45.
+  - Same month and year: **A2**, high confidence, score 45.
+  - Same year, but one side gives no month (OFSI often publishes `dd/mm/1976`): **B2**, moderate confidence, score 35. The flag says "same year of birth". With a common name this is usually a namesake: check the designation.
   - Different year or month: the match is dropped as a namesake.
   - No date on either side: kept as **B3**, low confidence, score 25. The flag says "name only".
+  - A person who has **ceased** to be a controller is still matched (the link is history worth knowing), but the flag says "former controller, ceased on …" and the score is reduced to 60 %.
 - **ICIJ Offshore Leaks** publishes no dates of birth, so a person found there is matched on the name alone: **C3**, low confidence, score 20. A company or corporate owner found there keeps B2 and 38.
 
 A name fingerprint ignores case, accents, titles, legal suffixes and word order: *Wilson Joseph* and *Mr Joseph Wilson* are the same fingerprint. Always check a low-confidence match against the designation before relying on it.
