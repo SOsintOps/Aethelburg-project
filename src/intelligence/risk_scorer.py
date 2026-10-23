@@ -13,12 +13,36 @@ from typing import Any
 
 import networkx as nx
 
+from config.user_config import load_user_config
 from src.core.logging import get_logger
 from src.intelligence.entity_resolver import EntityResolver
 from src.intelligence.ft3_mapper import FT3_TECHNIQUES, get_technique_metadata
 from src.services.db_service import DatabaseService
 
 log = get_logger(__name__)
+
+# FT3-SC-001: companies at one address before it counts as a hub (Settings page, `mass_address_threshold`)
+DEFAULT_MASS_ADDRESS_THRESHOLD = 20
+MASS_ADDRESS_THRESHOLD_RANGE = (5, 100_000)
+
+
+def mass_address_threshold_setting() -> int:
+    """The hub threshold saved on the Settings page, within range, or the default."""
+    try:
+        value = int(load_user_config().get("mass_address_threshold", DEFAULT_MASS_ADDRESS_THRESHOLD))
+    except (TypeError, ValueError):
+        return DEFAULT_MASS_ADDRESS_THRESHOLD
+    low, high = MASS_ADDRESS_THRESHOLD_RANGE
+    return min(max(value, low), high)
+
+
+def mass_address_score(colocated: int) -> tuple[float, str]:
+    """Score and note for FT3-SC-001: flat and low, lowest for registered-agent scale hubs."""
+    if colocated >= 1000:
+        return 6.0, "registered-agent scale, thousands of ordinary companies use it"
+    if colocated >= 100:
+        return 8.0, "large hub"
+    return 10.0, "shared address"
 
 
 class RiskScorer:
@@ -30,10 +54,16 @@ class RiskScorer:
 
     def run_all_detections(
         self,
-        mass_address_threshold: int = 5,
+        mass_address_threshold: int | None = None,
         nominee_director_threshold: int = 4,
     ) -> dict[str, Any]:
-        """Run all 11 FT3 detection rules, persist `risk_flags`, and recompute company `risk_score`."""
+        """Run all 11 FT3 detection rules, persist `risk_flags`, and recompute company `risk_score`.
+
+        `mass_address_threshold` (companies at one address for FT3-SC-001) defaults to the value saved
+        on the Settings page, or 20.
+        """
+        if mass_address_threshold is None:
+            mass_address_threshold = mass_address_threshold_setting()
         resolved = self.resolver.resolve_all()
         conn = self.db.connect()
         now = datetime.now(UTC).isoformat()
@@ -208,7 +238,9 @@ class RiskScorer:
             for hub in hub_rows:
                 afp = hub["address_fingerprint"]
                 cnt = int(hub["cnt"])
-                dynamic_score = min(34.0, 20.0 + (cnt / 5.0))
+                # context, not evidence: a flat low score that falls for the largest hubs, which are
+                # registered agents serving thousands of ordinary companies
+                hub_score, hub_note = mass_address_score(cnt)
                 comp_rows = conn.execute(
                     "SELECT company_number FROM companies WHERE address_fingerprint = ?",
                     (afp,),
@@ -218,14 +250,14 @@ class RiskScorer:
                         cr["company_number"],
                         "FT3-SC-001",
                         {
-                            "unodc_grade": "A1",
-                            "confidence": "high",
+                            "unodc_grade": "B2",
+                            "confidence": "moderate",
                             "address_fingerprint": afp,
                             "colocated_companies_count": cnt,
                             "address": f"{hub['line1'] or ''}, {hub['postcode'] or ''}".strip(", "),
-                            "summary": f"Co-registered at formation hub with {cnt} companies ({hub['line1'] or ''}, {hub['postcode'] or ''})",
+                            "summary": f"Co-registered with {cnt} companies at {hub['line1'] or ''}, {hub['postcode'] or ''} ({hub_note})",
                         },
-                        score_override=round(dynamic_score, 1),
+                        score_override=hub_score,
                     )
 
             # ------------------------------------------------------------------ #
@@ -481,18 +513,20 @@ class RiskScorer:
             for ar in agg_rows:
                 techs = sorted(set((ar["tech_csv"] or "").split(",")))
                 score = float(ar["total_score"] or 0.0)
+                # a shared address alone is context, not a reason to flag the company
+                flagged = 0 if techs == ["FT3-SC-001"] else 1
                 conn.execute(
                     """
                     UPDATE companies
                     SET risk_score = ?,
                         ft3_techniques = ?,
-                        is_flagged = 1,
+                        is_flagged = ?,
                         updated_at = ?
                     WHERE company_number = ?
                     """,
-                    (score, json.dumps(techs), now, ar["company_number"]),
+                    (score, json.dumps(techs), flagged, now, ar["company_number"]),
                 )
-                flagged_companies += 1
+                flagged_companies += flagged
 
             # Mark flagged companies as target=1 in ftm_entities
             conn.execute(

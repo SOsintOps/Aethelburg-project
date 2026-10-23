@@ -25,4 +25,4 @@ Marker colour: red = critical (score 60 or more), amber = high (30 to 59), blue 
 
 ## Top co-registration hubs
 
-The right column lists the registration addresses shared by many companies (technique FT3-SC-001), with the number of companies, how many are flagged and the highest score. Click a postcode to show the companies at that address.
+The right column lists the registration addresses shared by many companies (technique FT3-SC-001, at least 20 companies by default; the number is in **7. Settings → Risk scoring**), with the number of companies, how many are flagged and the highest score. Click a postcode to show the companies at that address. A shared address alone never flags a company: the largest hubs are registered formation agents, and the companies worth a look are the flagged ones among their customers.

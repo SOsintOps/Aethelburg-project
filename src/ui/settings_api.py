@@ -11,6 +11,11 @@ from config.settings import get_settings
 from config.user_config import load_user_config, save_user_config, user_config_path
 from src.datasources.daily import schedule
 from src.datasources.storage import describe_location
+from src.intelligence.risk_scorer import (
+    DEFAULT_MASS_ADDRESS_THRESHOLD,
+    MASS_ADDRESS_THRESHOLD_RANGE,
+    mass_address_threshold_setting,
+)
 from src.services.app_settings import describe_ch_keys, save_ch_keys, test_ch_keys
 from src.services.db_service import DatabaseService
 
@@ -23,6 +28,9 @@ class KeysRequest(BaseModel):
 
 class GeneralRequest(BaseModel):
     backup_keep: int = Field(ge=1, le=50)
+    mass_address_threshold: int = Field(
+        default=DEFAULT_MASS_ADDRESS_THRESHOLD, ge=MASS_ADDRESS_THRESHOLD_RANGE[0], le=MASS_ADDRESS_THRESHOLD_RANGE[1]
+    )
 
 
 def build_settings_router(db: DatabaseService) -> APIRouter:
@@ -36,6 +44,7 @@ def build_settings_router(db: DatabaseService) -> APIRouter:
             "ch_keys": describe_ch_keys(),
             "daily": {"enabled": enabled, "time": at, "documents": bool(cfg.get("documents_auto_download", False))},
             "backup_keep": int(cfg.get("backup_keep", 7)),
+            "mass_address_threshold": mass_address_threshold_setting(),
             "location": describe_location(),
             "config_file": str(user_config_path()),
             "database": str(db.db_path or get_settings().db.sqlite_path),
@@ -58,7 +67,7 @@ def build_settings_router(db: DatabaseService) -> APIRouter:
 
     @router.post("/api/settings/general")
     async def settings_general(req: GeneralRequest) -> dict[str, Any]:
-        save_user_config({"backup_keep": req.backup_keep})
-        return {"backup_keep": req.backup_keep}
+        save_user_config({"backup_keep": req.backup_keep, "mass_address_threshold": req.mass_address_threshold})
+        return {"backup_keep": req.backup_keep, "mass_address_threshold": req.mass_address_threshold}
 
     return router

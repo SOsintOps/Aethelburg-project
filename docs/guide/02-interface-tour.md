@@ -26,7 +26,7 @@ The window has a top bar and three panels.
 4. [FollowTheMoney](followthemoney)
 5. [Casework & Reports](casework-and-reports)
 6. [Data & Updates](data-and-updates)
-7. Settings: Companies House keys, daily update, backups to keep (see [Companies House API](companies-house-api))
+7. Settings: Companies House keys, daily update, backups to keep, hub threshold (see [Companies House API](companies-house-api))
 
 ## Right panel: Intelligence Dossier
 

@@ -90,12 +90,14 @@ FT3_TECHNIQUES: dict[str, dict[str, Any]] = {
         "name": "Mass Co-Registration Hub",
         "tactic": "TA09 — Identity & Registration Abuse",
         "priority": "HIGH",
-        "base_score": 24.0,
-        "default_grade": "A1",
-        "default_confidence": "high",
+        "base_score": 10.0,
+        "default_grade": "B2",
+        "default_confidence": "moderate",
         "description": (
             "Registered office address shares an identical ADR-015 address fingerprint with a high density "
-            "of other companies (virtual office, Trust or Company Service Provider / formation agent)."
+            "of other companies (virtual office, Trust or Company Service Provider / formation agent). "
+            "Context rather than evidence: on its own it does not flag a company, and the largest hubs "
+            "(registered agents with thousands of companies) score lowest."
         ),
         "innocent_explanations": [
             "Legitimate use of a chartered accountancy firm, corporate secretarial provider, or virtual office by SMEs and startups to protect residential privacy.",

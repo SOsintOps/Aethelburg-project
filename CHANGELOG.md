@@ -11,6 +11,9 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 
 ## [Unreleased]
 
+### Changed (co-registration hubs)
+- **FT3-SC-001 is context, not evidence.** It fired from 5 companies at one address, scored up to 34 points with grade A1, and on its own flagged the company: on the full register it marked 807,791 of 1,030,987 companies (78 %), most of them ordinary customers of registered formation agents (71-75 Shelton Street alone hosts 60,933), and "flagged" meant nothing. Now: at least **20** companies at one address (changeable in **7. Settings → Risk scoring**, saved as `mass_address_threshold` in the user settings file, applied at the next re-score); a flat score of 10, 8 from 100 companies and 6 from 1,000 (the largest hubs are the least telling); grade B2, moderate confidence; and a company whose only finding is the shared address is **not** flagged. The GeoINT hub list and the score of companies with other findings keep working as before.
+
 ### Fixed
 - A sanctions match of a person where only the **years** of birth could be compared (OFSI publishes `dd/mm/1976` for many designations) was graded A2 with high confidence, the same as a match on month and year. It is now B2, moderate confidence, score 35 instead of 45, and the flag says "same year of birth, the list gives no month". On the full register this concerned 2 of the 19 A2 matches, both common names.
 - A sanctions match through a person who has **ceased** to be a controller was shown as a current link. The match is kept (the history matters) but the flag now says "former controller, ceased on …" and its score is reduced to 60 %; a current controller outranks a former one with the same evidence.

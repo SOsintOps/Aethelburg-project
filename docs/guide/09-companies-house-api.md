@@ -21,7 +21,7 @@ The **Documents** card in the dossier lists the filing history, newest first. **
 
 **7. Settings** holds the two keys. Paste a key and press **Save keys**: it is saved in the `app_settings` table of the database and used at once by **Update from CH**, **Fetch**, the documents and the live updates. **Test with Companies House** asks Companies House whether each key is accepted (the REST key reads one company, the Streaming key opens the stream and closes it). **Remove** deletes a saved key; the keyring key, if any, is used again.
 
-Each key shows where it comes from: *saved here (database)*, *system keyring*, or *environment variable*, which wins over the page. A key pasted twice, or with spaces in it, is refused before it is saved. The other settings on the page are the daily update, how many backups to keep, and where the data folder, database and user settings file are.
+Each key shows where it comes from: *saved here (database)*, *system keyring*, or *environment variable*, which wins over the page. A key pasted twice, or with spaces in it, is refused before it is saved. The other settings on the page are the daily update, how many backups to keep, the co-registration hub threshold (see [Risk scoring](risk-scoring)), and where the data folder, database and user settings file are.
 
 Saved keys are stored in the database file, so they are also in its backups.
 

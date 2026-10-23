@@ -1,6 +1,6 @@
 # Risk scoring
 
-Aethelburg applies eleven detection rules taken from [FT3](https://github.com/stripe/ft3), Stripe's Financial Threat Taxonomy. Each rule that matches a company adds its score; the company score is the sum, capped at 100. A company with at least one match is **flagged**.
+Aethelburg applies eleven detection rules taken from [FT3](https://github.com/stripe/ft3), Stripe's Financial Threat Taxonomy. Each rule that matches a company adds its score; the company score is the sum, capped at 100. A company with at least one match is **flagged**, with one exception: a shared address (FT3-SC-001) on its own never flags a company.
 
 | Code | Technique | Score | Default grade |
 |---|---|---|---|
@@ -11,10 +11,16 @@ Aethelburg applies eleven detection rules taken from [FT3](https://github.com/st
 | FT3-SC-015 | Phoenix company pattern | 28 | B2 |
 | FT3-SC-003 | Layered corporate ownership chain | 26 | B2 |
 | FT3-SC-002 | Nominee / hyper-active director | 25 | B2 |
-| FT3-SC-001 | Mass co-registration hub | 24 | A1 |
 | FT3-SC-020 | Opaque / unverified beneficial control | 18 | A1 |
 | FT3-SC-009 | Rapid director / PSC turnover | 16 | B2 |
 | FT3-SC-014 | Dormant / overdue filing anomaly | 14 | A1 |
+| FT3-SC-001 | Mass co-registration hub | 10 (8 from 100 companies, 6 from 1,000) | B2 |
+
+## Co-registration hubs
+
+FT3-SC-001 fires when at least **20** companies share the same address fingerprint (change the number in **7. Settings → Risk scoring**, then re-score). It is context rather than evidence: most companies at a big hub are ordinary customers of a registered formation agent, so the score is flat and low, lowest for agents with thousands of companies, and the flag alone never marks a company as flagged. It still adds to any other finding, and the **GeoINT** tab lists the hubs with the number of flagged companies at each.
+
+Before this rule was tamed (threshold 5, up to 34 points, A1), it fired on 78 % of a subset built around shared addresses and made "flagged" meaningless.
 
 ## Grades
 

@@ -82,6 +82,15 @@ function renderSettingsPanel(st) {
     </div>
 
     <div class="dossier-card" style="margin-top:14px;">
+      <h3><span>Risk scoring</span></h3>
+      <div style="display:flex; gap:8px; align-items:center; font-size:12px; flex-wrap:wrap;">
+        Co-registration hub (FT3-SC-001) from <input type="number" id="settings-mass-address" class="input-field" style="width:80px;" min="5" max="100000" value="${Number(st.mass_address_threshold || 20)}"> companies at one address
+        <button class="btn btn-sm" onclick="saveSettingsGeneral()">Save</button>
+      </div>
+      <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">A shared address is context, not evidence: it adds 10 points (6 for agents with thousands of companies) and never flags a company on its own. Applied at the next scoring run (Data &amp; Updates → Re-score).</div>
+    </div>
+
+    <div class="dossier-card" style="margin-top:14px;">
       <h3><span>Where things are</span></h3>
       <div class="kv-grid">
         <div class="kv-key">Data folder</div><div class="kv-val"><code>${escapeHtml(loc.path || "")}</code> <span style="color:var(--text-secondary);">(change it in Data &amp; Updates)</span></div>
@@ -160,8 +169,9 @@ async function saveSettingsDaily() {
 
 async function saveSettingsGeneral() {
   const keep = Number(document.getElementById("settings-backup-keep")?.value || 7);
+  const hub = Number(document.getElementById("settings-mass-address")?.value || 20);
   try {
-    await postJson("/api/settings/general", { backup_keep: keep });
+    await postJson("/api/settings/general", { backup_keep: keep, mass_address_threshold: hub });
     showSettingsResult("general-result", "Saved.");
   } catch (err) {
     showSettingsResult("general-result", escapeHtml(err.message), true);
