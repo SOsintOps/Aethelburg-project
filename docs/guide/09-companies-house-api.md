@@ -11,7 +11,7 @@ The **Update from CH** button in the dossier downloads, for the selected company
 - every PSC statement;
 - the filing history (every form filed: date, form type, description, pages).
 
-The data is written with the same rules as the bulk import, then FT3 scoring runs again. Pressing it twice does not create duplicates.
+The data is written with the same rules as the bulk import, then FT3 scoring of the whole register starts in the background (the status line shows it; on a million companies it takes well over an hour, and the program stays usable meanwhile). Pressing it twice does not create duplicates.
 
 A company that is not in the database yet (for example one found in the search index) is created from its profile: use **Fetch** next to it in the search results.
 

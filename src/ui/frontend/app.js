@@ -2164,12 +2164,43 @@ function handleQuickExport(selectEl) {
 }
 
 async function rescoreDatabase() {
+  const status = document.getElementById("center-status");
   const res = await fetch("/api/score/run", { method: "POST" });
-  if (res.ok) {
-    await loadDashboardStats();
-    await loadCompanies();
-    if (currentCompanyNumber) await selectCompany(currentCompanyNumber);
+  if (!res.ok) {
+    if (status) status.textContent = `Re-score: ${res.status} ${res.statusText}`;
+    return;
   }
+  const started = await res.json();
+  if (started.status === "busy") {
+    if (status) status.textContent = `Re-score not started: ${started.detail}`;
+    return;
+  }
+  await waitForScoring();
+}
+
+/** Follow the background re-score until it ends, then reload what depends on the scores. */
+async function waitForScoring() {
+  const status = document.getElementById("center-status");
+  const startedAt = Date.now();
+  for (;;) {
+    let job = null;
+    try {
+      const st = await (await fetch("/api/data/status?check_remote=false")).json();
+      job = st.job;
+    } catch (err) {
+      job = null;
+    }
+    if (!job || job.kind !== "score" || job.status !== "running") {
+      if (status) status.textContent = job && job.kind === "score" && job.status === "failed" ? `Re-score failed: ${job.error}` : "Re-score finished";
+      break;
+    }
+    const minutes = Math.floor((Date.now() - startedAt) / 60000);
+    if (status) status.textContent = `Re-scoring the whole register in the background (${minutes} min)…`;
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+  }
+  await loadDashboardStats();
+  await loadCompanies();
+  if (currentCompanyNumber) await selectCompany(currentCompanyNumber);
 }
 
 function escapeHtml(str) {

@@ -30,7 +30,6 @@ from src.intelligence.ft3_mapper import (
     UNODC_SOURCE_RELIABILITY,
     list_all_techniques,
 )
-from src.intelligence.risk_scorer import RiskScorer
 from src.reports.export_service import ExportService
 from src.reports.pdf_generator import ReportGenerator
 from src.services.db_service import DatabaseService
@@ -421,10 +420,5 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
                 headers={"Content-Disposition": 'attachment; filename="aethelburg_geo.kml"'},
             )
         raise HTTPException(status_code=400, detail=f"Unsupported export format: {fmt}")
-
-    @app.post("/api/score/run")
-    async def run_scoring() -> dict[str, Any]:
-        scorer = RiskScorer(db)
-        return scorer.run_all_detections()
 
     return app

@@ -34,6 +34,6 @@ The window has a top bar and three panels.
 
 Profile of the selected company: registry details, cross-dataset hits (sanctions, ICIJ), FT3 flags with UNODC grade and innocent explanations, PSC controllers, officers, co-located companies.
 
-- **Update from CH**: downloads the current profile, every officer appointment and every PSC statement from Companies House, then re-scores. See [Companies House API](companies-house-api).
+- **Update from CH**: downloads the current profile, every officer appointment and every PSC statement from Companies House, then starts a re-score of the whole register in the background. See [Companies House API](companies-house-api).
 - **10-Sec Report**: opens the intelligence report of the company in a new tab (see [Casework & Reports](casework-and-reports)).
 - **+ Add to Case**: adds the company to the active investigation.

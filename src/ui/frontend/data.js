@@ -49,6 +49,11 @@ async function fetchFromCompaniesHouse(companyNumber) {
     }
     await loadCompanies();
     await selectCompany(res.company_number);
+    if (res.rescore && res.rescore.status === "running") {
+      await waitForScoring(); // the scores of the whole register are recalculated in the background
+    } else if (res.rescore && res.rescore.status === "busy" && status) {
+      status.textContent += ` — scores not recalculated: ${res.rescore.detail}`;
+    }
   } catch (err) {
     if (status) status.textContent = `Companies House: ${err.message}`;
   } finally {
@@ -482,7 +487,7 @@ function formatBytes(n) {
   return `${Math.round(n / 1024 ** 2).toLocaleString()} MB`;
 }
 
-const JOB_TITLES = { download: "Download", import: "Import", officers: "Officers", daily: "Daily update", backup: "Backup" };
+const JOB_TITLES = { download: "Download", import: "Import", officers: "Officers", daily: "Daily update", backup: "Backup", score: "FT3 re-score" };
 
 function renderJob(job) {
   const title = JOB_TITLES[job.kind] || job.kind;

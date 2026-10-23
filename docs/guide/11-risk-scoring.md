@@ -50,4 +50,4 @@ Each technique lists lawful situations that produce the same pattern: accountant
 
 ## When scores change
 
-Scores are recalculated by **Re-Score FT3**, at the end of **Run import**, after **Update from CH**, and every 15 minutes while live updates bring changes.
+Scores are recalculated by **Re-Score FT3**, at the end of **Run import**, after **Update from CH**, and every 15 minutes while live updates bring changes. The recalculation runs as a background task (one at a time, shown in the status line and in **Data & Updates**); the rules read the database and write every flag at the end in one short step, so the program stays usable while it runs.

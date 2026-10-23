@@ -160,9 +160,23 @@ def build_data_router(db: DatabaseService) -> APIRouter:
             summary["filings_error"] = exc.message
             logging.getLogger(__name__).warning("filing history of %s: %s", company_number, exc.message)
         if rescore:
-            await asyncio.to_thread(RiskScorer(db).run_all_detections)
-        summary["dossier"] = db.get_company_dossier(summary["company_number"])
+            # scoring covers the whole register and can take a long time: it runs as a background
+            # task and the dossier below shows the scores as they are now
+            summary["rescore"] = _start_rescore()
+        summary["dossier"] = await asyncio.to_thread(db.get_company_dossier, summary["company_number"])
         return summary
+
+    def _start_rescore() -> dict[str, Any]:
+        try:
+            job = jobs.start("score", lambda progress: RiskScorer(db).run_all_detections())
+        except HTTPException as exc:
+            return {"status": "busy", "detail": exc.detail}
+        return {"status": job["status"], "job_id": job["id"]}
+
+    @router.post("/api/score/run")
+    async def run_scoring() -> dict[str, Any]:
+        """Re-run entity resolution and every FT3 rule on the whole database, as a background task."""
+        return _start_rescore()
 
     add_document_routes(router, db, ch_api)
 

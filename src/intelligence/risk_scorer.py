@@ -69,9 +69,12 @@ class RiskScorer:
         now = datetime.now(UTC).isoformat()
         detected_counts: dict[str, int] = {code: 0 for code in FT3_TECHNIQUES}
 
+        # The rules only read until the end: the flags are collected here and written in one short
+        # transaction, so the database stays free for other writers (filing lists, updates from
+        # Companies House, the stream) while the rules run on a large register.
+        flags: list[tuple[str, str, str, float, str, str]] = []
+
         try:
-            # Reset active flags before full recomputation
-            conn.execute("DELETE FROM risk_flags")
 
             def _upsert_flag(
                 company_number: str,
@@ -88,12 +91,7 @@ class RiskScorer:
                     "technique_name": meta["name"],
                     **evidence,
                 }
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO risk_flags
-                        (company_number, ft3_technique, priority, score_contribution, evidence, detected_at, is_active)
-                    VALUES (?, ?, ?, ?, ?, ?, 1)
-                    """,
+                flags.append(
                     (
                         company_number,
                         code,
@@ -101,7 +99,7 @@ class RiskScorer:
                         score,
                         json.dumps(evidence_with_grading, ensure_ascii=False),
                         now,
-                    ),
+                    )
                 )
                 detected_counts[code] = detected_counts.get(code, 0) + 1
 
@@ -496,6 +494,16 @@ class RiskScorer:
             # ------------------------------------------------------------------ #
             # AGGREGATE RISK SCORES ON `companies` & SYNC `ftm_entities.target`  #
             # ------------------------------------------------------------------ #
+            # write phase: replace every flag, then the scores, in one transaction
+            conn.execute("DELETE FROM risk_flags")
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO risk_flags
+                    (company_number, ft3_technique, priority, score_contribution, evidence, detected_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+                """,
+                flags,
+            )
             conn.execute("UPDATE companies SET risk_score = 0.0, ft3_techniques = '[]', is_flagged = 0")
 
             agg_rows = conn.execute(

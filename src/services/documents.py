@@ -55,8 +55,13 @@ async def fetch_filing_history(svc: CompaniesHouseApiService, company_number: st
         if exc.status == 404:  # no filing history (e.g. very old or overseas records)
             return 0
         raise
+    # the database work runs in a thread: a lock held by another writer must not stall the server
+    return await asyncio.to_thread(_store_filings, svc.db, number, items)
+
+
+def _store_filings(db: Any, number: str, items: list[dict[str, Any]]) -> int:
     now = datetime.now(UTC).isoformat()
-    conn = svc.db.connect()
+    conn = db.connect()
     try:
         for it in items:
             tid = it.get("transaction_id")
