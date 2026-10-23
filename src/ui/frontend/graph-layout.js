@@ -9,6 +9,8 @@
    - layout in free space, then zoom/pan to fit the view (no clamping to the edges);
    - ring and row sizes derived from the number of nodes;
    - deterministic seeds: the same network always gets the same picture;
+   - several seeds compared and the one with the fewest link crossings kept, then
+     pairs of nodes swapped while that removes crossings (UNODC step 7);
    - crowded hubs collapsed into an expandable "+N" group node.
    All coordinates are graph coordinates centred on (0, 0); the SVG viewport transform
    (graphZoomState) maps them to the screen.
@@ -45,6 +47,132 @@ const GraphLayout = (() => {
 
   function isFixed(n, rootId) {
     return n.pinned || n.id === rootId;
+  }
+
+  /* ---------- readability measures ---------- */
+
+  /** Links as pairs of node objects, each with its position `k`, plus the links at every node. */
+  function linkIndex(nodes, edges) {
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const segs = [];
+    const incident = new Map(nodes.map((n) => [n, []]));
+    edges.forEach((e) => {
+      const s = byId.get(e.source);
+      const t = byId.get(e.target);
+      if (!s || !t || s === t) return;
+      const seg = { s, t, k: segs.length };
+      segs.push(seg);
+      incident.get(s).push(seg);
+      incident.get(t).push(seg);
+    });
+    return { segs, incident };
+  }
+
+  function side(a, b, c) {
+    return Math.sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+  }
+
+  /** True when two links that share no node cross each other. */
+  function linksCross(p, q) {
+    if (p.s === q.s || p.s === q.t || p.t === q.s || p.t === q.t) return false;
+    return side(p.s, p.t, q.s) !== side(p.s, p.t, q.t) && side(q.s, q.t, p.s) !== side(q.s, q.t, p.t);
+  }
+
+  /** True when a link runs across a node that is not one of its ends. */
+  function linkThroughNode(seg, n) {
+    if (seg.s === n || seg.t === n) return false;
+    const r = Math.min(n._box.w, n._box.h) / 2;
+    const dx = seg.t.x - seg.s.x;
+    const dy = seg.t.y - seg.s.y;
+    const len2 = dx * dx + dy * dy || 1;
+    const u = Math.max(0, Math.min(1, ((n.x - seg.s.x) * dx + (n.y - seg.s.y) * dy) / len2));
+    const px = seg.s.x + u * dx - n.x;
+    const py = seg.s.y + u * dy - n.y;
+    return px * px + py * py < r * r;
+  }
+
+  const THROUGH_WEIGHT = 2; // a link through a node hides as much as two crossings
+
+  /** Number of pairs of links that cross; links sharing a node never count. */
+  function countCrossings(nodes, edges) {
+    const { segs } = linkIndex(nodes, edges);
+    let crossings = 0;
+    for (let i = 0; i < segs.length; i++) {
+      for (let j = i + 1; j < segs.length; j++) if (linksCross(segs[i], segs[j])) crossings++;
+    }
+    return crossings;
+  }
+
+  /** Lower is more readable: crossings plus links that run across nodes. */
+  function layoutCost(nodes, edges) {
+    const { segs } = linkIndex(nodes, edges);
+    let cost = 0;
+    for (let i = 0; i < segs.length; i++) {
+      for (let j = i + 1; j < segs.length; j++) if (linksCross(segs[i], segs[j])) cost++;
+      for (const n of nodes) if (linkThroughNode(segs[i], n)) cost += THROUGH_WEIGHT;
+    }
+    return cost;
+  }
+
+  /**
+   * The part of the cost that can change when nodes a and b move: pairs with a link
+   * of a or b, and links across a or b. Each pair is counted once.
+   */
+  function localCost(idx, nodes, a, b, stamp) {
+    const segs = idx.segs;
+    const own = idx.incident.get(a).concat(idx.incident.get(b).filter((seg) => seg.s !== a && seg.t !== a));
+    for (let i = 0; i < own.length; i++) own[i].mark = stamp;
+    let cost = 0;
+    for (let i = 0; i < own.length; i++) {
+      const p = own[i];
+      for (let j = 0; j < segs.length; j++) {
+        const q = segs[j];
+        if (q === p || (q.mark === stamp && q.k < p.k)) continue;
+        if (linksCross(p, q)) cost++;
+      }
+      for (let j = 0; j < nodes.length; j++) if (linkThroughNode(p, nodes[j])) cost += THROUGH_WEIGHT;
+    }
+    for (let j = 0; j < segs.length; j++) {
+      const q = segs[j];
+      if (q.mark === stamp) continue;
+      if (linkThroughNode(q, a)) cost += THROUGH_WEIGHT;
+      if (linkThroughNode(q, b)) cost += THROUGH_WEIGHT;
+    }
+    return cost;
+  }
+
+  /**
+   * UNODC step 7 "clarify and re-plot": swap the places of two free nodes whenever
+   * that lowers the cost, until no swap helps. Nodes keep to the same spots, so the
+   * chart keeps its shape and nothing overlaps afterwards. Bigger charts get fewer
+   * passes so the layout stays quick.
+   */
+  function untangle(nodes, edges, rootId, maxPasses = null) {
+    const free = nodes.filter((n) => !isFixed(n, rootId));
+    if (free.length < 2 || nodes.length > 150) return;
+    const passes = maxPasses || (nodes.length <= 40 ? 4 : nodes.length <= 60 ? 2 : 1);
+    const idx = linkIndex(nodes, edges);
+    let stamp = 0;
+    for (let pass = 0; pass < passes; pass++) {
+      let improved = false;
+      for (let i = 0; i < free.length; i++) {
+        for (let j = i + 1; j < free.length; j++) {
+          const a = free[i];
+          const b = free[j];
+          const before = localCost(idx, nodes, a, b, ++stamp);
+          if (before === 0) continue;
+          [a.x, b.x] = [b.x, a.x];
+          [a.y, b.y] = [b.y, a.y];
+          if (localCost(idx, nodes, a, b, ++stamp) < before) {
+            improved = true;
+          } else {
+            [a.x, b.x] = [b.x, a.x];
+            [a.y, b.y] = [b.y, a.y];
+          }
+        }
+      }
+      if (!improved) break;
+    }
   }
 
   /* ---------- hub grouping ---------- */
@@ -104,8 +232,36 @@ const GraphLayout = (() => {
 
   /* ---------- layouts ---------- */
 
-  function organic(nodes, edges, rootId, salt = 0) {
+  /** How many seeded placements organic() compares before untangling: fewer on big charts. */
+  function trialsFor(nodeCount) {
+    if (nodeCount <= 30) return 8;
+    if (nodeCount <= 60) return 4;
+    return 2;
+  }
+
+  /**
+   * Force-directed layout, the best of several seeds (fewest crossings and links through
+   * nodes), then pairwise untangling. `trials` overrides the size-based default.
+   */
+  function organic(nodes, edges, rootId, salt = 0, trials = null) {
     nodes.forEach((n) => (n._box = nodeBox(n)));
+    const count = trials || trialsFor(nodes.length);
+    let best = null;
+    for (let s = salt; s < salt + count; s++) {
+      forceLayout(nodes, edges, rootId, s);
+      const cost = layoutCost(nodes, edges);
+      if (!best || cost < best.cost) best = { cost, pos: nodes.map((n) => [n.x, n.y]) };
+      if (cost === 0) break;
+    }
+    nodes.forEach((n, i) => {
+      [n.x, n.y] = best.pos[i];
+    });
+    untangle(nodes, edges, rootId);
+    removeOverlaps(nodes, rootId);
+    return null;
+  }
+
+  function forceLayout(nodes, edges, rootId, salt) {
     // seeded start: rings by hop distance, angle from the id
     nodes.forEach((n) => {
       if (n.pinned) return;
@@ -156,7 +312,6 @@ const GraphLayout = (() => {
       grid(nodes, rootId); // CDN unreachable: still readable
     }
     removeOverlaps(nodes, rootId);
-    return null;
   }
 
   function grid(nodes, rootId) {
@@ -357,5 +512,5 @@ const GraphLayout = (() => {
     return organic(nodes, edges, rootId, salt);
   }
 
-  return { apply, organic, removeOverlaps, countOverlaps, fitTransform, collapseCrowdedHubs, nodeBox };
+  return { apply, organic, untangle, countCrossings, removeOverlaps, countOverlaps, fitTransform, collapseCrowdedHubs, nodeBox };
 })();

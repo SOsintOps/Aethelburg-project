@@ -26,7 +26,7 @@ let graphEdges = [];
 let graphNodeMap = new Map();
 let currentGraphLayout = "organic"; // 'organic' | 'hierarchical' | 'concentric' | 'circular' | 'matrix'
 let showGraphEdgeLabels = true;
-let showChartKeyPanel = true;
+let showChartKeyPanel = false; // the Chart Key button opens the UNODC chart cover
 let graphZoomState = { scale: 1, tx: 0, ty: 0 };
 let graphLayoutGuides = null; // rings / tiers drawn behind the chart, in graph coordinates
 let expandedGraphHubs = new Set(); // hubs whose "+N companies" group the analyst opened
@@ -650,7 +650,10 @@ function applyGraphLayout(layoutName, salt = 0) {
 function fitGraphToView() {
   const svg = document.getElementById("graph-svg");
   const rect = svg ? svg.getBoundingClientRect() : { width: 860, height: 600 };
-  graphZoomState = GraphLayout.fitTransform(graphNodes, Math.max(rect.width || 860, 320), Math.max(rect.height || 600, 300));
+  // the chart key panel, when open, covers the right side of the canvas
+  const keyPanel = document.getElementById("graph-chart-key");
+  const inset = showChartKeyPanel && keyPanel ? keyPanel.offsetWidth + 24 : 0;
+  graphZoomState = GraphLayout.fitTransform(graphNodes, Math.max((rect.width || 860) - inset, 320), Math.max(rect.height || 600, 300));
   const vp = document.getElementById("graph-viewport");
   if (vp) vp.setAttribute("transform", `translate(${graphZoomState.tx},${graphZoomState.ty}) scale(${graphZoomState.scale})`);
 }
@@ -659,55 +662,11 @@ function fitGraphToView() {
    UNODC STEP 7: UNTANGLE (MINIMIZE EDGE CROSSINGS, INSPIRED BY QUAESITOR)
    ============================================================================ */
 
-function countEdgeCrossings() {
-  const segs = [];
-  graphEdges.forEach((e) => {
-    const s = graphNodeMap.get(e.source);
-    const t = graphNodeMap.get(e.target);
-    if (s && t) {
-      segs.push({ x1: s.x, y1: s.y, x2: t.x, y2: t.y, s: e.source, t: e.target });
-    }
-  });
-  const sgn = (ax, ay, bx, by, cx, cy) => Math.sign((bx - ax) * (cy - ay) - (by - ay) * (cx - ax));
-  let crossings = 0;
-  for (let i = 0; i < segs.length; i++) {
-    for (let j = i + 1; j < segs.length; j++) {
-      const p = segs[i];
-      const q = segs[j];
-      if (p.s === q.s || p.s === q.t || p.t === q.s || p.t === q.t) continue;
-      const d1 = sgn(p.x1, p.y1, p.x2, p.y2, q.x1, q.y1);
-      const d2 = sgn(p.x1, p.y1, p.x2, p.y2, q.x2, q.y2);
-      const d3 = sgn(q.x1, q.y1, q.x2, q.y2, p.x1, p.y1);
-      const d4 = sgn(q.x1, q.y1, q.x2, q.y2, p.x2, p.y2);
-      if (d1 !== d2 && d3 !== d4) crossings++;
-    }
-  }
-  return crossings;
-}
-
 function untangleGraph() {
   if (graphNodes.length < 3) return;
   const rootId = currentGraphPayload?.root_id;
-  let bestPositions = graphNodes.map((n) => ({ id: n.id, x: n.x, y: n.y }));
-  let bestCrossings = countEdgeCrossings();
-
-  // reproducible seeds: the same network always untangles to the same picture
-  for (let salt = 1; salt <= 12 && bestCrossings > 0; salt++) {
-    GraphLayout.organic(graphNodes, graphEdges, rootId, salt);
-    const c = countEdgeCrossings();
-    if (c < bestCrossings) {
-      bestCrossings = c;
-      bestPositions = graphNodes.map((n) => ({ id: n.id, x: n.x, y: n.y }));
-    }
-  }
-
-  bestPositions.forEach((p) => {
-    const n = graphNodeMap.get(p.id);
-    if (n && !n.pinned) {
-      n.x = p.x;
-      n.y = p.y;
-    }
-  });
+  // more seeds than the automatic layout tries, then pairwise swaps
+  GraphLayout.organic(graphNodes, graphEdges, rootId, 1, 16);
   graphLayoutGuides = null;
   fitGraphToView();
 
@@ -717,7 +676,7 @@ function untangleGraph() {
   });
   renderGraphFromState();
   document.getElementById("center-status").textContent =
-    `Untangled Link Chart (UNODC Step 7) — Crossings reduced to ${bestCrossings}`;
+    `Untangled Link Chart (UNODC Step 7) — Crossings reduced to ${GraphLayout.countCrossings(graphNodes, graphEdges)}`;
 }
 
 function unpinAllGraphNodes() {
@@ -740,6 +699,10 @@ function toggleChartKey() {
   showChartKeyPanel = !showChartKeyPanel;
   const panel = document.getElementById("graph-chart-key");
   if (panel) panel.style.display = showChartKeyPanel ? "block" : "none";
+  if (graphNodes.length) {
+    fitGraphToView();
+    renderGraphFromState();
+  }
 }
 
 /* ============================================================================
@@ -980,7 +943,43 @@ function renderNodeShapeAndGlyph(n) {
   `;
 }
 
-function computeEdgeGeometry(s, t) {
+/**
+ * Where each link label sits along its line (0.5 = middle). A label that would cover
+ * another label or a node slides along its own link instead.
+ */
+function spreadEdgeLabels() {
+  const placed = [];
+  graphEdges.forEach((e) => {
+    e._lt = 0.5;
+    const s = graphNodeMap.get(e.source);
+    const t = graphNodeMap.get(e.target);
+    if (!s || !t || !e.label) return;
+    const w = Math.max(54, e.label.length * 5.6 + 12);
+    const geo = computeEdgeGeometry(s, t);
+    // the first clean spot wins; a short link with no clean spot keeps its label in the middle
+    const candidates = [0.5, 0.38, 0.62, 0.26, 0.74];
+    let chosen = null;
+    for (const lt of candidates) {
+      const x = geo.x1 + (geo.x2 - geo.x1) * lt;
+      const y = geo.y1 + (geo.y2 - geo.y1) * lt;
+      const onLabel = placed.some((p) => Math.abs(p.x - x) < (p.w + w) / 2 + 4 && Math.abs(p.y - y) < 19);
+      // its own two ends count as well: a label must not cover a card or a circle
+      const onNode = graphNodes.some((n) => {
+        const b = GraphLayout.nodeBox(n);
+        return Math.abs(n.x - x) < (b.w + w) / 2 && Math.abs(n.y - y) < b.h / 2 + 8;
+      });
+      if (!onLabel && !onNode) {
+        chosen = { lt, x, y };
+        break;
+      }
+    }
+    if (!chosen) chosen = { lt: 0.5, x: geo.mx, y: geo.my };
+    e._lt = chosen.lt;
+    placed.push({ x: chosen.x, y: chosen.y, w });
+  });
+}
+
+function computeEdgeGeometry(s, t, labelAt = 0.5) {
   const dx = t.x - s.x;
   const dy = t.y - s.y;
   const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -991,8 +990,8 @@ function computeEdgeGeometry(s, t) {
   const y1 = s.y + (dy / dist) * Math.min(padStart, dist * 0.35);
   const x2 = t.x - (dx / dist) * Math.min(padEnd, dist * 0.35);
   const y2 = t.y - (dy / dist) * Math.min(padEnd, dist * 0.35);
-  const mx = (x1 + x2) / 2;
-  const my = (y1 + y2) / 2;
+  const mx = x1 + (x2 - x1) * labelAt;
+  const my = y1 + (y2 - y1) * labelAt;
   return { x1, y1, x2, y2, mx, my };
 }
 
@@ -1010,13 +1009,14 @@ function renderGraphFromState() {
 
   const guidesSvg = renderBackgroundGuides();
   const pal = getGraphThemePalette();
+  if (showGraphEdgeLabels) spreadEdgeLabels();
 
   const edgesSvg = graphEdges
     .map((e, idx) => {
       const s = graphNodeMap.get(e.source);
       const t = graphNodeMap.get(e.target);
       if (!s || !t) return "";
-      const { x1, y1, x2, y2, mx, my } = computeEdgeGeometry(s, t);
+      const { x1, y1, x2, y2, mx, my } = computeEdgeGeometry(s, t, e._lt);
 
       // UNODC Link Convention: Confirmed (A1, A2, B1, B2) = Solid, Suspected/Inferred (C3) = Dashed
       const isConfirmed = e.confirmed !== false;
@@ -1220,7 +1220,7 @@ function updateDraggedNodeDom(svgEl, nodeObj) {
     const s = graphNodeMap.get(e.source);
     const t = graphNodeMap.get(e.target);
     if (!s || !t) return;
-    const { x1, y1, x2, y2, mx, my } = computeEdgeGeometry(s, t);
+    const { x1, y1, x2, y2, mx, my } = computeEdgeGeometry(s, t, e._lt);
     const edgeGroup = svgEl.querySelector(`.graph-edge[data-edge-idx="${idx}"]`);
     if (!edgeGroup) return;
     const lineEl = edgeGroup.querySelector(".edge-line");
