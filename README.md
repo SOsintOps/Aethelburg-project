@@ -137,7 +137,7 @@ Every entity and relationship in Aethelburg is stored both in high-speed relatio
 
 ## Documentation and Related Projects
 
-- [User guide](docs/guide/01-getting-started.md) -
+- [User guide](docs/guide/01-getting-started.md)
 - [FAQ](docs/FAQ.md)
 - [Report writing](docs/REPORT_WRITING.md)
 - [Architecture](docs/ARCHITECTURE.md)
