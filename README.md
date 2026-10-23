@@ -38,22 +38,70 @@ The system applies **11 detection patterns** mapped to [FT3](https://github.com/
 
 ---
 
-## Quick Start (Windows, no Docker)
+## Installation
+
+Aethelburg is a local application: it needs **Python 3.12 or newer** (3.13 recommended) and `git`, nothing else. Docker is optional and only for the PostgreSQL back end (see [`docs/SETUP.md`](docs/SETUP.md)); the default back end is SQLite.
+
+Everything the installer puts on the machine stays in three places, so nothing else on the system is touched:
+
+| What | Windows | Linux |
+|---|---|---|
+| Program and every Python dependency | `.venv\` inside the project folder | `.venv/` inside the project folder |
+| Data folder: downloads, database, backups, documents, exports | `C:\AethelburgData` (changeable in the app) | `~/AethelburgData` (changeable in the app) |
+| Preferences (a few lines: data folder, backups to keep, hub threshold) | `%APPDATA%\Aethelburg\config.toml` | `~/.config/aethelburg/config.toml` |
+
+To uninstall, delete those three. Companies House keys, if you choose the system keyring instead of the Settings page, are the only other trace (Windows Credential Manager, or the Secret Service / KWallet on Linux).
+
+### Windows
+
+In PowerShell:
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -e .        # add [ftm] where PyICU is available
-.\start.ps1                                          # opens http://127.0.0.1:8050
+git clone https://github.com/SOsintOps/Aethelburg-project.git
+cd Aethelburg-project
+py -3 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e .
 ```
 
-Then open **6. Data & Updates** → **Download all** → **Run import**. The **? Help** button (or F1) opens the full user guide; the chapters are also in [`docs/guide/`](docs/guide/).
+`py -3` is the Python launcher that comes with the python.org installer; `python` works too if it is on the PATH. The `[ftm]` extra (`followthemoney`, `fingerprints`) needs PyICU, which has no Windows wheel for Python 3.13: the program has pure-Python fallbacks, so leave it out.
 
-Companies House keys (free, from the developer hub: one *REST* key for **Update from CH** and **Fetch**, one *Streaming* key for live updates) are pasted in **7. Settings**, which saves them in the local database and checks them with Companies House. The system keyring still works as an alternative:
+### Linux (Debian, Ubuntu and derivatives)
 
-```powershell
-.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key
-.venv\Scripts\python.exe -m keyring set aethelburg ch_streaming_key
+```bash
+sudo apt install python3 python3-venv python3-pip git
+git clone https://github.com/SOsintOps/Aethelburg-project.git
+cd Aethelburg-project
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+chmod +x start.sh
 ```
+
+Optional, for the full FollowTheMoney tool chain: `sudo apt install libicu-dev pkg-config build-essential` and then `.venv/bin/python -m pip install -e ".[ftm]"`. On other distributions use the equivalent packages (`python3-venv` is part of `python3` on Fedora and Arch). The test suite runs on Ubuntu in CI; the application has had less use on Linux than on Windows, so please [report](https://github.com/SOsintOps/Aethelburg-project/issues) anything that behaves differently.
+
+### Updating
+
+From the project folder: `git pull`, then `pip install -e .` with the venv's Python as above, then restart. The database schema is upgraded automatically on start; make a backup first (**6. Data & Updates → Back up now**).
+
+## Starting the application
+
+| | Windows (PowerShell) | Linux |
+|---|---|---|
+| Open in your browser | `.\start.ps1` | `./start.sh` |
+| Server only (open http://127.0.0.1:8050 yourself) | `.venv\Scripts\python.exe -m src.main serve` | `.venv/bin/python -m src.main serve` |
+| Another port | add `-Port 8060` / `--port 8060` | add `--port 8060` |
+
+Both scripts use the project's `.venv` and stop with Ctrl+C. The browser window is the whole interface; nothing listens outside `127.0.0.1`.
+
+**First run**: open **6. Data & Updates** → **Download all** → **Run import** (the Companies House bulk files are several gigabytes; the import is resumable). The **? Help** button (or F1) opens the full user guide; the chapters are also in [`docs/guide/`](docs/guide/).
+
+**Companies House keys** (free, from the developer hub: one *REST* key for **Update from CH** and **Fetch**, one *Streaming* key for live updates) are pasted in **7. Settings**, which saves them in the local database and checks them with Companies House. The system keyring still works as an alternative:
+
+```
+.venv\Scripts\python.exe -m keyring set aethelburg ch_api_key          # Windows
+.venv/bin/python -m keyring set aethelburg ch_api_key                  # Linux
+```
+
+and the same with `ch_streaming_key`.
 
 ## Keeping data up to date
 

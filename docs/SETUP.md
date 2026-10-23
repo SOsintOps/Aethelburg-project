@@ -37,13 +37,16 @@ Download from https://docs.docker.com/desktop/install/windows-install/
 git clone https://github.com/SOsintOps/Aethelburg-project.git
 cd Aethelburg-project
 
-# Create and activate the virtual environment
-python -m venv .venv
-.venv\Scripts\activate
+# Create the virtual environment and install (Windows, PowerShell)
+py -3 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e ".[dev]"
 
-# Install dependencies
-pip install -e ".[dev]"
+# The same on Linux
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
 ```
+
+The README has the short version for each operating system and the launch commands (`start.ps1` on Windows, `start.sh` on Linux). Everything is installed inside `.venv` in the project folder; the data folder and the preferences file are the only other places written.
 
 ---
 

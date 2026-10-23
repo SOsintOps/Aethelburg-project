@@ -11,6 +11,9 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 
 ## [Unreleased]
 
+### Changed (installation)
+- The README separates **Installation** (Windows and Linux, with where the program, the data and the preferences go and how to uninstall) from **Starting the application**. New `start.sh` for Linux, the counterpart of `start.ps1`. `docs/SETUP.md` and the Getting started chapter give the Linux commands too.
+
 ### Changed (co-registration hubs)
 - **FT3-SC-001 is context, not evidence.** It fired from 5 companies at one address, scored up to 34 points with grade A1, and on its own flagged the company: on the full register it marked 807,791 of 1,030,987 companies (78 %), most of them ordinary customers of registered formation agents (71-75 Shelton Street alone hosts 60,933), and "flagged" meant nothing. Now: at least **20** companies at one address (changeable in **7. Settings → Risk scoring**, saved as `mass_address_threshold` in the user settings file, applied at the next re-score); a flat score of 10, 8 from 100 companies and 6 from 1,000 (the largest hubs are the least telling); grade B2, moderate confidence; and a company whose only finding is the shared address is **not** flagged. The GeoINT hub list and the score of companies with other findings keep working as before.
 

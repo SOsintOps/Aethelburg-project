@@ -4,17 +4,23 @@ Aethelburg is a local tool: everything runs on your computer and the data stays 
 
 ## Start the application
 
-From the project folder, in PowerShell:
+From the project folder, in PowerShell on Windows:
 
 ```
 .venv\Scripts\python.exe -m src.main serve
 ```
 
-Then open **http://127.0.0.1:8050** in your browser. `start.ps1` does the same and opens a browser window.
+or on Linux:
+
+```
+.venv/bin/python -m src.main serve
+```
+
+Then open **http://127.0.0.1:8050** in your browser. `start.ps1` (Windows) and `start.sh` (Linux) do the same and open a browser window. Installing is covered in the README: a Python virtual environment inside the project folder, nothing else on the system.
 
 ## Where your data lives
 
-All downloads, the database (`aethelburg.sqlite`), exports and logs are kept in one **data folder**. The default on Windows is `C:\AethelburgData`. You can change it in the **6. Data & Updates** tab or with:
+All downloads, the database (`aethelburg.sqlite`), exports and logs are kept in one **data folder**. The default is `C:\AethelburgData` on Windows and `~/AethelburgData` on Linux. You can change it in the **6. Data & Updates** tab or with:
 
 ```
 .venv\Scripts\python.exe -m src.main data location D:\MyAethelburgData --move
