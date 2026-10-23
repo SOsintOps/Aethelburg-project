@@ -1,6 +1,6 @@
 # 5. Casework & Reports
 
-![Casework tab: the active investigation with its working hypothesis and enrolled entities on the left, the analyst findings with UNODC grade and confidence on the right](images/casework.png)
+![Casework tab: the active investigation with its working hypothesis and enrolled entities on the left, the analyst findings with UNODC grade and confidence on the right](images/casework-wide.png)
 
 ## Investigations
 

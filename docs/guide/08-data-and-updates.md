@@ -1,6 +1,6 @@
 # 6. Data & Updates
 
-![Data tab: the data folder, the subset imported in full with its criteria, and the bulk sources with the date on disk and the latest release](images/data-and-updates.png)
+![Data tab: the data folder, the subset imported in full with its criteria, and the bulk sources with the date on disk and the latest release](images/data-and-updates-wide.png)
 
 This tab answers three questions: where the data is, how fresh it is, and how it is kept up to date.
 

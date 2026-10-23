@@ -1,6 +1,6 @@
 # 3. Timeline & FT3 Matrix
 
-![Timeline of a company: dissolution, PSC notified and ceased, officers appointed and resigned, each with its source and grade](images/timeline.png)
+![Timeline of a company: dissolution, PSC notified and ceased, officers appointed and resigned, each with its source and grade](images/timeline-wide.png)
 
 ## Timeline
 

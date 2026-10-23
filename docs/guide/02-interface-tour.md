@@ -2,7 +2,7 @@
 
 The window has a top bar and three panels.
 
-![The window: counters in the top bar, search and the list of flagged companies on the left, the network graph in the centre, the dossier on the right](images/overview.png)
+![The window: counters in the top bar, search and the list of flagged companies on the left, the network graph in the centre, the dossier on the right](images/overview-wide.png)
 
 ## Top bar
 

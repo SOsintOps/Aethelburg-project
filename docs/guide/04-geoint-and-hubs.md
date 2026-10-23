@@ -1,6 +1,6 @@
 # 2. GeoInt & Hubs
 
-![GeoInt tab: the map of the United Kingdom with the flagged companies as red squares, and on the right the busiest registration addresses with their company counts](images/geoint-hubs.png)
+![GeoInt tab: the map focused on London with the flagged companies as red squares, and on the right the busiest registration addresses with their company counts](images/geoint-london.png)
 
 Map of the registered offices and list of the busiest registration addresses.
 

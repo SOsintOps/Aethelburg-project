@@ -1,6 +1,6 @@
 # 4. FollowTheMoney (FtM)
 
-![FollowTheMoney tab: the properties of the Company entity on the left and its canonical JSON on the right, with the download buttons](images/followthemoney.png)
+![FollowTheMoney tab: the properties of the Company entity on the left and its canonical JSON on the right, with the download buttons](images/followthemoney-wide.png)
 
 Every entity in Aethelburg is also stored in the [FollowTheMoney](https://followthemoney.tech/) format used by OCCRP Aleph and OpenSanctions: companies, people, legal entities, addresses, ownerships, directorships, sanctions and ICIJ records.
 

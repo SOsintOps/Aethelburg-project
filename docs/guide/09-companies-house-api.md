@@ -1,6 +1,6 @@
 # Companies House API
 
-![Settings tab: the Companies House keys with where each comes from, the daily update, backups to keep, the hub threshold and where the files are](images/settings.png)
+![Settings tab: the Companies House keys with where each comes from, the daily update, backups to keep, the hub threshold and where the files are](images/settings-wide.png)
 
 ## Update from CH
 
