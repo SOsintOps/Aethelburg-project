@@ -15,7 +15,7 @@ Link chart of the selected company: companies, PSC controllers (people and legal
 - **Concentric**: rings by distance from the subject (hop 0, 1, 2).
 - **Hierarchical**: ownership from top to bottom.
 - **Circular** and **Matrix**: compact views for many nodes.
-- **Untangle** re-runs the organic layout with more attempts to reduce crossings further; **Unpin nodes** releases nodes you dragged.
+- **Untangle** re-runs the organic layout with more attempts to reduce crossings further. Nodes you drag are pinned and the chart remembers where you put them (in this browser, for that company); **Unpin Nodes** forgets the arrangement and lays the chart out again.
 
 ## Reading the chart
 

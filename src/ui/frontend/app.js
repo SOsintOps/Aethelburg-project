@@ -596,7 +596,67 @@ function initGraphData(payload, keepExpanded = false) {
   graphZoomState = { scale: 1, tx: 0, ty: 0 };
   updateChartKeyCover(payload);
   applyGraphLayout(currentGraphLayout);
+  restoreChartArrangement();
   renderGraphFromState();
+}
+
+/* ============================================================================
+   HAND-ARRANGED CHARTS: nodes the analyst dragged keep their place for that
+   subject (browser storage), until "Unpin Nodes".
+   ============================================================================ */
+
+function chartArrangementKey() {
+  const root = currentGraphPayload?.root_id;
+  return root ? `aethelburg.chart.${root}` : null;
+}
+
+function saveChartArrangement() {
+  const key = chartArrangementKey();
+  if (!key) return;
+  const nodes = {};
+  graphNodes.forEach((n) => {
+    if (n.pinned) nodes[n.id] = [Math.round(n.x), Math.round(n.y)];
+  });
+  try {
+    localStorage.setItem(key, JSON.stringify({ nodes }));
+  } catch (err) {
+    console.warn("Chart arrangement not saved:", err);
+  }
+}
+
+function forgetChartArrangement() {
+  const key = chartArrangementKey();
+  if (!key) return;
+  try {
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.warn("Chart arrangement not cleared:", err);
+  }
+}
+
+/** Put the saved nodes back where the analyst left them, then fit the chart to the view. */
+function restoreChartArrangement() {
+  const key = chartArrangementKey();
+  if (!key) return false;
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(key) || "null");
+  } catch (err) {
+    return false;
+  }
+  if (!saved || !saved.nodes) return false;
+  let restored = 0;
+  Object.entries(saved.nodes).forEach(([id, pos]) => {
+    const n = graphNodeMap.get(id);
+    if (!n || !Array.isArray(pos) || pos.length !== 2) return;
+    n.x = pos[0];
+    n.y = pos[1];
+    n.pinned = true;
+    restored++;
+  });
+  if (!restored) return false;
+  fitGraphToView();
+  return true;
 }
 
 function updateChartKeyCover(payload) {
@@ -683,6 +743,7 @@ function unpinAllGraphNodes() {
   graphNodes.forEach((n) => {
     n.pinned = false;
   });
+  forgetChartArrangement();
   applyGraphLayout(currentGraphLayout);
   renderGraphFromState();
 }
@@ -1194,6 +1255,7 @@ function bindGraphInteractions(svgEl) {
       draggedNode = null;
       svgEl.querySelectorAll(".graph-node.dragging").forEach((el) => el.classList.remove("dragging"));
 
+      if (moved >= 6) saveChartArrangement();
       if (moved < 6 && clickedNode.node_type === "Group") {
         expandGraphGroup(clickedNode);
       } else if (moved < 6 && clickedNode.company_number) {

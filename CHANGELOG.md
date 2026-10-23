@@ -18,6 +18,7 @@ To update the program: `git pull`, `.venv\Scripts\python.exe -m pip install -e .
 - **Fewer crossing links.** The organic layout now computes several seeded placements, keeps the one with the fewest link crossings and links running across nodes, then swaps pairs of nodes while that removes more (UNODC step 7, "clarify and re-plot"); **Untangle** does the same with more seeds. A chart such as a company with its controllers, bridge companies and address hubs now draws without crossings. Big charts keep the layout quick (fewer seeds and passes above 60 nodes).
 - **Link labels no longer cover each other or the nodes**: a label that would sit on another label or on a card slides along its own link.
 - The **UNODC chart cover and key** no longer opens by itself over the chart: **Chart Key** opens it, and the chart then fits the space left beside it.
+- **Nodes you drag stay where you put them.** The arrangement of a chart is kept in the browser for that subject, so reopening the company shows the nodes where the analyst left them; **Unpin Nodes** forgets it and lays the chart out again.
 
 ### Changed (installation)
 - The README separates **Installation** (Windows and Linux, with where the program, the data and the preferences go and how to uninstall) from **Starting the application**. New `start.sh` for Linux, the counterpart of `start.ps1`. `docs/SETUP.md` and the Getting started chapter give the Linux commands too.
