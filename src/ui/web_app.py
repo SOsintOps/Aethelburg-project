@@ -9,7 +9,9 @@ Exposes:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -66,6 +68,34 @@ class AddAnnotationRequest(BaseModel):
     annotation_type: str = "finding"
     confidence: str = "high"
     source_grade: str = "A1"
+
+
+class _Cached:
+    """Results kept for `ttl` seconds per key; concurrent callers share one computation."""
+
+    def __init__(self, ttl: float) -> None:
+        self.ttl = ttl
+        self._values: dict[str, tuple[float, Any]] = {}
+        self._pending: dict[str, asyncio.Future[Any]] = {}
+
+    async def get(self, key: str, compute: Any) -> Any:
+        hit = self._values.get(key)
+        if hit and time.monotonic() - hit[0] < self.ttl:
+            return hit[1]
+        pending = self._pending.get(key)
+        if pending is None:
+            pending = asyncio.ensure_future(compute())
+            self._pending[key] = pending
+            try:
+                value = await pending
+                self._values[key] = (time.monotonic(), value)
+                return value
+            finally:
+                self._pending.pop(key, None)
+        return await pending
+
+    def clear(self) -> None:
+        self._values.clear()
 
 
 def create_app(db_path: Path | str | None = None) -> FastAPI:
@@ -139,9 +169,15 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
             "ftm_entities": ftm_stats["total_entities"],
         }
 
+    # Every database read runs in a worker thread: a slow query must never stop the server from
+    # answering other requests. Counters and hubs change only when data is imported or re-scored,
+    # so they are kept for a few minutes instead of being counted again on every page load.
+    stats_cache = _Cached(300)
+    hotspots_cache = _Cached(300)
+
     @app.get("/api/stats")
     async def stats() -> dict[str, Any]:
-        return db.get_dashboard_stats()
+        return await stats_cache.get("stats", lambda: asyncio.to_thread(db.get_dashboard_stats))
 
     @app.get("/api/ft3/techniques")
     async def ft3_techniques() -> dict[str, Any]:
@@ -163,7 +199,8 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
         limit: int = Query(default=50, ge=1, le=250),
         offset: int = Query(default=0, ge=0),
     ) -> dict[str, Any]:
-        return db.search_companies(
+        return await asyncio.to_thread(
+            db.search_companies,
             query=q,
             status=status,
             min_risk=min_risk,
@@ -176,7 +213,7 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
 
     @app.get("/api/companies/{company_number}")
     async def company_dossier(company_number: str) -> dict[str, Any]:
-        dossier = db.get_company_dossier(company_number)
+        dossier = await asyncio.to_thread(db.get_company_dossier, company_number)
         if not dossier:
             raise HTTPException(status_code=404, detail=f"Company '{company_number}' not found")
         return dossier
@@ -186,15 +223,15 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
         company_number: str,
         hops: int = Query(default=2, ge=1, le=3),
     ) -> dict[str, Any]:
-        return graph_svc.build_ego_graph(company_number, hops=hops)
+        return await asyncio.to_thread(graph_svc.build_ego_graph, company_number, hops=hops)
 
     @app.get("/api/graph/overview")
     async def graph_overview(limit: int = Query(default=25, ge=5, le=100)) -> dict[str, Any]:
-        return graph_svc.build_overview_graph(limit_companies=limit)
+        return await asyncio.to_thread(graph_svc.build_overview_graph, limit_companies=limit)
 
     @app.get("/api/graph/patterns")
     async def graph_patterns() -> dict[str, Any]:
-        return pattern_detector.detect_all_patterns()
+        return await asyncio.to_thread(pattern_detector.detect_all_patterns)
 
     @app.get("/api/geo/map")
     async def geo_map(
@@ -202,14 +239,17 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
         min_risk: float = Query(default=0.0),
         limit: int = Query(default=400, ge=10, le=2000),
     ) -> dict[str, Any]:
-        return geo_svc.get_map_geojson(flagged_only=flagged_only, min_risk=min_risk, limit=limit)
+        return await asyncio.to_thread(geo_svc.get_map_geojson, flagged_only=flagged_only, min_risk=min_risk, limit=limit)
 
     @app.get("/api/geo/hotspots")
     async def geo_hotspots(
         min_companies: int = Query(default=3, ge=2, le=500),
         limit: int = Query(default=50, ge=1, le=250),
     ) -> dict[str, Any]:
-        return {"hotspots": geo_svc.get_address_hotspots(min_companies=min_companies, limit=limit)}
+        key = f"{min_companies}:{limit}"
+        return await hotspots_cache.get(
+            key, lambda: asyncio.to_thread(lambda: {"hotspots": geo_svc.get_address_hotspots(min_companies=min_companies, limit=limit)})
+        )
 
     @app.get("/api/similarity")
     async def similarity_search(

@@ -8,6 +8,7 @@ Supports:
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from collections.abc import Iterator
@@ -177,6 +178,21 @@ CREATE INDEX IF NOT EXISTS idx_companies_status ON companies(company_status);
 CREATE INDEX IF NOT EXISTS idx_companies_risk ON companies(risk_score DESC);
 CREATE INDEX IF NOT EXISTS idx_companies_sic1 ON companies(sic_code_1);
 CREATE INDEX IF NOT EXISTS idx_companies_ftm_id ON companies(ftm_id);
+
+-- Word-start search on company names ("fabri" finds CAMILLA FABRI LTD): a LIKE '%...%' scan
+-- over a million rows took more than ten seconds. Triggers keep it in step with `companies`;
+-- `rebuild_search_index` refills it after a bulk import (REPLACE does not fire the delete trigger).
+CREATE VIRTUAL TABLE IF NOT EXISTS companies_fts USING fts5(company_name, company_number UNINDEXED, tokenize = 'unicode61');
+CREATE TRIGGER IF NOT EXISTS companies_fts_ai AFTER INSERT ON companies BEGIN
+    INSERT INTO companies_fts (company_name, company_number) VALUES (new.company_name, new.company_number);
+END;
+CREATE TRIGGER IF NOT EXISTS companies_fts_ad AFTER DELETE ON companies BEGIN
+    DELETE FROM companies_fts WHERE company_number = old.company_number;
+END;
+CREATE TRIGGER IF NOT EXISTS companies_fts_au AFTER UPDATE OF company_name ON companies BEGIN
+    DELETE FROM companies_fts WHERE company_number = old.company_number;
+    INSERT INTO companies_fts (company_name, company_number) VALUES (new.company_name, new.company_number);
+END;
 
 CREATE TABLE IF NOT EXISTS persons (
     id                      TEXT PRIMARY KEY,
@@ -673,6 +689,31 @@ def _parse_json_field(val: Any, default: Any) -> Any:
     return default
 
 
+def _company_text_match(q: str, params: list[Any]) -> str:
+    """SQL for a typed query, every branch served by an index.
+
+    A company number (letters and digits, up to 8, at least one digit) is matched exactly, with the
+    usual zero padding; otherwise the words typed match the start of words in the name through the
+    full-text index, and the text as a whole matches the start of a postcode.
+    """
+    text = q.strip()
+    upper = text.upper()
+    if text.isalnum() and any(ch.isdigit() for ch in text) and len(text) <= 8:
+        number = upper.zfill(8) if upper.isdigit() else upper
+        # a range instead of LIKE: LIKE is case-insensitive and ignores the index
+        params.extend([number, upper, upper + "￿"])
+        return "(c.company_number = ? OR (c.reg_address_postcode >= ? AND c.reg_address_postcode < ?))"
+    words = [w for w in re.findall(r"[0-9A-Za-z\u00C0-\u024F]+", text) if w]
+    match = " ".join(f'"{w}"*' for w in words) if words else f'"{text}"*'
+    params.extend([match, upper, upper + "￿"])
+    # a word shared by hundreds of thousands of names ("limited") would list them all: the first
+    # 50,000 candidates are enough for a list that shows 80
+    return (
+        "(c.company_number IN (SELECT company_number FROM companies_fts WHERE companies_fts MATCH ? LIMIT 50000)"
+        " OR (c.reg_address_postcode >= ? AND c.reg_address_postcode < ?))"
+    )
+
+
 class DatabaseService:
     """High-level database & FollowTheMoney (FtM v3.x) service."""
 
@@ -710,6 +751,18 @@ class DatabaseService:
             # Rows written before 0.3.0 carry a random offset around an area centroid:
             # drop them so positions are re-resolved with an explicit precision.
             conn.execute("DELETE FROM geo_postcode_centroids")
+        # databases imported before the full-text index existed: fill it once (about a minute per million companies)
+        if conn.execute("SELECT COUNT(*) FROM companies_fts").fetchone()[0] == 0:
+            if conn.execute("SELECT 1 FROM companies LIMIT 1").fetchone():
+                DatabaseService.rebuild_search_index(conn)
+
+    @staticmethod
+    def rebuild_search_index(conn: sqlite3.Connection) -> int:
+        """Refill `companies_fts` from `companies`; returns the number of names indexed."""
+        conn.execute("DELETE FROM companies_fts")
+        conn.execute("INSERT INTO companies_fts (company_name, company_number) SELECT company_name, company_number FROM companies")
+        conn.execute("INSERT INTO companies_fts(companies_fts) VALUES ('optimize')")
+        return int(conn.execute("SELECT COUNT(*) FROM companies_fts").fetchone()[0])
 
     # ------------------------------------------------------------------ #
     # DATA SOURCES & PROVENANCE                                          #
@@ -1099,36 +1152,36 @@ class DatabaseService:
 
             q = (query or "").strip()
             if q:
-                fp = normalize_name(q) or q.lower()
-                clauses.append(
-                    "(company_number LIKE ? OR company_name LIKE ? OR name_fingerprint LIKE ? OR reg_address_postcode LIKE ? OR reg_address_line1 LIKE ?)"
-                )
-                params.extend([f"%{q.upper()}%", f"%{q}%", f"%{fp}%", f"%{q.upper()}%", f"%{q}%"])
+                clauses.append(_company_text_match(q, params))
 
             if status:
-                clauses.append("company_status LIKE ?")
+                clauses.append("c.company_status LIKE ?")
                 params.append(f"%{status}%")
 
             if min_risk > 0:
-                clauses.append("risk_score >= ?")
+                clauses.append("c.risk_score >= ?")
                 params.append(float(min_risk))
 
             if flagged_only:
-                clauses.append("is_flagged = 1")
+                clauses.append("c.is_flagged = 1")
 
             if ft3_technique:
-                clauses.append("ft3_techniques LIKE ?")
+                clauses.append("c.ft3_techniques LIKE ?")
                 params.append(f'%"{ft3_technique}"%')
 
             if postcode:
                 norm_pc = normalize_postcode(postcode) or postcode.upper().strip()
-                clauses.append("reg_address_postcode LIKE ?")
+                clauses.append("c.reg_address_postcode LIKE ?")
                 params.append(f"{norm_pc}%")
 
             where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+            # With a typed query the matches are few: sort them, instead of walking the whole
+            # table in score order looking for them (the "+ 0" keeps the score index out of play).
+            order_sql = "ORDER BY c.risk_score + 0 DESC, c.is_flagged DESC, c.company_name ASC" if q else "ORDER BY c.risk_score DESC, c.is_flagged DESC, c.company_name ASC"
 
+            # an exact count of a broad match would scan the whole table: stop at 10,000
             total = conn.execute(
-                f"SELECT COUNT(*) AS cnt FROM companies {where_sql}",
+                f"SELECT COUNT(*) AS cnt FROM (SELECT 1 FROM companies c {where_sql} LIMIT 10000)",
                 params,
             ).fetchone()["cnt"]
 
@@ -1142,8 +1195,8 @@ class DatabaseService:
                        g.lat, g.lon
                 FROM companies c
                 LEFT JOIN geo_postcode_centroids g ON g.postcode = c.reg_address_postcode
-                {where_sql.replace('company_', 'c.company_').replace('name_fingerprint', 'c.name_fingerprint').replace('reg_address_', 'c.reg_address_').replace('risk_score', 'c.risk_score').replace('is_flagged', 'c.is_flagged').replace('ft3_techniques', 'c.ft3_techniques')}
-                ORDER BY c.risk_score DESC, c.is_flagged DESC, c.company_name ASC
+                {where_sql}
+                {order_sql}
                 LIMIT ? OFFSET ?
                 """,
                 [*params, int(limit), int(offset)],

@@ -21,3 +21,5 @@
 **A company is missing from the search.** The default risk filter shows flagged companies only: choose **All Risk Scores**. Companies not imported in full appear below the results with a **Fetch** button.
 
 **Search finds nothing in the register index.** The index is filled by **Run import**; before the first import only the fully imported companies are searchable.
+
+**The program seems frozen.** Look at the top bar: the activity indicator says what is being waited for and for how long. Yellow is a request in progress; red after eight seconds means the database is busy (a re-score, an import or a big query), and the text names the task when there is one; "server not responding" means the server window was closed or the server crashed: restart it. A typed search answers in a fraction of a second; if the whole window stays white or unresponsive for minutes, the browser tab itself is stuck: reload it (F5), the server keeps running.

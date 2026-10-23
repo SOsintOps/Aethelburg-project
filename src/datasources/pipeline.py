@@ -86,6 +86,13 @@ def refresh_all(
         summary["onspd"] = import_onspd(csv_path=onspd_file, db_service=db)
     if score:
         summary["scoring"] = RiskScorer(db).run_all_detections()
+    # bulk upserts use REPLACE, which does not fire the delete trigger of the name index
+    conn = db.connect()
+    try:
+        summary["search_index"] = DatabaseService.rebuild_search_index(conn)
+        conn.commit()
+    finally:
+        conn.close()
     summary["finished_at"] = datetime.now(UTC).isoformat()
     return summary
 

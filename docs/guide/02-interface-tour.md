@@ -11,10 +11,11 @@ The window has a top bar and three panels. It is designed for a width of 1280 px
 - **Re-Score FT3**: re-runs entity resolution and all FT3 detection rules on the whole database; see [Risk scoring](risk-scoring).
 - **? Help** (or F1): opens this guide on the chapter of the tab you are in; the [FAQ](faq) and the [Version history](version-history) are at the end of the index. Clicking the version number in the top bar opens the version history.
 - **Theme**: light, classical or dark.
+- **Activity indicator**: a pill that appears next to the actions whenever the program waits for the server for more than half a second, naming what is being waited for (search, dossier, graph, map, Companies House…) and for how long. Red after eight seconds, when the database is busy, or when the server stops answering. While a background task runs (re-score, import, download, officers, backup) it shows the task, the time elapsed and the time left, estimated from its progress or from how long the same task took last time on this computer; click it to open **Data & Updates**.
 
 ## Left panel: search and filters
 
-- **Search box**: company name, company number (CRN), postcode or address line.
+- **Search box**: company name (the start of any word: "fabri" finds CAMILLA FABRI LTD), company number (CRN, with or without leading zeros) or postcode. Results appear as you type; a very common word ("limited") shows the first 10,000 matches.
 - **FT3 technique filter**: only companies flagged by one technique.
 - **Risk filter**: all companies, flagged only, high (score 35 or more) or critical (65 or more). The default shows flagged companies only: choose **All Risk Scores** to see everything, including the companies whose only finding is a shared address (they have a small score but are not flagged; see [Risk scoring](risk-scoring)).
 - Each result shows name, risk score, CRN, status, postcode and up to three FT3 technique codes. Click it to open the company in every tab.

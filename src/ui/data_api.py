@@ -210,7 +210,7 @@ def build_data_router(db: DatabaseService) -> APIRouter:
     @router.get("/api/index/search")
     async def index_search(q: str, limit: int = 20) -> dict[str, Any]:
         """Companies in the light register index that are not fully imported (fetchable on demand)."""
-        return {"items": _index_search(db, q, min(max(limit, 1), 100))}
+        return {"items": await asyncio.to_thread(_index_search, db, q, min(max(limit, 1), 100))}
 
     # ------------------------------------------------------------------ #
     # DATA FOLDER, SOURCES, IMPORTS                                      #

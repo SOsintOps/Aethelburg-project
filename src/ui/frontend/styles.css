@@ -1374,3 +1374,72 @@ body {
 .person-link:hover {
   color: var(--primary-color);
 }
+
+/* Activity indicator in the top bar: what the program is waiting for, and background tasks */
+.activity-pill {
+  max-width: 420px;
+  padding: 4px 10px 4px 22px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  cursor: default;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.activity-pill::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  animation: activity-pulse 1s ease-in-out infinite;
+}
+
+.activity-busy {
+  border-color: #d9a400;
+  background: #fff8dc;
+  color: #6b5300;
+}
+
+.activity-busy::before {
+  background: #d9a400;
+}
+
+.activity-slow,
+.activity-down {
+  border-color: var(--risk-critical);
+  background: var(--risk-critical-bg);
+  color: var(--risk-critical);
+}
+
+.activity-slow::before,
+.activity-down::before {
+  background: var(--risk-critical);
+}
+
+.activity-job {
+  border-color: var(--primary-color);
+  background: var(--accent-primary-soft);
+  color: var(--primary-color);
+  cursor: pointer;
+}
+
+@keyframes activity-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+[data-theme="dark"] .activity-busy {
+  background: #3a2f00;
+  color: #ffd866;
+}

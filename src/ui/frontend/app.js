@@ -18,6 +18,7 @@ let currentDossier = null;
 let ft3MetadataList = [];
 let activeInvestigationId = null;
 let searchDebounceTimer = null;
+let companySearchAbort = null; // the search request in flight, dropped when a newer one starts
 
 // Graph state (Interactive Link Analysis)
 let currentGraphPayload = null;
@@ -294,8 +295,13 @@ async function loadCompanies() {
   if (riskChoice === "flagged") params.set("flagged_only", "true");
   if (ft3) params.set("ft3", ft3);
 
+  // a new keystroke makes the previous search pointless: drop it instead of queueing behind it
+  if (companySearchAbort) companySearchAbort.abort();
+  companySearchAbort = new AbortController();
+  const signal = companySearchAbort.signal;
+
   try {
-    const res = await fetch(`/api/companies?${params.toString()}`);
+    const res = await fetch(`/api/companies?${params.toString()}`, { signal });
     const data = await res.json();
     const items = data.items || [];
     const totalCount = data.total || items.length;
@@ -314,6 +320,7 @@ async function loadCompanies() {
       selectCompany(items[0].company_number);
     }
   } catch (err) {
+    if (err && err.name === "AbortError") return; // superseded by a newer search
     console.error("Failed to load companies:", err);
   }
 }
